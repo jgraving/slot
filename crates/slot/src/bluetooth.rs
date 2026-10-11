@@ -594,7 +594,7 @@ pub fn screen_face(lines: &[String]) -> UndoFace {
             // Use the Screen menu's text, dimming and caret assets and spacing.
             let name = slot_ui::quick_value_face(
                 if label.starts_with("SOUNDS ") {
-                    "Interface sounds"
+                    "Cartridge clicks"
                 } else {
                     "Mute on disconnect"
                 },

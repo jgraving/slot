@@ -4,12 +4,7 @@ use slot_input::{Action, Btn};
 
 #[test]
 fn synthesized_clips_are_short_quiet_stereo_and_distinct() {
-    let sounds = [
-        Sfx::Cartridge(0),
-        Sfx::Cartridge(1),
-        Sfx::HeadphoneIn,
-        Sfx::HeadphoneOut,
-    ];
+    let sounds = [Sfx::Cartridge(0), Sfx::Cartridge(1)];
     let mut clips = Vec::new();
     for sound in sounds {
         for rate in [32_768, 48_000] {
@@ -25,18 +20,9 @@ fn synthesized_clips_are_short_quiet_stereo_and_distinct() {
         clips.push(sound.render(48_000));
     }
     assert_ne!(clips[0], clips[1]);
-    assert_ne!(clips[2], clips[3]);
     if let Ok(dir) = std::env::var("SLOT_TACTILE_PREVIEW") {
         std::fs::create_dir_all(&dir).unwrap();
-        for (name, clip) in [
-            "cartridge",
-            "cartridge-variant",
-            "headphone-in",
-            "headphone-out",
-        ]
-        .into_iter()
-        .zip(clips)
-        {
+        for (name, clip) in ["cartridge", "cartridge-variant"].into_iter().zip(clips) {
             let bytes: Vec<_> = clip.into_iter().flat_map(i16::to_le_bytes).collect();
             std::fs::write(
                 std::path::Path::new(&dir).join(format!("{name}.pcm")),
@@ -78,20 +64,20 @@ fn cartridge_motion_clicks_but_idle_and_disabled_sound_do_not() {
 }
 
 #[test]
-fn bluetooth_cues_are_once_per_transition_and_quiet_disconnect_stays_silent() {
+fn bluetooth_transitions_are_silent_with_or_without_quiet_disconnect() {
     let d = common::tmp_root_with_carts(&["Alpha", "Beta"]);
     common::clocked(d.path());
     let mut a = App::boot(d.path());
     let address = Some("AA:BB:CC:DD:EE:FF".into());
     a.bluetooth_state(address.clone(), true);
     a.update(0.6);
-    assert_eq!(a.take_sfx(), Some(Sfx::HeadphoneIn));
+    assert!(a.take_sfx().is_none());
     a.bluetooth_state(address.clone(), true);
     a.update(0.6);
     assert!(a.take_sfx().is_none());
     a.bluetooth_state(address.clone(), false);
     a.update(0.6);
-    assert_eq!(a.take_sfx(), Some(Sfx::HeadphoneOut));
+    assert!(a.take_sfx().is_none());
     a.bluetooth_state(address.clone(), true);
     a.update(0.6);
     a.take_sfx();

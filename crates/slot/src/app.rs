@@ -323,7 +323,6 @@ pub struct App {
     video_mode: VideoMode,
     link: Option<LinkSession>,
     sfx: Option<Sfx>,
-    tactile_pending: Option<(Sfx, Millis)>,
     click_at: Option<Millis>,
     click_variant: u8,
     polaroids: Option<Polaroids>,
@@ -483,7 +482,6 @@ impl App {
             video_mode: VideoMode::default(),
             link: None,
             sfx: None,
-            tactile_pending: None,
             click_at: None,
             click_variant: 0,
             polaroids: None,
@@ -725,18 +723,6 @@ impl App {
 
     pub fn bluetooth_state(&mut self, address: Option<String>, connected: bool) {
         let address = address.map(|s| s.to_ascii_uppercase());
-        let was_connected = self.bluetooth_active();
-        let now_connected = address.is_some() && connected;
-        if self.comfort.sounds && was_connected != now_connected {
-            self.tactile_pending = Some((
-                if now_connected {
-                    Sfx::HeadphoneIn
-                } else {
-                    Sfx::HeadphoneOut
-                },
-                self.now() + 500,
-            ));
-        }
         let lost = self.bluetooth_route.is_some()
             && self.bluetooth_route == address
             && self.bluetooth_connected
@@ -1584,7 +1570,6 @@ impl App {
                 self.comfort.sounds = sounds;
                 self.comfort_changed();
                 self.save_comfort();
-                self.tactile_pending = None;
             }
             return;
         }
@@ -2191,18 +2176,6 @@ impl App {
     }
 
     fn timers(&mut self) {
-        if let Some((sound, at)) = self.tactile_pending {
-            if self.now() >= at {
-                self.tactile_pending = None;
-                if self.comfort.sounds
-                    && self.output_volume() > 0
-                    && !matches!(self.phase, Phase::Doze { .. })
-                    && !self.shutting_down()
-                {
-                    self.sfx = Some(sound);
-                }
-            }
-        }
         self.remember_browsing();
         if self
             .comfort_dirty

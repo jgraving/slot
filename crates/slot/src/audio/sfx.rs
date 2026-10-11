@@ -7,8 +7,6 @@ pub enum Sfx {
     Insert,
     Eject,
     Cartridge(u8),
-    HeadphoneIn,
-    HeadphoneOut,
 }
 
 impl Sfx {
@@ -23,8 +21,6 @@ impl Sfx {
     pub fn tail(self) -> f32 {
         match self {
             Self::Cartridge(_) => return 0.028,
-            Self::HeadphoneIn => return 0.105,
-            Self::HeadphoneOut => return 0.085,
             _ => {}
         }
         let pcm = match self {
@@ -88,18 +84,6 @@ fn tactile(sound: Sfx, rate: u32) -> Vec<i16> {
             1.0 + (v % 5) as f32 * 0.023,
             0.095,
             &[(0.0, 1.0), (0.004, 0.22)],
-        ),
-        Sfx::HeadphoneIn => (
-            0.105,
-            1.16,
-            0.13,
-            &[(0.0, 0.26), (0.026, 0.45), (0.061, 1.0)],
-        ),
-        Sfx::HeadphoneOut => (
-            0.085,
-            0.84,
-            0.12,
-            &[(0.0, 0.85), (0.015, 0.38), (0.042, 0.2)],
         ),
         _ => return Vec::new(),
     };

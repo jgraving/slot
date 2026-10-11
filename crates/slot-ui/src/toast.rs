@@ -70,13 +70,12 @@ impl Toast {
     }
 
     pub fn alarm(self) -> bool {
-        matches!(self, Toast::CardUnwritable | Toast::HeadphonesDisconnected)
+        self == Toast::CardUnwritable
     }
 
     pub fn detail(self) -> Option<&'static str> {
         match self {
             Toast::CardUnwritable => Some("Progress is not being saved"),
-            Toast::HeadphonesDisconnected => Some("Speaker volume 0"),
             _ => None,
         }
     }
@@ -85,7 +84,7 @@ impl Toast {
         match self {
             Toast::NightOn => "Night mode",
             Toast::NightOff => "Day mode",
-            Toast::HeadphonesDisconnected => "Headphones disconnected",
+            Toast::HeadphonesDisconnected => "Disconnected · vol 0",
             Toast::FavoriteAdded => "Favorite added",
             Toast::FavoriteRemoved => "Favorite removed",
             Toast::StateSaved => "State Saved",
