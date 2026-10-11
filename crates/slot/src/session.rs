@@ -219,9 +219,11 @@ impl Session {
     }
 
     pub fn update(&mut self, dt: f32) {
-        let connected = self.bluetooth_monitor.poll();
-        self.app
-            .bluetooth_state(self.bluetooth_monitor.address(), connected);
+        if !self.dozing() {
+            let connected = self.bluetooth_monitor.poll();
+            self.app
+                .bluetooth_state(self.bluetooth_monitor.address(), connected);
+        }
         self.bridge_link(|app| app.update(dt));
         if let Some(emu) = &self.emu {
             emu.set_volume(self.app.output_volume());
@@ -275,6 +277,19 @@ impl Session {
         }
         self.app.set_game_ready(ready);
         self.sync_speed();
+        if self.app.suspend_requested()
+            && self
+                .emu
+                .as_ref()
+                .is_none_or(|e| e.observed_speed() == Speed::Paused)
+        {
+            self.sink.ring().set_muted(true);
+            self.app.suspend_if_requested();
+            self.sink.ring().set_muted(false);
+            self.pad.clear();
+            self.gestures = Gestures::new();
+            self.sync_speed();
+        }
         self.sync_rewind_hud();
         self.sync_ff_hud();
         self.sync_rumble();

@@ -11,6 +11,8 @@ pub enum Toast {
     NightOn,
     NightOff,
     HeadphonesDisconnected,
+    DeepSleepWake,
+    SleepUnavailable,
     FavoriteAdded,
     FavoriteRemoved,
     StateSaved,
@@ -32,10 +34,12 @@ pub enum Toast {
 }
 
 impl Toast {
-    const FIXED: [Toast; 20] = [
+    const FIXED: [Toast; 22] = [
         Toast::NightOn,
         Toast::NightOff,
         Toast::HeadphonesDisconnected,
+        Toast::DeepSleepWake,
+        Toast::SleepUnavailable,
         Toast::FavoriteAdded,
         Toast::FavoriteRemoved,
         Toast::StateSaved,
@@ -70,22 +74,23 @@ impl Toast {
     }
 
     pub fn alarm(self) -> bool {
-        matches!(self, Toast::CardUnwritable | Toast::HeadphonesDisconnected)
+        self == Toast::CardUnwritable
     }
 
     pub fn detail(self) -> Option<&'static str> {
         match self {
             Toast::CardUnwritable => Some("Progress is not being saved"),
-            Toast::HeadphonesDisconnected => Some("Speaker volume 0"),
             _ => None,
         }
     }
 
     pub fn text(self) -> &'static str {
         match self {
+            Toast::DeepSleepWake => "Deep sleep: Power wakes",
+            Toast::SleepUnavailable => "Deep sleep unavailable",
             Toast::NightOn => "Night mode",
             Toast::NightOff => "Day mode",
-            Toast::HeadphonesDisconnected => "Headphones disconnected",
+            Toast::HeadphonesDisconnected => "Device disconnected · Volume 0%",
             Toast::FavoriteAdded => "Favorite added",
             Toast::FavoriteRemoved => "Favorite removed",
             Toast::StateSaved => "State Saved",
@@ -137,7 +142,14 @@ fn setting(toast: Toast) -> Setting {
             middle: OUT_H as f32 / 2.0,
         },
         false => Setting {
-            w: TOAST_W,
+            w: if matches!(
+                toast,
+                Toast::HeadphonesDisconnected | Toast::DeepSleepWake | Toast::SleepUnavailable
+            ) {
+                420
+            } else {
+                TOAST_W
+            },
             h: TOAST_H,
             px: TOAST_PX,
             min_px: TOAST_MIN_PX,

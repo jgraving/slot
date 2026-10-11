@@ -63,7 +63,9 @@ pub const LINK_LOST_MS: Millis = 2000;
 
 const PLAY_HOLD_MS: Millis = 500;
 
-const SHUTDOWN_SHOW_MS: Millis = 250;
+const SHUTDOWN_SHOW_MS: Millis = 700;
+const RESTART_SHOW_MS: Millis = 1100;
+const SLEEP_SHOW_MS: Millis = 320;
 
 const POWER_MENU_PITCH: f32 = 44.0;
 const POWER_MENU_BAR_INSET: f32 = 4.0;
@@ -323,6 +325,8 @@ pub struct App {
     video_mode: VideoMode,
     link: Option<LinkSession>,
     sfx: Option<Sfx>,
+    click_at: Option<Millis>,
+    click_variant: u8,
     polaroids: Option<Polaroids>,
     pending: Option<(PendingUndo, Millis)>,
     legend_faces: Vec<TexId>,
@@ -346,6 +350,8 @@ pub struct App {
     clock: f64,
     power: Option<Power>,
     dozed_at: Millis,
+    suspend_pending: bool,
+    wake_guard: Millis,
     woke_on_press: bool,
     autosave_at: Millis,
     pending_save: Option<std::thread::JoinHandle<()>>,
@@ -359,6 +365,7 @@ pub struct App {
     battery: Option<Battery>,
     last_led: Option<LedState>,
     powering_off: bool,
+    sleep_visual: Option<(Millis, Vec<Draw>)>,
     radio: Box<dyn RadioJobs>,
     state_writer: crate::state_writer::StateWriter,
 }
@@ -480,6 +487,8 @@ impl App {
             video_mode: VideoMode::default(),
             link: None,
             sfx: None,
+            click_at: None,
+            click_variant: 0,
             polaroids: None,
             pending: None,
             legend_faces: Vec::new(),
@@ -505,6 +514,8 @@ impl App {
             clock: 0.0,
             power: None,
             dozed_at: 0,
+            suspend_pending: false,
+            wake_guard: 0,
             woke_on_press: false,
             autosave_at: AUTOSAVE_MS,
             pending_save: None,
@@ -518,6 +529,7 @@ impl App {
             battery: None,
             last_led: None,
             powering_off: false,
+            sleep_visual: None,
         }
     }
 
@@ -712,6 +724,7 @@ impl App {
         let root = self.root.clone().unwrap_or_else(|| "/mnt/sdcard".into());
         let mut manager = crate::bluetooth::Manager::new(root);
         manager.mute_on_disconnect = self.comfort.quiet;
+        manager.interface_sounds = self.comfort.sounds;
         manager.disconnect_notice = disconnected;
         self.bluetooth = Some(manager);
     }
@@ -972,6 +985,21 @@ impl App {
         match row {
             QuickRow::FastForward => QuickValue::speed(self.state.ff_speed),
             QuickRow::Night => Some(QuickValue::flag(self.comfort.night)),
+            QuickRow::LidClose => Some(
+                [
+                    QuickValue::LightSleep,
+                    QuickValue::DeepSleep,
+                    QuickValue::PowerOff,
+                ][self.comfort.lid_close as usize],
+            ),
+            QuickRow::SleepTimeout => Some(
+                [
+                    QuickValue::Minutes3,
+                    QuickValue::Minutes15,
+                    QuickValue::Minutes30,
+                    QuickValue::Never,
+                ][self.comfort.sleep_timeout as usize],
+            ),
             QuickRow::FastForwardSound => Some(QuickValue::flag(self.state.ff_sound)),
             QuickRow::ColourCorrection => Some(QuickValue::flag(self.state.colour_correction)),
             QuickRow::GbPalettes => Some(QuickValue::flag(self.state.gb_palettes)),
@@ -985,7 +1013,8 @@ impl App {
             | QuickRow::About
             | QuickRow::Screen
             | QuickRow::Game
-            | QuickRow::Bluetooth => None,
+            | QuickRow::Bluetooth
+            | QuickRow::Power => None,
         }
     }
 
@@ -1519,15 +1548,23 @@ impl App {
     }
 
     pub fn apply(&mut self, action: Action) {
+        if self.now() < self.wake_guard
+            && matches!(
+                action,
+                Action::PowerPress | Action::PowerTap | Action::PowerHold
+            )
+        {
+            return;
+        }
         if self.power_menu.is_some() {
             match action {
-                Action::LidClose => return self.doze(),
+                Action::LidClose => return self.lid_close(),
                 Action::LidOpen => return self.wake(),
                 _ => return self.power_menu_input(action),
             }
         }
         match action {
-            Action::LidClose => return self.doze(),
+            Action::LidClose => return self.lid_close(),
             Action::LidOpen => return self.wake(),
             Action::PowerPress => {
                 if self.link_active() {
@@ -1554,11 +1591,17 @@ impl App {
         if let Some(bluetooth) = &mut self.bluetooth {
             let close = bluetooth.input(action);
             let quiet = bluetooth.mute_on_disconnect;
+            let sounds = bluetooth.interface_sounds;
             if close && !self.audio_paused {
                 self.bluetooth = None;
             }
             if quiet != self.comfort.quiet {
                 self.set_quiet_disconnect(quiet);
+            }
+            if sounds != self.comfort.sounds {
+                self.comfort.sounds = sounds;
+                self.comfort_changed();
+                self.save_comfort();
             }
             return;
         }
@@ -1691,7 +1734,7 @@ impl App {
             QuickRow::Bluetooth => {
                 self.sound_menu(false);
             }
-            QuickRow::Screen | QuickRow::Game => {
+            QuickRow::Screen | QuickRow::Game | QuickRow::Power => {
                 if let Some(row) = row.child() {
                     self.phase = Phase::QuickMenu { row };
                 }
@@ -1705,11 +1748,32 @@ impl App {
             | QuickRow::GbaShader
             | QuickRow::GbShader
             | QuickRow::GbPalettes
-            | QuickRow::Rumble => {}
+            | QuickRow::Rumble
+            | QuickRow::LidClose
+            | QuickRow::SleepTimeout => {}
         }
     }
 
     fn change_setting(&mut self, row: QuickRow, right: bool) {
+        if matches!(row, QuickRow::LidClose | QuickRow::SleepTimeout) {
+            let (value, count) = if row == QuickRow::LidClose {
+                (&mut self.comfort.lid_close, 3)
+            } else {
+                (&mut self.comfort.sleep_timeout, 4)
+            };
+            *value = (*value + if right { 1 } else { count - 1 }) % count;
+            if row == QuickRow::LidClose && self.comfort.lid_close == 1 {
+                if self.power.as_ref().is_some_and(|p| p.supports_deep_sleep()) {
+                    self.hud.toast(Toast::DeepSleepWake, self.now());
+                } else {
+                    self.comfort.lid_close = if right { 2 } else { 0 };
+                    self.hud.toast(Toast::SleepUnavailable, self.now());
+                }
+            }
+            self.comfort_changed();
+            self.save_comfort();
+            return;
+        }
         if row == QuickRow::Night {
             self.toggle_night();
             return;
@@ -1752,7 +1816,10 @@ impl App {
             | QuickRow::Screen
             | QuickRow::Game
             | QuickRow::Bluetooth
-            | QuickRow::Night => return,
+            | QuickRow::Night
+            | QuickRow::Power
+            | QuickRow::LidClose
+            | QuickRow::SleepTimeout => return,
         }
         self.persist();
     }
@@ -2022,6 +2089,16 @@ impl App {
             self.name_pending = false;
             self.shelf_named = Some(self.now());
         }
+        if self
+            .sleep_visual
+            .as_ref()
+            .is_some_and(|(at, _)| self.now() >= *at + SLEEP_SHOW_MS)
+        {
+            self.sleep_visual = None;
+            if let Some(power) = &mut self.power {
+                power.on_close();
+            }
+        }
         self.timers();
         self.poll_link();
         let now = self.now();
@@ -2042,8 +2119,20 @@ impl App {
         let next = match &mut self.phase {
             Phase::Shelf => {
                 let shelf = &mut self.shelves[at].1;
+                let before = shelf.scroll.round() as i32;
                 shelf.tick(now);
                 shelf.update(dt);
+                if before != shelf.scroll.round() as i32
+                    && self.comfort.sounds
+                    && self.bluetooth.is_none()
+                    && self.power_menu.is_none()
+                    && self.click_at.is_none_or(|at| now.saturating_sub(at) >= 35)
+                    && self.sfx.is_none()
+                {
+                    self.click_variant = self.click_variant.wrapping_add(1);
+                    self.sfx = Some(Sfx::Cartridge(self.click_variant % 5));
+                    self.click_at = Some(now);
+                }
                 None
             }
             Phase::Inserting {
@@ -2400,21 +2489,21 @@ impl App {
                 h: OUT_H as f32,
                 colour: [0.0, 0.0, 0.0, 1.0],
             });
-            let which = if self.restarting {
-                PowerChoice::Restart
+            let duration = if self.restarting {
+                RESTART_SHOW_MS
             } else {
-                PowerChoice::PowerOff
+                SHUTDOWN_SHOW_MS
             };
-            if let Some((tex, w, h)) = self.shutdown_faces.get(which.index()).copied() {
-                out.push(Draw::Tex {
-                    x: ((OUT_W - w) / 2) as f32,
-                    y: ((OUT_H - h) / 2) as f32,
-                    w: w as f32,
-                    h: h as f32,
-                    tex,
-                    alpha: 1.0,
-                });
-            }
+            let remaining = self.act_at.saturating_sub(self.now()) as f32;
+            slot_ui::draw_power_switch(1.0 - remaining / duration as f32, self.restarting, out);
+            return;
+        }
+        if let Some((at, frame)) = &self.sleep_visual {
+            out.extend_from_slice(frame);
+            slot_ui::draw_sleep(
+                self.now().saturating_sub(*at) as f32 / SLEEP_SHOW_MS as f32,
+                out,
+            );
             return;
         }
         if let Some(bluetooth) = self
@@ -3003,6 +3092,53 @@ impl App {
         }
     }
 
+    fn lid_close(&mut self) {
+        match self.comfort.lid_close {
+            2 => {
+                self.flush_resume();
+                self.begin_power_off();
+            }
+            1 => {
+                self.doze();
+                self.suspend_pending = true;
+            }
+            _ => self.doze(),
+        }
+    }
+
+    pub fn suspend_requested(&self) -> bool {
+        self.suspend_pending
+            && self.sleep_visual.is_none()
+            && matches!(self.phase, Phase::Doze { .. })
+    }
+
+    pub fn suspend_if_requested(&mut self) {
+        if !self.suspend_requested() {
+            return;
+        }
+        self.suspend_pending = false;
+        self.settle_saves();
+        let timeout = self.sleep_duration();
+        let result = match &mut self.power {
+            Some(power) => power.suspend(timeout),
+            None => Err(std::io::Error::new(
+                std::io::ErrorKind::Unsupported,
+                "Deep sleep unavailable",
+            )),
+        };
+        if matches!(result, Ok(true)) {
+            self.begin_power_off();
+            return;
+        }
+        // Kernel returns after wake (or failure). Consume the waking Power event.
+        self.wake();
+        self.wake_guard = self.now() + 750;
+        if let Err(e) = result {
+            eprintln!("slot: suspend: {e}");
+            self.hud.toast(Toast::SleepUnavailable, self.now());
+        }
+    }
+
     fn doze(&mut self) {
         self.remember_browsing();
         self.save_comfort();
@@ -3024,12 +3160,16 @@ impl App {
         self.phase = Phase::Doze { cart };
         self.dozed_at = self.now();
         self.radio.ask(RadioJob::Cool);
-        if let Some(power) = &mut self.power {
-            power.on_close();
+        if self.sleep_visual.is_none() {
+            if let Some(power) = &mut self.power {
+                power.on_close();
+            }
         }
     }
 
     fn wake(&mut self) {
+        self.sleep_visual = None;
+        self.suspend_pending = false;
         let Phase::Doze { cart } = &mut self.phase else {
             return;
         };
@@ -3089,10 +3229,18 @@ impl App {
                 match PowerChoice::ALL[index] {
                     PowerChoice::Restart => {
                         self.restarting = true;
-                        self.act_at = self.now() + SHUTDOWN_SHOW_MS;
+                        self.act_at = self.now() + RESTART_SHOW_MS;
+                        self.sfx = Some(Sfx::RestartSwitch);
                         self.set_led(LedState::Off);
                     }
                     PowerChoice::PowerOff => self.begin_power_off(),
+                    PowerChoice::Sleep => {
+                        let mut frame = Vec::new();
+                        self.draw(&mut frame);
+                        self.sleep_visual = Some((self.now(), frame));
+                        self.doze();
+                        self.suspend_pending = self.comfort.lid_close == 1;
+                    }
                 }
             }
             _ => {}
@@ -3459,6 +3607,9 @@ impl App {
         }
         self.close_game_menu();
         self.powering_off = true;
+        if !matches!(self.phase, Phase::Doze { .. }) {
+            self.sfx = Some(Sfx::PowerSwitch);
+        }
         self.act_at = self.now() + SHUTDOWN_SHOW_MS;
         self.set_led(LedState::Off);
     }
@@ -3474,14 +3625,29 @@ impl App {
         self.begin_power_off();
     }
 
+    fn sleep_duration(&self) -> Option<std::time::Duration> {
+        match self.comfort.sleep_timeout {
+            0 => Some(
+                self.power
+                    .as_ref()
+                    .map_or(std::time::Duration::from_secs(180), |p| p.timeout()),
+            ),
+            1 => Some(std::time::Duration::from_secs(15 * 60)),
+            2 => Some(std::time::Duration::from_secs(30 * 60)),
+            _ => None,
+        }
+    }
+
     fn doze_expired(&self) -> bool {
-        if self.link_active() {
+        if self.link_active()
+            || self.suspend_pending
+            || !matches!(self.phase, Phase::Doze { .. })
+            || self.power.is_none()
+        {
             return false;
         }
-        let (Phase::Doze { .. }, Some(power)) = (&self.phase, &self.power) else {
-            return false;
-        };
-        self.now().saturating_sub(self.dozed_at) >= power.timeout().as_millis() as Millis
+        self.sleep_duration()
+            .is_some_and(|t| self.now().saturating_sub(self.dozed_at) >= t.as_millis() as Millis)
     }
 
     pub fn settle_saves(&mut self) {

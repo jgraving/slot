@@ -18,6 +18,9 @@ pub struct Comfort {
     pub day: Display,
     pub bedtime: Display,
     pub quiet: bool,
+    pub sounds: bool,
+    pub lid_close: u8,
+    pub sleep_timeout: u8,
     pub shelf: usize,
     pub positions: BTreeMap<usize, String>,
     pub headsets: BTreeMap<String, Headset>,
@@ -35,6 +38,9 @@ impl Comfort {
                 warmth: 9,
             },
             quiet: false,
+            sounds: true,
+            lid_close: 0,
+            sleep_timeout: 0,
             shelf: 0,
             positions: BTreeMap::new(),
             headsets: BTreeMap::new(),
@@ -61,6 +67,9 @@ impl Comfort {
             match key {
                 "night" => c.night = value == "1",
                 "quiet" => c.quiet = value == "1",
+                "sounds" => c.sounds = value == "1",
+                "lid_close" => c.lid_close = value.parse::<u8>().unwrap_or(0).min(2),
+                "sleep_timeout" => c.sleep_timeout = value.parse::<u8>().unwrap_or(0).min(3),
                 "day" => {
                     if let Some(d) = display() {
                         c.day = d
@@ -107,9 +116,12 @@ impl Comfort {
     }
     pub fn save(&self, root: &Path) -> io::Result<()> {
         let mut text = format!(
-            "night={}\nquiet={}\nday={},{}\nbedtime={},{}\nshelf={}\n",
+            "night={}\nquiet={}\nsounds={}\nlid_close={}\nsleep_timeout={}\nday={},{}\nbedtime={},{}\nshelf={}\n",
             u8::from(self.night),
             u8::from(self.quiet),
+            u8::from(self.sounds),
+            self.lid_close,
+            self.sleep_timeout,
             self.day.brightness,
             self.day.warmth,
             self.bedtime.brightness,
