@@ -55,6 +55,8 @@ pub struct Frontend {
     clocks: Clocks,
     about: AboutFace,
     quick_clock: QuickClock,
+    bluetooth_tex: Option<TexId>,
+    bluetooth_lines: Vec<String>,
 }
 
 #[derive(Default)]
@@ -136,6 +138,8 @@ impl Frontend {
             clocks: Clocks::default(),
             about: AboutFace::default(),
             quick_clock: QuickClock::default(),
+            bluetooth_tex: None,
+            bluetooth_lines: Vec::new(),
         }
     }
 
@@ -349,6 +353,14 @@ impl Frontend {
             crate::latency::taken();
         }
         self.cart_faces.sync(self.session.app_mut(), compositor);
+        if let Some(bluetooth) = &mut self.session.app_mut().bluetooth {
+            let lines = bluetooth.lines();
+            if lines != self.bluetooth_lines || bluetooth.face.is_none() {
+                let face = crate::bluetooth::screen_face(&lines);
+                bluetooth.face = Some(upload(compositor, &mut self.bluetooth_tex, face));
+                self.bluetooth_lines = lines;
+            }
+        }
         sync_clock(self.session.app_mut(), compositor, &mut self.clocks);
         sync_about(self.session.app_mut(), compositor, &mut self.about);
         sync_quick_clock(self.session.app_mut(), compositor, &mut self.quick_clock);

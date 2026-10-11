@@ -112,7 +112,7 @@ fn up_and_down_move_the_bar_and_wrap_at_the_ends() {
     press(&mut a, Btn::Up);
     assert_eq!(
         a.quick_menu(),
-        Some(QuickRow::About),
+        Some(QuickRow::Bluetooth),
         "up from the top did not wrap to the bottom"
     );
     for want in [
@@ -120,6 +120,7 @@ fn up_and_down_move_the_bar_and_wrap_at_the_ends() {
         QuickRow::Game,
         QuickRow::DateTime,
         QuickRow::About,
+        QuickRow::Bluetooth,
         QuickRow::Screen,
     ] {
         press(&mut a, Btn::Down);

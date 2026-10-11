@@ -260,6 +260,7 @@ pub enum Phase {
 }
 
 pub struct App {
+    pub bluetooth: Option<crate::bluetooth::Manager>,
     phase: Phase,
     shelves: Vec<(Platform, Shelf)>,
     shelf_at: usize,
@@ -440,6 +441,7 @@ impl App {
             legend_faces: Vec::new(),
             undo_face: None,
             clock_faces: None,
+            bluetooth: None,
             quick_menu_faces: None,
             quick_clock_faces: None,
             sticker_face: None,
@@ -660,7 +662,11 @@ impl App {
             QuickRow::EjectSave => Some(QuickValue::flag(self.state.eject_save)),
             QuickRow::Turbo => Some(QuickValue::flag(self.state.turbo)),
             QuickRow::Rewind => Some(QuickValue::flag(self.state.rewind)),
-            QuickRow::DateTime | QuickRow::About | QuickRow::Screen | QuickRow::Game => None,
+            QuickRow::DateTime
+            | QuickRow::About
+            | QuickRow::Screen
+            | QuickRow::Game
+            | QuickRow::Bluetooth => None,
         }
     }
 
@@ -1216,6 +1222,15 @@ impl App {
             Action::PowerOff => return,
             _ => {}
         }
+        if self.bluetooth.is_some() && self.adjust(action) {
+            return;
+        }
+        if let Some(bluetooth) = &mut self.bluetooth {
+            if bluetooth.input(action) {
+                self.bluetooth = None;
+            }
+            return;
+        }
         if let Phase::SetClock {
             picker, from_menu, ..
         } = &mut self.phase
@@ -1338,6 +1353,10 @@ impl App {
                 self.phase = clock_screen(self.utc_secs(), self.state.utc_offset_min, true);
             }
             QuickRow::About => self.phase = Phase::About,
+            QuickRow::Bluetooth => {
+                let root = self.root.clone().unwrap_or_else(|| "/mnt/sdcard".into());
+                self.bluetooth = Some(crate::bluetooth::Manager::new(root));
+            }
             QuickRow::Screen | QuickRow::Game => {
                 if let Some(row) = row.child() {
                     self.phase = Phase::QuickMenu { row };
@@ -1390,7 +1409,11 @@ impl App {
             QuickRow::Turbo => s.turbo = !s.turbo,
             QuickRow::Rewind => s.rewind = !s.rewind,
             QuickRow::GbPalettes => s.gb_palettes = !s.gb_palettes,
-            QuickRow::DateTime | QuickRow::About | QuickRow::Screen | QuickRow::Game => return,
+            QuickRow::DateTime
+            | QuickRow::About
+            | QuickRow::Screen
+            | QuickRow::Game
+            | QuickRow::Bluetooth => return,
         }
         self.persist();
     }
@@ -1739,6 +1762,9 @@ impl App {
     }
 
     fn timers(&mut self) {
+        if let Some(bluetooth) = &mut self.bluetooth {
+            bluetooth.poll();
+        }
         self.play_hold();
         let offer = self.undo_label();
         if let Some(p) = &mut self.polaroids {
@@ -1970,6 +1996,19 @@ impl App {
                     y: ((OUT_H - h) / 2) as f32,
                     w: w as f32,
                     h: h as f32,
+                    tex,
+                    alpha: 1.0,
+                });
+            }
+            return;
+        }
+        if let Some(bluetooth) = &self.bluetooth {
+            if let Some(tex) = bluetooth.face {
+                out.push(Draw::Tex {
+                    x: 0.0,
+                    y: 0.0,
+                    w: OUT_W as f32,
+                    h: OUT_H as f32,
                     tex,
                     alpha: 1.0,
                 });

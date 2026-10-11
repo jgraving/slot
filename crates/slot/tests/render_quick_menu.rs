@@ -9,7 +9,7 @@ use slot::frontend::Frontend;
 use slot_gfx::{Compositor, HeadlessSurface, OUT_H, OUT_W};
 use slot_input::{Btn, InputSource, Millis, RawEvent};
 use slot_power::SimPlatform;
-use slot_ui::{QuickRow, QUICK_PITCH, QUICK_TOP};
+use slot_ui::{QuickRow, QUICK_PITCH};
 
 struct Script(VecDeque<Vec<RawEvent>>);
 
@@ -84,7 +84,7 @@ fn the_quick_menu_renders_full_screen() {
         bar_on = selected;
         let px = composed(&mut f, &mut c, name);
 
-        let top = (QUICK_TOP + QUICK_PITCH * selected.position() as f32) as usize;
+        let top = row_top(selected) as usize;
         for x in [1, OUT_W as usize - 2] {
             assert_eq!(at(&px, x, top + 26), bar, "{name}: no bar at x {x}");
         }
@@ -104,14 +104,17 @@ fn the_quick_menu_renders_full_screen() {
         );
 
         for row in QuickRow::MAIN {
-            let top = (QUICK_TOP + QUICK_PITCH * row.position() as f32) as usize;
+            let top = row_top(row) as usize;
             let label = inked(&px, 0..360, top);
             let first = *label.first().expect("a row with no label");
             assert!(
                 (32..=36).contains(&first),
                 "{name}: {row:?}'s label starts at x {first}"
             );
-            if matches!(row, QuickRow::About | QuickRow::Screen | QuickRow::Game) {
+            if matches!(
+                row,
+                QuickRow::About | QuickRow::Screen | QuickRow::Game | QuickRow::Bluetooth
+            ) {
                 continue;
             }
             let value = inked(&px, 360..OUT_W as usize, top);
@@ -198,14 +201,14 @@ fn the_screen_page_sets_gb_palettes_in_line_with_the_rows_above() {
     }
     let px = composed(&mut f, &mut c, "screen-page");
 
-    let top = (QUICK_TOP + QUICK_PITCH * QuickRow::GbPalettes.position() as f32) as usize;
+    let top = row_top(QuickRow::GbPalettes) as usize;
     assert_eq!(
         at(&px, 1, top + 26),
         [0x4d, 0x4d, 0x57],
         "the bar is not on GB Palettes"
     );
     for row in QuickRow::SCREEN {
-        let top = (QUICK_TOP + QUICK_PITCH * row.position() as f32) as usize;
+        let top = row_top(row) as usize;
         let label = inked(&px, 0..360, top);
         let first = *label.first().expect("a row with no label");
         assert!(
@@ -219,4 +222,9 @@ fn the_screen_page_sets_gb_palettes_in_line_with_the_rows_above() {
             "{row:?}'s value ends at x {last}"
         );
     }
+}
+
+fn row_top(row: QuickRow) -> f32 {
+    (OUT_H as f32 - QUICK_PITCH * row.page().len() as f32) / 2.0
+        + QUICK_PITCH * row.position() as f32
 }
