@@ -1,7 +1,7 @@
-name: Bluetooth checks
+name: Device checks
 on:
   push:
-    branches: [bluetooth-audio]
+    branches: [bluetooth-audio, night-display]
   pull_request:
   workflow_dispatch:
 permissions:
@@ -18,5 +18,7 @@ jobs:
       - run: cargo fmt --all -- --check
       - run: cargo clippy -p slot --no-default-features --features device -- -D warnings
       - run: cargo test -p slot --no-default-features --features device --lib --test bluetooth --test quick_menu --test audio
+      - run: cargo test -p slot-power
+      - run: cargo test -p slot-gfx --no-default-features --features device --test grade
       - run: cargo test -p slot-ui
       - run: python3 card/test-bluetooth.py
