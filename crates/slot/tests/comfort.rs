@@ -108,34 +108,41 @@ fn each_bluetooth_headset_keeps_its_volume_and_mute_without_changing_speaker() {
     assert!(!b.muted());
 }
 #[test]
-fn quiet_disconnect_is_opt_in_and_requires_explicit_output_choice() {
+fn quiet_disconnect_mutes_and_returns_to_speaker_without_pausing() {
     let d = common::tmp_root_with_carts(&["Alpha", "Beta"]);
     let mut a = common::app_playing_in(d.path(), "Alpha");
     a.bluetooth_state(Some(FIRST.into()), true);
     a.bluetooth_state(Some(FIRST.into()), false);
     assert!(!a.audio_paused());
+    assert!(a.output_volume() > 0);
     a.set_quiet_disconnect(true);
     a.bluetooth_state(Some(FIRST.into()), true);
     a.bluetooth_state(Some(FIRST.into()), false);
-    assert!(a.audio_paused());
+    assert!(!a.audio_paused());
     assert_eq!(a.output_volume(), 0);
     assert!(matches!(a.phase(), Phase::Playing { .. }));
-    tap(&mut a, Btn::B);
-    assert!(a.audio_paused());
-    assert!(a.bluetooth.is_some());
-    a.bluetooth_state(Some(FIRST.into()), true);
     assert!(
-        a.audio_paused(),
-        "reconnection must not resume gameplay by itself"
+        a.bluetooth.is_none(),
+        "disconnect must not replace the game with a menu"
     );
-    a.bluetooth.as_mut().unwrap().route_choice = Some("speaker".into());
-    a.update(0.016);
-    assert!(!a.audio_paused());
-    assert!(a.bluetooth.is_none());
-    assert!(a.output_volume() > 0);
-    let c = Comfort::read(d.path(), &SlotState::default()).unwrap();
-    assert!(c.quiet);
+    a.bluetooth_state(Some(FIRST.into()), true);
+    assert_eq!(
+        a.output_volume(),
+        0,
+        "stay silent while switching to speaker"
+    );
+    a.bluetooth_state(None, false);
+    assert_eq!(a.volume(), 0);
+    assert_eq!(a.output_volume(), 0);
+    a.apply(Action::VolumeUp);
+    assert_eq!(a.output_volume(), 5);
+    assert!(
+        Comfort::read(d.path(), &SlotState::default())
+            .unwrap()
+            .quiet
+    );
 }
+
 #[test]
 fn intended_output_switch_and_initial_unavailable_headset_do_not_pause() {
     let d = common::tmp_root_with_carts(&["Alpha", "Beta"]);
@@ -168,7 +175,7 @@ fn comfort_file_clamps_settings_and_never_modifies_cartridge_or_save_files() {
 }
 
 #[test]
-fn disconnect_overlay_actually_pauses_the_core_and_resume_choice_releases_it() {
+fn disconnect_keeps_the_core_running_at_zero_volume() {
     use slot::emu::Speed;
     use std::time::{Duration, Instant};
     let d = common::tmp_root_with_carts(&["Alpha", "Beta"]);
@@ -186,13 +193,8 @@ fn disconnect_overlay_actually_pauses_the_core_and_resume_choice_releases_it() {
     s.app_mut().bluetooth_state(Some(FIRST.into()), true);
     s.app_mut().bluetooth_state(Some(FIRST.into()), false);
     s.update(0.016);
-    let deadline = Instant::now() + Duration::from_secs(2);
-    while s.observed_speed() != Some(Speed::Paused) {
-        assert!(Instant::now() < deadline);
-        std::thread::sleep(Duration::from_millis(1));
-    }
-    s.app_mut().bluetooth.as_mut().unwrap().route_choice = Some("speaker".into());
-    s.update(0.016);
+    assert_eq!(s.app().output_volume(), 0);
+    assert!(!s.app().audio_paused());
     let deadline = Instant::now() + Duration::from_secs(2);
     while s.observed_speed() != Some(Speed::Normal) {
         assert!(Instant::now() < deadline);

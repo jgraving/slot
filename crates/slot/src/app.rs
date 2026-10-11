@@ -273,6 +273,7 @@ pub struct App {
     bluetooth_route: Option<String>,
     bluetooth_connected: bool,
     audio_paused: bool,
+    disconnect_muted: bool,
     retired_faces: Vec<TexId>,
     shelf_at: usize,
     play_held: Option<Millis>,
@@ -429,6 +430,7 @@ impl App {
             bluetooth_route: None,
             bluetooth_connected: false,
             audio_paused: false,
+            disconnect_muted: false,
             retired_faces: Vec::new(),
             shelf_at,
             play_held: None,
@@ -709,7 +711,7 @@ impl App {
     fn sound_menu(&mut self, disconnected: bool) {
         let root = self.root.clone().unwrap_or_else(|| "/mnt/sdcard".into());
         let mut manager = crate::bluetooth::Manager::new(root);
-        manager.pause_on_disconnect = self.comfort.quiet;
+        manager.mute_on_disconnect = self.comfort.quiet;
         manager.disconnect_notice = disconnected;
         self.bluetooth = Some(manager);
     }
@@ -721,22 +723,24 @@ impl App {
             && self.bluetooth_connected
             && !connected;
         if address != self.bluetooth_route {
+            self.disconnect_muted = false;
             self.vol_before.clear();
         }
         self.bluetooth_route = address;
         self.bluetooth_connected = connected;
+        if let Some(menu) = &mut self.bluetooth {
+            menu.observe_output(self.bluetooth_route.as_deref(), connected);
+        }
         self.hud
             .set_headphones(self.headphones || self.bluetooth_route.is_some());
-        if lost
-            && self.comfort.quiet
-            && matches!(
-                self.phase,
-                Phase::Playing { .. } | Phase::Inserting { .. } | Phase::Polaroids { .. }
-            )
-            && !self.link_active()
-        {
-            self.audio_paused = true;
-            self.sound_menu(true);
+        if lost && self.comfort.quiet {
+            self.disconnect_muted = true;
+            self.state.volume = 0;
+            self.state.muted = false;
+            self.persist_soon();
+            self.hud.toast(Toast::HeadphonesDisconnected, self.now());
+            let root = self.root.clone().unwrap_or_else(|| "/mnt/sdcard".into());
+            crate::bluetooth::return_to_speaker(root);
         }
     }
 
@@ -1549,7 +1553,7 @@ impl App {
         }
         if let Some(bluetooth) = &mut self.bluetooth {
             let close = bluetooth.input(action);
-            let quiet = bluetooth.pause_on_disconnect;
+            let quiet = bluetooth.mute_on_disconnect;
             if close && !self.audio_paused {
                 self.bluetooth = None;
             }
@@ -1989,6 +1993,7 @@ impl App {
     pub fn output_volume(&self) -> u8 {
         if self.muted()
             || self.audio_paused
+            || self.disconnect_muted
             || (self.comfort.quiet && self.bluetooth_route.is_some() && !self.bluetooth_connected)
         {
             0
@@ -2426,6 +2431,7 @@ impl App {
                     alpha: 1.0,
                 });
             }
+            self.hud.draw(self.now(), out);
             return;
         }
         match &self.phase {

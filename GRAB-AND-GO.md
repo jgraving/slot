@@ -29,17 +29,23 @@ paired device with a different Bluetooth address is treated as a different heads
 
 ## Quiet disconnect (optional)
 
-Sound → Pause on disconnect defaults to Off. Turn it On to pause an active game and
-mute if the selected headset changes from connected to disconnected. The Sound panel
-appears; select a headset to reconnect or Speaker to resume. Reconnection alone does
-not resume the paused game. Back does not dismiss this panel until an output is chosen.
-If linked play is active, audio is muted without pausing the shared game.
+Sound → Mute on disconnect defaults to Off. When enabled, a confirmed headset
+disconnect sets internal speaker volume to zero and switches back to that output.
+Gameplay continues. An overlay over the current screen says “Headphones disconnected”
+and “Speaker volume 0”. Raise the volume when you want sound again.
 
-With this option enabled the ALSA backend also avoids automatic speaker fallback when
-the selected Bluetooth output is unavailable, including at startup. Choosing Speaker
-explicitly still works. An already-unavailable headset at launch does not block the game;
-audio stays silent until an output is available. Detection is asynchronous, normally
-about a second; command timeouts retain the last confirmed connection state.
+The output remains muted while the switch completes, even if the headset reconnects.
+If the switch fails, it stays silent. Headset volume memories are retained. The existing
+quiet preference is reused, so users who enabled Pause on disconnect now get this
+behavior. Save/load behavior is unchanged.
+
+Sound lists Internal speaker and saved devices first, followed by Pair device and
+Mute on disconnect. Device rows are visually grouped. Status messages occupy a small
+fixed area above the menu; initial loading is silent and scanning does not shift rows.
+
+With this option enabled, unavailable Bluetooth outputs also remain silent at startup.
+Detection is asynchronous, normally about a second; command timeouts retain the last
+confirmed connection state.
 
 ## Compatibility and installation
 
