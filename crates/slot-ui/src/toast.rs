@@ -11,6 +11,8 @@ pub enum Toast {
     NightOn,
     NightOff,
     HeadphonesDisconnected,
+    DeepSleepWake,
+    SleepUnavailable,
     FavoriteAdded,
     FavoriteRemoved,
     StateSaved,
@@ -32,10 +34,12 @@ pub enum Toast {
 }
 
 impl Toast {
-    const FIXED: [Toast; 20] = [
+    const FIXED: [Toast; 22] = [
         Toast::NightOn,
         Toast::NightOff,
         Toast::HeadphonesDisconnected,
+        Toast::DeepSleepWake,
+        Toast::SleepUnavailable,
         Toast::FavoriteAdded,
         Toast::FavoriteRemoved,
         Toast::StateSaved,
@@ -82,6 +86,8 @@ impl Toast {
 
     pub fn text(self) -> &'static str {
         match self {
+            Toast::DeepSleepWake => "Deep sleep: Power wakes",
+            Toast::SleepUnavailable => "Deep sleep unavailable",
             Toast::NightOn => "Night mode",
             Toast::NightOff => "Day mode",
             Toast::HeadphonesDisconnected => "Device disconnected · Volume 0%",
@@ -136,7 +142,10 @@ fn setting(toast: Toast) -> Setting {
             middle: OUT_H as f32 / 2.0,
         },
         false => Setting {
-            w: if toast == Toast::HeadphonesDisconnected {
+            w: if matches!(
+                toast,
+                Toast::HeadphonesDisconnected | Toast::DeepSleepWake | Toast::SleepUnavailable
+            ) {
                 420
             } else {
                 TOAST_W

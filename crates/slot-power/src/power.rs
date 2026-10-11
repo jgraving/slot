@@ -54,6 +54,14 @@ impl Power {
         self.platform.relink_adb()
     }
 
+    pub fn supports_deep_sleep(&self) -> bool {
+        self.platform.supports_deep_sleep()
+    }
+
+    pub fn suspend(&mut self, timeout: Option<Duration>) -> std::io::Result<bool> {
+        self.platform.suspend(timeout)
+    }
+
     pub fn poweroff(&mut self) -> ! {
         self.platform.poweroff()
     }

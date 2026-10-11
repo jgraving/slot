@@ -186,10 +186,10 @@ fn a_power_off_draws_a_shutdown_screen_over_everything() {
         }
         other => panic!("the shutdown drew {other:?} rather than a panel of black"),
     }
-    assert_eq!(
-        out.len(),
-        1,
-        "nothing of the previous phase survives the shutdown screen"
+    assert!(out.len() > 1, "the power switch is visible");
+    assert!(
+        out.iter().all(|draw| matches!(draw, Draw::Rect { .. })),
+        "no game or menu textures survive the shutdown screen"
     );
 }
 

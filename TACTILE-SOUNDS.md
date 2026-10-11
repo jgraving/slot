@@ -2,9 +2,9 @@
 
 Built on main after Favorites/Recents and Grab and Go were merged.
 
-Rolling past a cartridge plays a soft plastic slide with a muted finishing tap,
-with five subtle texture and pitch variants. Idle shelves and shelf changes do not click. Fast
-scrolling is limited to one tick every 55 ms, without queuing a backlog.
+Rolling past a cartridge plays the original quiet plastic click again,
+with five subtle pitch variants. Idle shelves and shelf changes do not click. Fast
+scrolling is limited to one tick every 35 ms, without queuing a backlog.
 
 Sound → Cartridge sounds controls the effect. It defaults to On and survives reboot.
 The preference carries over from Interface sounds. Existing cartridge insertion and
@@ -20,3 +20,26 @@ files only. Retain emulator executables. No save/load or Cart Studio format chan
 Restore the previous System/slot to roll back.
 
 Preview/cartridge.wav is for auditioning only; the effect is built into the executable.
+
+## Power and menus
+
+Settings are ordered Screen, Sound, Gameplay, Power, Date & Time, About.
+Power → Lid Close offers Light Sleep (default), Deep Sleep, and Power Off.
+Power → Sleep Timer shuts down after 3 Minutes (default), 15 Minutes, or 30 Minutes.
+Never disables automatic shutdown. The timer applies to both kinds of sleep.
+
+Holding Power retains Restart and Power Off, with Sleep added below. Sleep uses
+deep sleep when Lid Close is set to Deep Sleep; otherwise it uses light sleep.
+Power Off shows a short ridged sliding-switch animation with a quiet slide and click.
+Automatic shutdown while sleeping stays silent.
+
+Deep sleep uses BaseOS Super Standby. **Press Power to wake; opening the lid alone
+does not wake it.** Timed sleep arms the RTC alarm, wakes at the deadline, and shuts
+down. If the alarm cannot be armed, deep sleep reports unavailable instead of
+silently sleeping indefinitely. Existing save/resume handling is retained.
+
+BaseOS reference: https://github.com/pvaibhav/BaseOS/blob/main/docs/05-runtime-power-network.md
+
+Device testing is still needed: check Power wake, speaker/headphone audio after
+wake, and a full three-minute deep-sleep shutdown on your handheld. Software tests
+simulate the sleep deadline; they cannot verify the device's RTC wake support.

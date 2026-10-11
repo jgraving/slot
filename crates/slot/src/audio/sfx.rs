@@ -7,6 +7,7 @@ pub enum Sfx {
     Insert,
     Eject,
     Cartridge(u8),
+    PowerSwitch,
 }
 
 impl Sfx {
@@ -19,8 +20,11 @@ impl Sfx {
     }
 
     pub fn tail(self) -> f32 {
+        if self == Self::PowerSwitch {
+            return 0.54;
+        }
         if let Self::Cartridge(_) = self {
-            return 0.054;
+            return 0.028;
         }
         let pcm = match self {
             Sfx::Insert => INSERT,
@@ -31,6 +35,29 @@ impl Sfx {
     }
 
     pub fn render(self, sample_rate: u32) -> Vec<i16> {
+        if self == Self::PowerSwitch {
+            let mut clip = vec![0; (sample_rate as f32 * 0.54) as usize * 2];
+            let mut seed = 0x51de_u32;
+            let mut smooth = 0.0_f32;
+            for (i, frame) in clip.chunks_exact_mut(2).enumerate() {
+                let t = i as f32 / sample_rate as f32;
+                if t >= 0.46 {
+                    break;
+                }
+                seed = seed.wrapping_mul(1664525).wrapping_add(1013904223);
+                let noise = (seed >> 8) as f32 / 8388608.0 - 1.0;
+                smooth += (noise - smooth) * (1800.0 / sample_rate as f32).min(1.0);
+                let envelope = (t / 0.08).min(1.0) * ((0.46 - t) / 0.1).min(1.0);
+                let value = (smooth * envelope * 500.0) as i16;
+                frame.fill(value);
+            }
+            let click = tactile(Self::Cartridge(0), sample_rate);
+            let offset = (sample_rate as f32 * 0.48) as usize * 2;
+            for (dest, src) in clip.iter_mut().skip(offset).zip(click) {
+                *dest = src;
+            }
+            return clip;
+        }
         if !matches!(self, Self::Insert | Self::Eject) {
             return tactile(self, sample_rate);
         }
@@ -70,41 +97,45 @@ fn resampled(pcm: &[u8], sample_rate: u32) -> Vec<f32> {
         .collect()
 }
 
-// A soft friction envelope followed by a damped contact tap, like plastic
-// sliding across a tabletop. Fixed seeds keep the small variations reproducible.
+// Short band-limited noise impulses excite two damped plastic resonances.
+// Fixed seeds make previews reproducible; cartridge variants avoid a machine-gun tone.
 fn tactile(sound: Sfx, rate: u32) -> Vec<i16> {
     use std::f32::consts::TAU;
-    let Sfx::Cartridge(variant) = sound else {
-        return Vec::new();
-    };
     if rate == 0 {
         return Vec::new();
     }
-    let duration = 0.054;
-    let pitch = 1.0 + (variant % 5) as f32 * 0.023;
-    let mut rng = 0x724a_35b1u32.wrapping_add(u32::from(variant % 5) * 7919);
-    let (mut low, mut bass) = (0.0f32, 0.0f32);
-    let low_pass = 1.0 - (-TAU * 2400.0 * pitch / rate as f32).exp();
-    let high_pass = 1.0 - (-TAU * 420.0 / rate as f32).exp();
+    let (duration, pitch, gain, taps): (f32, f32, f32, &[(f32, f32)]) = match sound {
+        Sfx::Cartridge(v) => (
+            0.028,
+            1.0 + (v % 5) as f32 * 0.023,
+            0.095,
+            &[(0.0, 1.0), (0.004, 0.22)],
+        ),
+        _ => return Vec::new(),
+    };
+    let mut rng = 0x724a_35b1u32;
+    let mut low = 0.0f32;
     let mut out = Vec::with_capacity((duration * rate as f32) as usize * 2);
     for i in 0..(duration * rate as f32) as usize {
         rng ^= rng << 13;
         rng ^= rng >> 17;
         rng ^= rng << 5;
         let noise = (rng as f32 / u32::MAX as f32) * 2.0 - 1.0;
-        low += low_pass * (noise - low);
-        bass += high_pass * (low - bass);
+        low += (1.0 - (-TAU * 4200.0 / rate as f32).exp()) * (noise - low);
         let t = i as f32 / rate as f32;
-        let attack = (t / 0.007).clamp(0.0, 1.0);
-        let release = ((0.043 - t) / 0.018).clamp(0.0, 1.0);
-        let grain = 0.8 + 0.2 * (TAU * 135.0 * pitch * t).sin();
-        let friction = (low - bass) * attack * release * grain;
-        let age = (t - 0.036).max(0.0);
-        let tap =
-            (age / 0.002).min(1.0) * (TAU * 760.0 * pitch * age).sin() * (-age / 0.0035).exp();
-        let fade = ((duration - t) / 0.006).clamp(0.0, 1.0);
-        let sample = (friction * 0.8 + tap * 0.18) * fade * 0.105;
-        let value = (sample * 32767.0).clamp(-32767.0, 32767.0) as i16;
+        let mut sample = 0.0;
+        for &(start, strength) in taps {
+            let age = t - start;
+            if age < 0.0 {
+                continue;
+            }
+            let attack = (age / 0.0006).min(1.0);
+            let body = (TAU * 1480.0 * pitch * age).sin() * (-age / 0.0038).exp()
+                + 0.35 * (TAU * 2630.0 * pitch * age).sin() * (-age / 0.0024).exp();
+            sample += strength * attack * (0.58 * body + 0.42 * low * (-age / 0.0017).exp());
+        }
+        let fade = ((duration - t) / 0.004).clamp(0.0, 1.0);
+        let value = (sample * fade * gain * 32767.0).clamp(-32767.0, 32767.0) as i16;
         out.extend([value, value]);
     }
     out
