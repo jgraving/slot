@@ -626,3 +626,31 @@ fn gb_palettes_flips_on_either_arrow_and_saves() {
         );
     }
 }
+
+#[test]
+fn connected_bluetooth_indicator_sits_in_the_carousel_footer_and_can_hide() {
+    let (_d, mut app, _) = on_carousel();
+    let indicator = TexId::from_raw(999);
+    app.bluetooth_indicator = Some(indicator);
+    let mut draws = Vec::new();
+    app.draw(&mut draws);
+    let positions: Vec<_> = draws
+        .iter()
+        .filter_map(|d| match d {
+            Draw::Tex {
+                tex, x, y, w, h, ..
+            } if *tex == indicator => Some((*x, *y, *w, *h)),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(positions.len(), 1);
+    let (x, y, w, h) = positions[0];
+    assert!(x >= 0.0 && x + w <= slot_ui::OUT_W as f32);
+    assert!(y > 420.0 && y + h <= slot_ui::OUT_H as f32);
+    app.bluetooth_indicator = None;
+    draws.clear();
+    app.draw(&mut draws);
+    assert!(!draws
+        .iter()
+        .any(|d| matches!(d, Draw::Tex { tex, .. } if *tex == indicator)));
+}

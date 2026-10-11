@@ -57,6 +57,8 @@ pub struct Frontend {
     quick_clock: QuickClock,
     bluetooth_tex: Option<TexId>,
     bluetooth_lines: Vec<String>,
+    bluetooth_indicator: crate::bluetooth::Indicator,
+    bluetooth_indicator_tex: Option<TexId>,
 }
 
 #[derive(Default)]
@@ -140,6 +142,8 @@ impl Frontend {
             quick_clock: QuickClock::default(),
             bluetooth_tex: None,
             bluetooth_lines: Vec::new(),
+            bluetooth_indicator: crate::bluetooth::Indicator::default(),
+            bluetooth_indicator_tex: None,
         }
     }
 
@@ -361,6 +365,15 @@ impl Frontend {
                 self.bluetooth_lines = lines;
             }
         }
+        self.session.app_mut().bluetooth_indicator = if self.bluetooth_indicator.poll() {
+            if self.bluetooth_indicator_tex.is_none() {
+                let face = crate::bluetooth::indicator_face();
+                self.bluetooth_indicator_tex = Some(upload(compositor, &mut None, face));
+            }
+            self.bluetooth_indicator_tex
+        } else {
+            None
+        };
         sync_clock(self.session.app_mut(), compositor, &mut self.clocks);
         sync_about(self.session.app_mut(), compositor, &mut self.about);
         sync_quick_clock(self.session.app_mut(), compositor, &mut self.quick_clock);

@@ -261,6 +261,7 @@ pub enum Phase {
 
 pub struct App {
     pub bluetooth: Option<crate::bluetooth::Manager>,
+    pub bluetooth_indicator: Option<TexId>,
     phase: Phase,
     shelves: Vec<(Platform, Shelf)>,
     shelf_at: usize,
@@ -442,6 +443,7 @@ impl App {
             undo_face: None,
             clock_faces: None,
             bluetooth: None,
+            bluetooth_indicator: None,
             quick_menu_faces: None,
             quick_clock_faces: None,
             sticker_face: None,
@@ -2060,6 +2062,16 @@ impl App {
                     self.shelf_clock,
                     out,
                 );
+                if let Some(tex) = self.bluetooth_indicator {
+                    out.push(Draw::Tex {
+                        x: OUT_W as f32 - 24.0 - self.shelf_clock.w as f32 - 34.0,
+                        y: OUT_H as f32 - 41.0,
+                        w: 24.0,
+                        h: 24.0,
+                        tex,
+                        alpha: 1.0,
+                    });
+                }
             }
             Phase::About => {
                 draw_backdrop(self.wallpaper, out);

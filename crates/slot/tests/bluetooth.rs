@@ -48,3 +48,35 @@ fn highlighted_menu_and_wrapped_error_render_at_device_resolution() {
         std::fs::write(path, face.rgba).unwrap();
     }
 }
+
+#[test]
+fn minimalist_menu_shows_native_hints_and_active_output_without_headers() {
+    let lines = vec![
+        String::new(),
+        String::new(),
+        String::new(),
+        "ROW Pair headphones".into(),
+        "ROW Speaker".into(),
+        "SELECTED ACTIVE WF-C510".into(),
+        "B Back · A Select · Y Manage".into(),
+    ];
+    let face = slot::bluetooth::screen_face(&lines);
+    assert_eq!(
+        face.rgba.len(),
+        (slot_ui::OUT_W * slot_ui::OUT_H * 4) as usize
+    );
+    if let Ok(path) = std::env::var("SLOT_BT_PREVIEW") {
+        std::fs::write(format!("{path}.minimal"), face.rgba).unwrap();
+    }
+}
+
+#[test]
+fn bluetooth_symbol_uses_a_small_transparent_footer_face() {
+    let face = slot::bluetooth::indicator_face();
+    assert_eq!((face.w, face.h), (24, 24));
+    assert_eq!(face.rgba[3], 0);
+    assert!(face.rgba.chunks_exact(4).any(|p| p[3] == 255));
+    if let Ok(path) = std::env::var("SLOT_BT_PREVIEW") {
+        std::fs::write(format!("{path}.indicator"), face.rgba).unwrap();
+    }
+}

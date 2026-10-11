@@ -1,5 +1,7 @@
 <div align="center">
 
+> This fork adds Bluetooth headphone audio for RG SP on BaseOS. See [Bluetooth installation and controls](BLUETOOTH.md). Updates must be merged into the existing `System` folder so emulator files are retained.
+
 <img src=".github/resources/banner.png" width="100%" alt="slot. A bespoke, Game Boy-centric frontend for the Anbernic RG SP.">
 
 <a href="LICENSE"><img src="https://img.shields.io/github/license/BrandonKowalski/slot?style=for-the-badge&labelColor=242429&color=4d4d57" height="36" alt="License"></a>
