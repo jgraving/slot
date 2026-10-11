@@ -42,9 +42,9 @@ pub fn draw_footer(
             };
         out.push(Draw::Tex {
             x,
-            y: FOOTER_Y + (HINT_H as f32 - 16.0) / 2.0,
-            w: 16.0,
-            h: 16.0,
+            y: FOOTER_Y + (HINT_H as f32 - 20.0) / 2.0,
+            w: 20.0,
+            h: 20.0,
             tex,
             alpha: 1.0,
         });

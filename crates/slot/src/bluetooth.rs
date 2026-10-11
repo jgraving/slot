@@ -109,6 +109,14 @@ impl Manager {
         self.pending = Some(rx);
         self.status = match verb {
             "scan" => "Scanning; put headphones in pairing mode",
+            "connect"
+                if self
+                    .devices
+                    .iter()
+                    .any(|d| Some(&d.address) == address.as_ref() && d.paired) =>
+            {
+                "Connecting..."
+            }
             "connect" => "Pairing and connecting...",
             "forget" => "Forgetting headphones...",
             "speaker" => "Switching to speaker...",
@@ -162,13 +170,7 @@ impl Manager {
         self.devices
             .iter()
             .enumerate()
-            .filter(|(_, d)| {
-                if self.page == Page::Pair {
-                    !d.paired
-                } else {
-                    d.paired
-                }
-            })
+            .filter(|(_, d)| self.page == Page::Pair || d.paired)
             .map(|(i, _)| i)
             .collect()
     }
@@ -261,8 +263,12 @@ impl Manager {
                 Page::Pair => {
                     if self.selected == 0 {
                         self.ask("scan", None);
-                    } else if let Some(i) = self.device_indices().get(self.selected - 1) {
-                        self.open(Page::Device(*i));
+                    } else if let Some(&i) = self.device_indices().get(self.selected - 1) {
+                        if self.devices[i].paired {
+                            self.ask("connect", Some(self.devices[i].address.clone()));
+                        } else {
+                            self.open(Page::Device(i));
+                        }
                     }
                 }
                 Page::Device(i) => {
@@ -642,6 +648,35 @@ mod menu_tests {
         assert_eq!(m.rows()[1], "ACTIVE Speaker");
     }
     #[test]
+    #[cfg(feature = "device")]
+    fn saved_headphones_in_scan_results_connect_directly() {
+        let root = tempfile::tempdir().unwrap();
+        std::fs::create_dir(root.path().join("System")).unwrap();
+        std::fs::write(
+            root.path().join("System/bluetooth.sh"),
+            "printf '%s %s' \"$1\" \"$2\" > \"$SLOT_ROOT/called\"\n",
+        )
+        .unwrap();
+        let mut m = menu();
+        m.root = root.path().into();
+        m.open(Page::Pair);
+        assert_eq!(m.rows(), vec!["Scan for headphones", "WF-C510"]);
+        m.selected = 1;
+        m.input(Action::GbaDown(Btn::A));
+        assert_eq!(m.page, Page::Pair);
+        assert_eq!(m.status, "Connecting...");
+        m.pending
+            .take()
+            .unwrap()
+            .recv_timeout(std::time::Duration::from_secs(5))
+            .unwrap();
+        assert_eq!(
+            std::fs::read_to_string(root.path().join("called")).unwrap(),
+            "connect AA:BB:CC:DD:EE:FF"
+        );
+    }
+
+    #[test]
     fn diagnostic_results_preserve_devices_and_route() {
         let mut m = menu();
         let (tx, rx) = mpsc::channel();
@@ -740,23 +775,23 @@ fn connection_present(info: &str) -> bool {
 
 pub fn indicator_face() -> UndoFace {
     let mut face = UndoFace {
-        rgba: vec![0; 16 * 16 * 4],
-        w: 16,
-        h: 16,
+        rgba: vec![0; 20 * 20 * 4],
+        w: 20,
+        h: 20,
     };
     for ((x0, y0), (x1, y1)) in [
-        ((7, 1), (7, 14)),
-        ((7, 1), (12, 5)),
-        ((12, 5), (3, 12)),
-        ((7, 14), (12, 10)),
-        ((12, 10), (3, 3)),
+        ((9, 1), (9, 18)),
+        ((9, 1), (16, 6)),
+        ((16, 6), (3, 15)),
+        ((9, 18), (16, 13)),
+        ((16, 13), (3, 4)),
     ] {
         let steps = i32::abs(x1 - x0).max(i32::abs(y1 - y0));
         for step in 0..=steps {
             let x = x0 + (x1 - x0) * step / steps;
             let y = y0 + (y1 - y0) * step / steps;
-            for dx in 0..1 {
-                let offset = ((y * 16 + x + dx) * 4) as usize;
+            for dx in 0..2 {
+                let offset = ((y * 20 + x + dx) * 4) as usize;
                 face.rgba[offset..offset + 4].copy_from_slice(&[246, 244, 239, 255]);
             }
         }

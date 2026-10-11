@@ -917,6 +917,6 @@ fn connection_indicator_follows_the_battery_percentage_without_overlapping() {
         assert!(out
             .iter()
             .any(|d| matches!(d, Draw::Tex { tex, x, y, w, h, .. }
-            if *tex == icon && (*x, *y, *w, *h) == (128.5, 443.0, 16.0, 16.0))));
+            if *tex == icon && (*x, *y, *w, *h) == (128.5, 441.0, 20.0, 20.0))));
     }
 }

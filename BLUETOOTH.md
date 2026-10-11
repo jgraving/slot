@@ -1,4 +1,4 @@
-# RG SP Bluetooth audio update v3.2
+# RG SP Bluetooth audio update v3.3
 
 MERGE this update into your existing slot installation. DO NOT replace or delete the System folder.
 This update does not contain emulator cores. If the previous update replaced your entire System
@@ -62,3 +62,6 @@ Remove System/bluetooth.sh and Config/bluetooth-headphones, then reboot.
 
 Source: BrandonKowalski/slot 9d7c795e7c862f37db912f5400f0ad004ebba1c8.
 BaseOS reference: 1.3.0, 7dec5cba47db9b77b18b546a52acc51b1df64088.
+
+V3.3 uses a clearer 20-pixel Bluetooth symbol with thicker strokes. Scan results include saved
+headphones; selecting a saved pair connects directly without repeating pairing.
