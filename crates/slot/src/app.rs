@@ -2389,6 +2389,7 @@ impl App {
     pub fn draw(&self, out: &mut Vec<Draw>) {
         if let Some(index) = self.power_menu {
             self.draw_power_menu(index, out);
+            self.hud.draw(self.now(), out);
             return;
         }
         if self.shutting_down() {
@@ -2448,6 +2449,7 @@ impl App {
                     .filter(|_| *from_menu)
                     .map(|f| f.legend[0]);
                 picker.draw(line, hint, back, out);
+                self.hud.draw(self.now(), out);
                 return;
             }
             Phase::QuickMenu { row } => QuickMenu {
@@ -2484,6 +2486,7 @@ impl App {
             Phase::About => {
                 draw_backdrop(self.wallpaper, out);
                 draw_sticker(self.sticker_face, out);
+                self.hud.draw(self.now(), out);
                 return;
             }
             Phase::Inserting { cart, resumed, .. } => {
