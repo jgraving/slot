@@ -8,6 +8,8 @@ use crate::CartFace;
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum Toast {
+    FavoriteAdded,
+    FavoriteRemoved,
     StateSaved,
     StateLoaded,
     NeedsGpsp,
@@ -27,7 +29,9 @@ pub enum Toast {
 }
 
 impl Toast {
-    const FIXED: [Toast; 15] = [
+    const FIXED: [Toast; 17] = [
+        Toast::FavoriteAdded,
+        Toast::FavoriteRemoved,
         Toast::StateSaved,
         Toast::StateLoaded,
         Toast::NeedsGpsp,
@@ -72,6 +76,8 @@ impl Toast {
 
     pub fn text(self) -> &'static str {
         match self {
+            Toast::FavoriteAdded => "Favorite added",
+            Toast::FavoriteRemoved => "Favorite removed",
             Toast::StateSaved => "State Saved",
             Toast::StateLoaded => "State Loaded",
             Toast::NeedsGpsp => "Please switch to gpSP",

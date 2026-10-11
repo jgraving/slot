@@ -13,7 +13,7 @@ use crate::label_cache::label_art;
 
 const WORKERS: usize = 2;
 
-type Key = (usize, usize);
+type Key = (usize, usize, u64);
 
 #[derive(Default)]
 struct Queue {
@@ -29,6 +29,7 @@ pub struct CartFaces {
     pending: HashSet<Key>,
     asked: Vec<FaceWant>,
     free: Vec<TexId>,
+    revision: u64,
 }
 
 impl CartFaces {
@@ -50,10 +51,15 @@ impl CartFaces {
             pending: HashSet::new(),
             asked: Vec::new(),
             free: Vec::new(),
+            revision: 0,
         }
     }
 
     pub fn sync(&mut self, app: &mut App, compositor: &mut Compositor) {
+        if self.revision != app.face_revision() {
+            self.revision = app.face_revision();
+            self.asked.clear();
+        }
         self.free.extend(app.shed_faces());
         while let Ok((key, face)) = self.built.try_recv() {
             self.place(app, compositor, key, face);
@@ -67,7 +73,7 @@ impl CartFaces {
             .asked
             .iter()
             .filter(|w| w.on_screen)
-            .map(|w| (w.shelf, w.index))
+            .map(|w| (w.shelf, w.index, self.revision))
             .collect();
         while !waiting.is_empty() {
             let Ok((key, face)) = self.built.recv() else {
@@ -85,7 +91,7 @@ impl CartFaces {
             self.pending.remove(&key);
         }
         for w in wants {
-            let key = (w.shelf, w.index);
+            let key = (w.shelf, w.index, self.revision);
             if self.pending.contains(&key) {
                 continue;
             }
@@ -99,7 +105,11 @@ impl CartFaces {
 
     fn place(&mut self, app: &mut App, compositor: &mut Compositor, key: Key, face: CartFace) {
         self.pending.remove(&key);
-        self.asked.retain(|w| (w.shelf, w.index) != key);
+        if key.2 != app.face_revision() {
+            return;
+        }
+        self.asked
+            .retain(|w| (w.shelf, w.index, self.revision) != key);
         let tex = match self.free.pop() {
             Some(tex) => {
                 compositor.update_texture(tex, face.w, face.h, &face.rgba);

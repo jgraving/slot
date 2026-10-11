@@ -1,5 +1,6 @@
 use slot_gfx::{Draw, TexId, OUT_H, OUT_W};
-use slot_store::Cart;
+use slot_store::{Cart, Platform};
+use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicU32, Ordering};
 
 use crate::cart::{cart_box, gb_shell_of, label_colour, label_text, CART_H, CART_W};
@@ -49,6 +50,7 @@ pub struct Shelf {
     pub index: usize,
     pub scroll: f32,
     faces: Vec<Option<TexId>>,
+    favorites: HashSet<(Platform, String)>,
     shadow: Option<TexId>,
     gb_shadow: Option<TexId>,
     gbc_shadow: Option<TexId>,
@@ -63,6 +65,7 @@ impl Shelf {
         Shelf {
             shells: carts.iter().map(gb_shell_of).collect(),
             faces: vec![None; carts.len()],
+            favorites: HashSet::new(),
             carts,
             index: 0,
             scroll: 0.0,
@@ -73,6 +76,43 @@ impl Shelf {
             vel: 0.0,
             held: None,
         }
+    }
+
+    pub fn set_favorites(&mut self, favorites: HashSet<(Platform, String)>) {
+        self.favorites = favorites;
+    }
+
+    /// Reorder membership while preserving each cartridge's own texture and selection.
+    pub fn replace_carts(&mut self, carts: Vec<Cart>) -> Vec<TexId> {
+        let selected = self
+            .carts
+            .get(self.index)
+            .map(|c| (c.platform, c.stem.clone()));
+        let old_index = self.index;
+        let mut faces: HashMap<_, _> = self
+            .carts
+            .iter()
+            .zip(self.faces.drain(..))
+            .map(|(c, face)| ((c.platform, c.stem.clone()), face))
+            .collect();
+        self.faces = carts
+            .iter()
+            .map(|c| faces.remove(&(c.platform, c.stem.clone())).flatten())
+            .collect();
+        self.shells = carts.iter().map(gb_shell_of).collect();
+        self.carts = carts;
+        let index = self
+            .carts
+            .iter()
+            .position(|c| {
+                selected
+                    .as_ref()
+                    .is_some_and(|(p, s)| *p == c.platform && *s == c.stem)
+            })
+            .unwrap_or(old_index.min(self.carts.len().saturating_sub(1)));
+        self.release_hold();
+        self.select(index);
+        faces.into_values().flatten().collect()
     }
 
     pub fn select(&mut self, i: usize) {
@@ -131,7 +171,11 @@ impl Shelf {
     }
 
     pub fn find(&self, stem: &str) -> Option<(&Cart, Option<TexId>)> {
-        let i = self.carts.iter().position(|c| c.stem == stem)?;
+        let i = if self.carts.get(self.index).is_some_and(|c| c.stem == stem) {
+            self.index
+        } else {
+            self.carts.iter().position(|c| c.stem == stem)?
+        };
         Some((&self.carts[i], self.face(i)))
     }
 
@@ -317,7 +361,7 @@ impl Shelf {
                 continue;
             };
             let cart = &self.carts[i];
-            if hidden == Some(cart.stem.as_str()) {
+            if i == self.index && hidden == Some(cart.stem.as_str()) {
                 continue;
             }
             let offset = target + slot as f32 - self.scroll;
@@ -374,6 +418,65 @@ impl Shelf {
                         ],
                     }
                 }
+            });
+            if self.favorites.contains(&(cart.platform, cart.stem.clone())) {
+                let (lx, ly, lw) = match cart.platform {
+                    Platform::Gba => (crate::LABEL_X, crate::LABEL_Y, crate::LABEL_W),
+                    _ => (crate::GB_LABEL_X, crate::GB_LABEL_Y, crate::GB_LABEL_W),
+                };
+                draw_favorite(
+                    x + (lx + lw - 24) as f32 * scale,
+                    y + (ly + 7) as f32 * scale,
+                    scale,
+                    alpha * dim,
+                    out,
+                );
+            }
+        }
+    }
+}
+
+// Crisp five-point star with a dark badge: an overlay, never baked into label art.
+fn draw_favorite(x: f32, y: f32, scale: f32, alpha: f32, out: &mut Vec<Draw>) {
+    out.push(Draw::Rect {
+        x: x - 3.0 * scale,
+        y: y - 3.0 * scale,
+        w: 22.0 * scale,
+        h: 22.0 * scale,
+        colour: [0.08, 0.08, 0.08, 0.85 * alpha],
+    });
+    let rows = [
+        (7, 2),
+        (6, 4),
+        (6, 4),
+        (5, 6),
+        (0, 16),
+        (1, 14),
+        (2, 12),
+        (3, 10),
+        (4, 8),
+        (4, 8),
+        (3, 10),
+        (3, 4),
+        (2, 4),
+        (2, 3),
+    ];
+    for (row, (left, width)) in rows.into_iter().enumerate() {
+        let y = y + row as f32 * scale;
+        out.push(Draw::Rect {
+            x: x + left as f32 * scale,
+            y,
+            w: width as f32 * scale,
+            h: scale,
+            colour: [1.0, 0.88, 0.38, alpha],
+        });
+        if row >= 11 {
+            out.push(Draw::Rect {
+                x: x + (16 - left - width) as f32 * scale,
+                y,
+                w: width as f32 * scale,
+                h: scale,
+                colour: [1.0, 0.88, 0.38, alpha],
             });
         }
     }
