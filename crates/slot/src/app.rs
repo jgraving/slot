@@ -323,6 +323,9 @@ pub struct App {
     video_mode: VideoMode,
     link: Option<LinkSession>,
     sfx: Option<Sfx>,
+    tactile_pending: Option<(Sfx, Millis)>,
+    click_at: Option<Millis>,
+    click_variant: u8,
     polaroids: Option<Polaroids>,
     pending: Option<(PendingUndo, Millis)>,
     legend_faces: Vec<TexId>,
@@ -480,6 +483,9 @@ impl App {
             video_mode: VideoMode::default(),
             link: None,
             sfx: None,
+            tactile_pending: None,
+            click_at: None,
+            click_variant: 0,
             polaroids: None,
             pending: None,
             legend_faces: Vec::new(),
@@ -712,12 +718,25 @@ impl App {
         let root = self.root.clone().unwrap_or_else(|| "/mnt/sdcard".into());
         let mut manager = crate::bluetooth::Manager::new(root);
         manager.mute_on_disconnect = self.comfort.quiet;
+        manager.interface_sounds = self.comfort.sounds;
         manager.disconnect_notice = disconnected;
         self.bluetooth = Some(manager);
     }
 
     pub fn bluetooth_state(&mut self, address: Option<String>, connected: bool) {
         let address = address.map(|s| s.to_ascii_uppercase());
+        let was_connected = self.bluetooth_active();
+        let now_connected = address.is_some() && connected;
+        if self.comfort.sounds && was_connected != now_connected {
+            self.tactile_pending = Some((
+                if now_connected {
+                    Sfx::HeadphoneIn
+                } else {
+                    Sfx::HeadphoneOut
+                },
+                self.now() + 500,
+            ));
+        }
         let lost = self.bluetooth_route.is_some()
             && self.bluetooth_route == address
             && self.bluetooth_connected
@@ -1554,11 +1573,18 @@ impl App {
         if let Some(bluetooth) = &mut self.bluetooth {
             let close = bluetooth.input(action);
             let quiet = bluetooth.mute_on_disconnect;
+            let sounds = bluetooth.interface_sounds;
             if close && !self.audio_paused {
                 self.bluetooth = None;
             }
             if quiet != self.comfort.quiet {
                 self.set_quiet_disconnect(quiet);
+            }
+            if sounds != self.comfort.sounds {
+                self.comfort.sounds = sounds;
+                self.comfort_changed();
+                self.save_comfort();
+                self.tactile_pending = None;
             }
             return;
         }
@@ -2042,8 +2068,20 @@ impl App {
         let next = match &mut self.phase {
             Phase::Shelf => {
                 let shelf = &mut self.shelves[at].1;
+                let before = shelf.scroll.round() as i32;
                 shelf.tick(now);
                 shelf.update(dt);
+                if before != shelf.scroll.round() as i32
+                    && self.comfort.sounds
+                    && self.bluetooth.is_none()
+                    && self.power_menu.is_none()
+                    && self.click_at.is_none_or(|at| now.saturating_sub(at) >= 35)
+                    && self.sfx.is_none()
+                {
+                    self.click_variant = self.click_variant.wrapping_add(1);
+                    self.sfx = Some(Sfx::Cartridge(self.click_variant % 5));
+                    self.click_at = Some(now);
+                }
                 None
             }
             Phase::Inserting {
@@ -2153,6 +2191,18 @@ impl App {
     }
 
     fn timers(&mut self) {
+        if let Some((sound, at)) = self.tactile_pending {
+            if self.now() >= at {
+                self.tactile_pending = None;
+                if self.comfort.sounds
+                    && self.output_volume() > 0
+                    && !matches!(self.phase, Phase::Doze { .. })
+                    && !self.shutting_down()
+                {
+                    self.sfx = Some(sound);
+                }
+            }
+        }
         self.remember_browsing();
         if self
             .comfort_dirty

@@ -82,6 +82,7 @@ pub struct Manager {
     pending: Option<Receiver<ResultMessage>>,
     pub face: Option<TexId>,
     pub mute_on_disconnect: bool,
+    pub interface_sounds: bool,
     pub disconnect_notice: bool,
     pub route_choice: Option<String>,
     choosing_route: bool,
@@ -100,6 +101,7 @@ impl Manager {
             pending: None,
             face: None,
             mute_on_disconnect: false,
+            interface_sounds: true,
             disconnect_notice: false,
             route_choice: None,
             choosing_route: false,
@@ -230,6 +232,10 @@ impl Manager {
                     "TOGGLE {}",
                     if self.mute_on_disconnect { "On" } else { "Off" }
                 ));
+                rows.push(format!(
+                    "SOUNDS {}",
+                    if self.interface_sounds { "On" } else { "Off" }
+                ));
                 rows
             }
             Page::Pair => {
@@ -271,6 +277,11 @@ impl Manager {
             {
                 self.mute_on_disconnect = !self.mute_on_disconnect;
             }
+            Action::GbaDown(Btn::Left | Btn::Right)
+                if self.page == Page::Home && self.selected == 3 + self.device_indices().len() =>
+            {
+                self.interface_sounds = !self.interface_sounds;
+            }
             Action::GbaDown(Btn::X) => self.ask("diagnose", None),
             Action::GbaDown(Btn::Y) if self.page == Page::Home => {
                 if let Some(i) = self
@@ -289,6 +300,9 @@ impl Manager {
                     }
                     selected if selected == 2 + self.device_indices().len() => {
                         self.mute_on_disconnect = !self.mute_on_disconnect;
+                    }
+                    selected if selected == 3 + self.device_indices().len() => {
+                        self.interface_sounds = !self.interface_sounds;
                     }
                     selected => {
                         if let Some(i) = self.device_indices().get(selected - 1) {
@@ -380,7 +394,7 @@ impl Manager {
             ));
         }
         lines.push(
-            if self.page == Page::Home && self.selected == 2 + self.device_indices().len() {
+            if self.page == Page::Home && self.selected >= 2 + self.device_indices().len() {
                 if self.disconnect_notice {
                     "Change"
                 } else {
@@ -573,9 +587,19 @@ pub fn screen_face(lines: &[String]) -> UndoFace {
             }
             continue;
         }
-        if let Some(value) = label.strip_prefix("TOGGLE ") {
+        if let Some(value) = label
+            .strip_prefix("TOGGLE ")
+            .or_else(|| label.strip_prefix("SOUNDS "))
+        {
             // Use the Screen menu's text, dimming and caret assets and spacing.
-            let name = slot_ui::quick_value_face("Mute on disconnect", true);
+            let name = slot_ui::quick_value_face(
+                if label.starts_with("SOUNDS ") {
+                    "Interface sounds"
+                } else {
+                    "Mute on disconnect"
+                },
+                true,
+            );
             blit(&mut rgba, &name, 14, top);
             let value = slot_ui::quick_value_face(value, highlight);
             if highlight {
@@ -719,6 +743,7 @@ mod menu_tests {
             pending: None,
             face: None,
             mute_on_disconnect: false,
+            interface_sounds: true,
             disconnect_notice: false,
             route_choice: None,
             choosing_route: false,
@@ -749,7 +774,8 @@ mod menu_tests {
                 "ACTIVE Internal speaker",
                 "DEVICE WF-C510",
                 "Pair device",
-                "TOGGLE Off"
+                "TOGGLE Off",
+                "SOUNDS On"
             ]
         );
         assert!(m.lines()[0].is_empty());

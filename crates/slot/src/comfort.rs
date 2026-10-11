@@ -18,6 +18,7 @@ pub struct Comfort {
     pub day: Display,
     pub bedtime: Display,
     pub quiet: bool,
+    pub sounds: bool,
     pub shelf: usize,
     pub positions: BTreeMap<usize, String>,
     pub headsets: BTreeMap<String, Headset>,
@@ -35,6 +36,7 @@ impl Comfort {
                 warmth: 9,
             },
             quiet: false,
+            sounds: true,
             shelf: 0,
             positions: BTreeMap::new(),
             headsets: BTreeMap::new(),
@@ -61,6 +63,7 @@ impl Comfort {
             match key {
                 "night" => c.night = value == "1",
                 "quiet" => c.quiet = value == "1",
+                "sounds" => c.sounds = value == "1",
                 "day" => {
                     if let Some(d) = display() {
                         c.day = d
@@ -107,9 +110,10 @@ impl Comfort {
     }
     pub fn save(&self, root: &Path) -> io::Result<()> {
         let mut text = format!(
-            "night={}\nquiet={}\nday={},{}\nbedtime={},{}\nshelf={}\n",
+            "night={}\nquiet={}\nsounds={}\nday={},{}\nbedtime={},{}\nshelf={}\n",
             u8::from(self.night),
             u8::from(self.quiet),
+            u8::from(self.sounds),
             self.day.brightness,
             self.day.warmth,
             self.bedtime.brightness,
