@@ -1,4 +1,4 @@
-# RG SP Bluetooth audio update v3.1
+# RG SP Bluetooth audio update v3.2
 
 MERGE this update into your existing slot installation. DO NOT replace or delete the System folder.
 This update does not contain emulator cores. If the previous update replaced your entire System
@@ -9,7 +9,7 @@ folder, restore the original slot System folder first so games work again.
 1. Power off and back up your existing System folder.
 2. Copy the files inside this update's System folder into the card's existing System folder.
    Replace only matching files. Keep all existing emulator files, ROMs, saves and configuration.
-3. Boot. Open Settings → Bluetooth Audio → Pair headphones.
+3. Boot. Open Settings → Sound → Pair headphones.
 4. Put headphones into pairing mode, select Scan for headphones, choose their name,
    then select Connect headphones. Sony WF-C510: earbuds in case, lid open,
    hold the rear case button at least five seconds until the blue light double flashes.
@@ -26,7 +26,7 @@ Pairing and connecting run in the background. Wait for completion before startin
 Saved named devices appear on the main menu; MAC-only names are hidden from lists.
 Forgetting requires confirmation. Use speaker disconnects and stops automatic reconnect.
 
-A small Bluetooth symbol appears beside the carousel clock while the selected headphones
+A small Bluetooth symbol appears beside the carousel battery percentage while the selected headphones
 are connected. A read-only background check updates it every few seconds; it hides when
 Speaker is selected or the headset disconnects.
 
@@ -52,7 +52,8 @@ The v2 pairing/audio implementation was confirmed working by the RG SP user.
 V3 simplifies the menus and adds the carousel indicator. V3.1 also fixes the startup race
 seen in the supplied log: wait for the A2DP source before connecting, retry a transient
 profile-unavailable response once, and give manual actions priority over automatic reconnect.
-The ALSA backend and startup script are unchanged. The new UI/startup handling needs a device test.
+V3.1 was confirmed working on the user’s handheld. V3.2 renames the menu item to Sound,
+places it above About, and uses a smaller Bluetooth indicator beside the battery.
 
 ## Restore
 

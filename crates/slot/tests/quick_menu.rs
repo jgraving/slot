@@ -112,15 +112,15 @@ fn up_and_down_move_the_bar_and_wrap_at_the_ends() {
     press(&mut a, Btn::Up);
     assert_eq!(
         a.quick_menu(),
-        Some(QuickRow::Bluetooth),
+        Some(QuickRow::About),
         "up from the top did not wrap to the bottom"
     );
     for want in [
         QuickRow::Screen,
         QuickRow::Game,
         QuickRow::DateTime,
-        QuickRow::About,
         QuickRow::Bluetooth,
+        QuickRow::About,
         QuickRow::Screen,
     ] {
         press(&mut a, Btn::Down);
@@ -645,7 +645,7 @@ fn connected_bluetooth_indicator_sits_in_the_carousel_footer_and_can_hide() {
         .collect();
     assert_eq!(positions.len(), 1);
     let (x, y, w, h) = positions[0];
-    assert!(x >= 0.0 && x + w <= slot_ui::OUT_W as f32);
+    assert_eq!((x, y, w, h), (24.0, 443.0, 16.0, 16.0));
     assert!(y > 420.0 && y + h <= slot_ui::OUT_H as f32);
     app.bluetooth_indicator = None;
     draws.clear();

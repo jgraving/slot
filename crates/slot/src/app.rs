@@ -2060,18 +2060,9 @@ impl App {
                     self.battery_percent,
                     self.bolt,
                     self.shelf_clock,
+                    self.bluetooth_indicator,
                     out,
                 );
-                if let Some(tex) = self.bluetooth_indicator {
-                    out.push(Draw::Tex {
-                        x: OUT_W as f32 - 24.0 - self.shelf_clock.w as f32 - 34.0,
-                        y: OUT_H as f32 - 41.0,
-                        w: 24.0,
-                        h: 24.0,
-                        tex,
-                        alpha: 1.0,
-                    });
-                }
             }
             Phase::About => {
                 draw_backdrop(self.wallpaper, out);

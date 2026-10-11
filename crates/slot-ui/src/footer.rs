@@ -1,7 +1,7 @@
 use slot_gfx::{Draw, TexId, OUT_H, OUT_W};
 use slot_power::Battery;
 
-use crate::battery::{draw_gauge, GAUGE_H};
+use crate::battery::{draw_gauge, gauge_width, GAUGE_H};
 use crate::plate::HINT_H;
 use crate::slot_chrome::MOUTH_H;
 
@@ -28,10 +28,27 @@ pub fn draw_footer(
     percent: Printed,
     bolt: Option<TexId>,
     clock: Printed,
+    connection: Option<TexId>,
     out: &mut Vec<Draw>,
 ) {
     let y = FOOTER_Y + (HINT_H as f32 - GAUGE_H) / 2.0;
     draw_gauge(FOOTER_MARGIN, y, battery, percent, bolt, out);
+    if let Some(tex) = connection {
+        let x = FOOTER_MARGIN
+            + if battery.is_some() {
+                gauge_width(percent) + 10.0
+            } else {
+                0.0
+            };
+        out.push(Draw::Tex {
+            x,
+            y: FOOTER_Y + (HINT_H as f32 - 16.0) / 2.0,
+            w: 16.0,
+            h: 16.0,
+            tex,
+            alpha: 1.0,
+        });
+    }
     printed(OUT_W as f32 - FOOTER_MARGIN - clock.w as f32, clock, out);
 }
 

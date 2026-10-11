@@ -740,23 +740,23 @@ fn connection_present(info: &str) -> bool {
 
 pub fn indicator_face() -> UndoFace {
     let mut face = UndoFace {
-        rgba: vec![0; 24 * 24 * 4],
-        w: 24,
-        h: 24,
+        rgba: vec![0; 16 * 16 * 4],
+        w: 16,
+        h: 16,
     };
     for ((x0, y0), (x1, y1)) in [
-        ((11, 1), (11, 22)),
-        ((11, 1), (19, 7)),
-        ((19, 7), (4, 18)),
-        ((11, 22), (19, 16)),
-        ((19, 16), (4, 5)),
+        ((7, 1), (7, 14)),
+        ((7, 1), (12, 5)),
+        ((12, 5), (3, 12)),
+        ((7, 14), (12, 10)),
+        ((12, 10), (3, 3)),
     ] {
         let steps = i32::abs(x1 - x0).max(i32::abs(y1 - y0));
         for step in 0..=steps {
             let x = x0 + (x1 - x0) * step / steps;
             let y = y0 + (y1 - y0) * step / steps;
-            for dx in 0..2 {
-                let offset = ((y * 24 + x + dx) * 4) as usize;
+            for dx in 0..1 {
+                let offset = ((y * 16 + x + dx) * 4) as usize;
                 face.rgba[offset..offset + 4].copy_from_slice(&[246, 244, 239, 255]);
             }
         }

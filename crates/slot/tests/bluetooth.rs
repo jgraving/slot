@@ -73,7 +73,7 @@ fn minimalist_menu_shows_native_hints_and_active_output_without_headers() {
 #[test]
 fn bluetooth_symbol_uses_a_small_transparent_footer_face() {
     let face = slot::bluetooth::indicator_face();
-    assert_eq!((face.w, face.h), (24, 24));
+    assert_eq!((face.w, face.h), (16, 16));
     assert_eq!(face.rgba[3], 0);
     assert!(face.rgba.chunks_exact(4).any(|p| p[3] == 255));
     if let Ok(path) = std::env::var("SLOT_BT_PREVIEW") {

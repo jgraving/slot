@@ -46,8 +46,8 @@ impl QuickRow {
         QuickRow::Screen,
         QuickRow::Game,
         QuickRow::DateTime,
-        QuickRow::About,
         QuickRow::Bluetooth,
+        QuickRow::About,
     ];
 
     pub const SCREEN: [QuickRow; 4] = [
@@ -122,7 +122,7 @@ impl QuickRow {
             QuickRow::Turbo => "Turbo Buttons",
             QuickRow::Rewind => "Rewind",
             QuickRow::GbPalettes => "GB Palettes",
-            QuickRow::Bluetooth => "Bluetooth Audio",
+            QuickRow::Bluetooth => "Sound",
         }
     }
 
