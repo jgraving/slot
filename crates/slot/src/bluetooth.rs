@@ -220,7 +220,7 @@ impl Manager {
                     )
                 }));
                 rows.push(format!(
-                    "Pause on disconnect: {}",
+                    "TOGGLE {}",
                     if self.pause_on_disconnect {
                         "On"
                     } else {
@@ -263,6 +263,11 @@ impl Manager {
         match action {
             Action::GbaDown(Btn::Up) => self.selected = (self.selected + count - 1) % count,
             Action::GbaDown(Btn::Down) => self.selected = (self.selected + 1) % count,
+            Action::GbaDown(Btn::Left | Btn::Right)
+                if self.page == Page::Home && self.selected == 2 + self.device_indices().len() =>
+            {
+                self.pause_on_disconnect = !self.pause_on_disconnect;
+            }
             Action::GbaDown(Btn::X) => self.ask("diagnose", None),
             Action::GbaDown(Btn::Y) if self.page == Page::Home => {
                 if let Some(i) = self
@@ -369,7 +374,13 @@ impl Manager {
             ));
         }
         lines.push(
-            if self.disconnect_notice && self.page == Page::Home {
+            if self.page == Page::Home && self.selected == 2 + self.device_indices().len() {
+                if self.disconnect_notice {
+                    "Change"
+                } else {
+                    "B Back · Change"
+                }
+            } else if self.disconnect_notice && self.page == Page::Home {
                 "A Select"
             } else if self.page == Page::Home
                 && self.selected >= 2
@@ -518,10 +529,15 @@ pub fn screen_face(lines: &[String]) -> UndoFace {
             }
         }
         if i == lines.len() - 1 {
-            let mut hints = vec![
-                slot_ui::hint_face("B", "Back"),
-                slot_ui::hint_face("A", "Select"),
-            ];
+            let mut hints = Vec::new();
+            if line.contains("B Back") {
+                hints.push(slot_ui::hint_face("B", "Back"));
+            }
+            hints.push(if line.contains("Change") {
+                slot_ui::arrows_hint_face("Change")
+            } else {
+                slot_ui::hint_face("A", "Select")
+            });
             if line.contains("Y Manage") {
                 hints.push(slot_ui::hint_face("Y", "Manage"));
             }
@@ -531,6 +547,24 @@ pub fn screen_face(lines: &[String]) -> UndoFace {
             for hint in hints {
                 blit(&mut rgba, &hint, x, 427);
                 x += hint.w + gap;
+            }
+            continue;
+        }
+        if let Some(value) = label.strip_prefix("TOGGLE ") {
+            // Use the Screen menu's text, dimming and caret assets and spacing.
+            let name = slot_ui::quick_value_face("Pause on disconnect", true);
+            blit(&mut rgba, &name, 14, top);
+            let value = slot_ui::quick_value_face(value, highlight);
+            if highlight {
+                let left = slot_ui::quick_caret_face(false);
+                let right = slot_ui::quick_caret_face(true);
+                let rx = OUT_W - 32 - right.w;
+                let vx = rx - 14 + 18 - value.w;
+                blit(&mut rgba, &right, rx, top);
+                blit(&mut rgba, &value, vx, top);
+                blit(&mut rgba, &left, vx + 18 - 14 - left.w, top);
+            } else {
+                blit(&mut rgba, &value, OUT_W - 32 + 18 - value.w, top);
             }
             continue;
         }
@@ -659,15 +693,19 @@ mod menu_tests {
         let mut m = menu();
         assert_eq!(
             m.rows(),
-            vec![
-                "Pair headphones",
-                "ACTIVE Speaker",
-                "WF-C510",
-                "Pause on disconnect: Off"
-            ]
+            vec!["Pair headphones", "ACTIVE Speaker", "WF-C510", "TOGGLE Off"]
         );
         assert!(m.lines()[0].is_empty());
         assert!(m.lines()[1].is_empty());
+        m.selected = 3;
+        m.input(Action::GbaDown(Btn::Right));
+        assert!(m.pause_on_disconnect);
+        assert_eq!(m.lines().last().unwrap(), "B Back · Change");
+        m.input(Action::GbaDown(Btn::Left));
+        assert!(!m.pause_on_disconnect);
+        if let Ok(path) = std::env::var("SLOT_SOUND_TOGGLE_PREVIEW") {
+            std::fs::write(path, screen_face(&m.lines()).rgba).unwrap();
+        }
         m.selected = 2;
         m.input(Action::GbaDown(Btn::Y));
         assert_eq!(m.page, Page::Device(0));
