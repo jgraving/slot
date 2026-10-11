@@ -119,6 +119,7 @@ fn up_and_down_move_the_bar_and_wrap_at_the_ends() {
         QuickRow::Screen,
         QuickRow::Game,
         QuickRow::DateTime,
+        QuickRow::Bluetooth,
         QuickRow::About,
         QuickRow::Screen,
     ] {
@@ -624,4 +625,32 @@ fn gb_palettes_flips_on_either_arrow_and_saves() {
             Some(QuickValue::flag(want))
         );
     }
+}
+
+#[test]
+fn connected_bluetooth_indicator_sits_in_the_carousel_footer_and_can_hide() {
+    let (_d, mut app, _) = on_carousel();
+    let indicator = TexId::from_raw(999);
+    app.bluetooth_indicator = Some(indicator);
+    let mut draws = Vec::new();
+    app.draw(&mut draws);
+    let positions: Vec<_> = draws
+        .iter()
+        .filter_map(|d| match d {
+            Draw::Tex {
+                tex, x, y, w, h, ..
+            } if *tex == indicator => Some((*x, *y, *w, *h)),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(positions.len(), 1);
+    let (x, y, w, h) = positions[0];
+    assert_eq!((x, y, w, h), (24.0, 441.0, 20.0, 20.0));
+    assert!(y > 420.0 && y + h <= slot_ui::OUT_H as f32);
+    app.bluetooth_indicator = None;
+    draws.clear();
+    app.draw(&mut draws);
+    assert!(!draws
+        .iter()
+        .any(|d| matches!(d, Draw::Tex { tex, .. } if *tex == indicator)));
 }

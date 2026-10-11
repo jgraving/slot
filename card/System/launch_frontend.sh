@@ -18,6 +18,7 @@ fi
 echo "|/bin/sh $SYS/coresave.sh %p %s %e %t" > /proc/sys/kernel/core_pattern 2>/dev/null
 
 [ -f "$SD/slot.log" ] && mv -f "$SD/slot.log" "$SD/slot.log.1"
+sh "$SYS/bluetooth.sh" restore >> "$SD/bluetooth.log" 2>&1 &
 log "exec $SYS/slot"
 
 exec /lib/ld-linux-aarch64.so.1 "$SYS/slot" > "$SD/slot.log" 2>&1

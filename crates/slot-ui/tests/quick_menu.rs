@@ -79,7 +79,7 @@ fn the_fast_forward_row_offers_the_four_ceilings_the_card_can_hold() {
 fn the_rows_run_in_the_order_the_user_chose() {
     assert_eq!(
         QuickRow::MAIN.map(QuickRow::label),
-        ["Screen", "Gameplay", "Date & Time", "About"]
+        ["Screen", "Gameplay", "Date & Time", "Sound", "About"]
     );
     assert_eq!(
         QuickRow::SCREEN.map(QuickRow::label),
@@ -108,7 +108,8 @@ fn the_rows_run_in_the_order_the_user_chose() {
             QuickRow::Screen,
             QuickRow::DateTime,
             QuickRow::About,
-            QuickRow::Game
+            QuickRow::Game,
+            QuickRow::Bluetooth
         ]
     );
     for page in [
