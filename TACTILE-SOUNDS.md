@@ -1,12 +1,12 @@
-# Cartridge clicks
+# Cartridge sounds
 
 Built on main after Favorites/Recents and Grab and Go were merged.
 
-Rolling past a cartridge plays the same quiet plastic tick as the first sound build,
-with five subtle pitch variants. Idle shelves and shelf changes do not click. Fast
-scrolling is limited to one tick every 35 ms, without queuing a backlog.
+Rolling past a cartridge plays a soft plastic slide with a muted finishing tap,
+with five subtle texture and pitch variants. Idle shelves and shelf changes do not click. Fast
+scrolling is limited to one tick every 55 ms, without queuing a backlog.
 
-Sound → Cartridge clicks controls the effect. It defaults to On and survives reboot.
+Sound → Cartridge sounds controls the effect. It defaults to On and survives reboot.
 The preference carries over from Interface sounds. Existing cartridge insertion and
 ejection sounds are unchanged. Bluetooth connection/disconnection sounds are removed.
 

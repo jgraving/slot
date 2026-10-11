@@ -2060,7 +2060,7 @@ impl App {
                     && self.comfort.sounds
                     && self.bluetooth.is_none()
                     && self.power_menu.is_none()
-                    && self.click_at.is_none_or(|at| now.saturating_sub(at) >= 35)
+                    && self.click_at.is_none_or(|at| now.saturating_sub(at) >= 55)
                     && self.sfx.is_none()
                 {
                     self.click_variant = self.click_variant.wrapping_add(1);
