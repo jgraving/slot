@@ -32,6 +32,7 @@ pub struct Session {
     prefetch: Prefetch,
     reloading: bool,
     driven: bool,
+    bluetooth_monitor: crate::bluetooth::Indicator,
 }
 
 impl Session {
@@ -54,6 +55,7 @@ impl Session {
             prefetch: Prefetch::default(),
             reloading: false,
             driven: false,
+            bluetooth_monitor: Default::default(),
         }
     }
 
@@ -217,6 +219,9 @@ impl Session {
     }
 
     pub fn update(&mut self, dt: f32) {
+        let connected = self.bluetooth_monitor.poll();
+        self.app
+            .bluetooth_state(self.bluetooth_monitor.address(), connected);
         self.bridge_link(|app| app.update(dt));
         if let Some(emu) = &self.emu {
             emu.set_volume(self.app.output_volume());
@@ -354,7 +359,10 @@ impl Session {
     }
 
     fn held(&self) -> bool {
-        self.app.power_menu().is_some() || self.app.game_menu_open() || self.app.shutting_down()
+        self.app.power_menu().is_some()
+            || self.app.game_menu_open()
+            || self.app.shutting_down()
+            || self.app.audio_paused()
     }
 
     fn dozing(&self) -> bool {

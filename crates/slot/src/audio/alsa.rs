@@ -45,6 +45,20 @@ fn parse_device(text: &str) -> Option<String> {
     Some(format!("plug:SLAVE='{name}'"))
 }
 
+fn quiet_at_boot() -> bool {
+    let root = std::env::var_os("SLOT_ROOT").unwrap_or_else(|| "/mnt/sdcard".into());
+    std::fs::read_to_string(std::path::PathBuf::from(root).join("Config/comfort.txt"))
+        .is_ok_and(|s| s.lines().any(|l| l == "quiet=1"))
+}
+
+fn candidates(requested: Option<&str>, quiet: bool) -> impl Iterator<Item = &str> {
+    requested.into_iter().chain(
+        DEVICES
+            .into_iter()
+            .filter(move |_| requested.is_none() || !quiet),
+    )
+}
+
 const DEVICES: [&str; 4] = ["plug:default", "default", "plughw:0,0", "hw:0,0"];
 
 type PcmOpen = unsafe extern "C" fn(*mut *mut c_void, *const c_char, c_int, c_int) -> c_int;
@@ -105,7 +119,8 @@ impl Alsa {
     fn open_pcm(&self, rate: u32) -> Result<(*mut c_void, String), AudioError> {
         let mut last = AudioError::NoDevice;
         let requested = requested_device();
-        for name in requested.as_deref().into_iter().chain(DEVICES) {
+        let quiet = crate::comfort::QUIET_AUDIO.load(Ordering::Relaxed) || quiet_at_boot();
+        for name in candidates(requested.as_deref(), quiet) {
             let Ok(cname) = CString::new(name) else {
                 continue;
             };
@@ -256,7 +271,12 @@ impl Playback {
         let mut silence = Silence::new(RELEASE_AFTER);
         let mut route_check = Instant::now();
         while !stop.load(Ordering::Relaxed) {
-            if route_check.elapsed() >= Duration::from_secs(2) {
+            if crate::comfort::QUIET_AUDIO.load(Ordering::Relaxed)
+                && self.route.as_ref().is_some_and(|r| *r != self.actual)
+            {
+                self.release();
+            }
+            if route_check.elapsed() >= Duration::from_millis(200) {
                 let route = requested_device();
                 if route != self.route || route.as_ref().is_some_and(|r| *r != self.actual) {
                     self.release();
@@ -353,7 +373,19 @@ impl Drop for Playback {
 
 #[cfg(test)]
 mod tests {
-    use super::parse_device;
+    use super::{candidates, parse_device, DEVICES};
+    #[test]
+    fn quiet_headphone_failure_has_no_speaker_candidate() {
+        assert_eq!(
+            candidates(Some("headset"), true).collect::<Vec<_>>(),
+            vec!["headset"]
+        );
+        assert_eq!(candidates(None, true).collect::<Vec<_>>(), DEVICES);
+        assert_eq!(
+            candidates(Some("headset"), false).count(),
+            DEVICES.len() + 1
+        );
+    }
     #[test]
     fn headphone_route_wraps_bluealsa_for_resampling_and_rejects_other_pcm_names() {
         assert_eq!(

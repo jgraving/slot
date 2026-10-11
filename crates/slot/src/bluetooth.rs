@@ -49,7 +49,7 @@ pub fn parse_devices(text: &str) -> Vec<Headphones> {
     devices
 }
 
-fn valid_address(address: &str) -> bool {
+pub fn valid_address(address: &str) -> bool {
     let parts: Vec<_> = address.split(':').collect();
     parts.len() == 6
         && parts
@@ -81,6 +81,10 @@ pub struct Manager {
     output: String,
     pending: Option<Receiver<ResultMessage>>,
     pub face: Option<TexId>,
+    pub pause_on_disconnect: bool,
+    pub disconnect_notice: bool,
+    pub route_choice: Option<String>,
+    choosing_route: bool,
 }
 
 impl Manager {
@@ -95,6 +99,10 @@ impl Manager {
             output: "speaker".into(),
             pending: None,
             face: None,
+            pause_on_disconnect: false,
+            disconnect_notice: false,
+            route_choice: None,
+            choosing_route: false,
         };
         manager.ask("list", None);
         manager
@@ -104,6 +112,7 @@ impl Manager {
         if self.pending.is_some() {
             return;
         }
+        self.choosing_route = matches!(verb, "speaker" | "connect");
         let root = self.root.clone();
         let (tx, rx) = mpsc::channel();
         self.pending = Some(rx);
@@ -139,6 +148,10 @@ impl Manager {
                     self.devices = message.devices;
                 }
                 if let Some(output) = message.output {
+                    if self.choosing_route && !message.status.starts_with("Error:") {
+                        self.route_choice = Some(output.clone());
+                    }
+                    self.choosing_route = false;
                     self.output = output;
                 }
                 self.status = if message.status.starts_with("Error:")
@@ -186,7 +199,9 @@ impl Manager {
             Page::Home => {
                 let mut rows = vec![
                     "Pair headphones".into(),
-                    if self.active_device().is_none() {
+                    if self.active_device().is_none()
+                        && !(self.pause_on_disconnect && valid_address(&self.output))
+                    {
                         "ACTIVE Speaker"
                     } else {
                         "Speaker"
@@ -204,6 +219,14 @@ impl Manager {
                         self.devices[*i].name
                     )
                 }));
+                rows.push(format!(
+                    "Pause on disconnect: {}",
+                    if self.pause_on_disconnect {
+                        "On"
+                    } else {
+                        "Off"
+                    }
+                ));
                 rows
             }
             Page::Pair => {
@@ -254,6 +277,9 @@ impl Manager {
                 Page::Home => match self.selected {
                     0 => self.open(Page::Pair),
                     1 => self.ask("speaker", None),
+                    selected if selected == 2 + self.device_indices().len() => {
+                        self.pause_on_disconnect = !self.pause_on_disconnect;
+                    }
                     selected => {
                         if let Some(i) = self.device_indices().get(selected - 2) {
                             self.ask("connect", Some(self.devices[*i].address.clone()));
@@ -311,6 +337,8 @@ impl Manager {
         };
         let message = if self.status.is_empty() && matches!(self.page, Page::Forget(_)) {
             "You will need to pair this device again.".to_owned()
+        } else if self.status.is_empty() && self.disconnect_notice {
+            "Headphones disconnected — choose output".into()
         } else {
             self.status.clone()
         };
@@ -341,7 +369,13 @@ impl Manager {
             ));
         }
         lines.push(
-            if self.page == Page::Home && self.selected >= 2 && self.pending.is_none() {
+            if self.disconnect_notice && self.page == Page::Home {
+                "A Select"
+            } else if self.page == Page::Home
+                && self.selected >= 2
+                && self.selected < 2 + self.device_indices().len()
+                && self.pending.is_none()
+            {
                 "B Back · A Select · Y Manage"
             } else {
                 "B Back · A Select"
@@ -599,6 +633,10 @@ mod menu_tests {
             output: "speaker".into(),
             pending: None,
             face: None,
+            pause_on_disconnect: false,
+            disconnect_notice: false,
+            route_choice: None,
+            choosing_route: false,
         }
     }
     #[test]
@@ -621,7 +659,12 @@ mod menu_tests {
         let mut m = menu();
         assert_eq!(
             m.rows(),
-            vec!["Pair headphones", "ACTIVE Speaker", "WF-C510"]
+            vec![
+                "Pair headphones",
+                "ACTIVE Speaker",
+                "WF-C510",
+                "Pause on disconnect: Off"
+            ]
         );
         assert!(m.lines()[0].is_empty());
         assert!(m.lines()[1].is_empty());
@@ -698,33 +741,32 @@ mod menu_tests {
 #[derive(Default)]
 pub struct Indicator {
     checked: Option<std::time::Instant>,
-    pending: Option<Receiver<(String, bool)>>,
+    pending: Option<Receiver<(String, Option<bool>)>>,
     output: String,
     active: bool,
 }
 
 impl Indicator {
+    pub fn address(&self) -> Option<String> {
+        (!self.output.is_empty()).then(|| self.output.clone())
+    }
     pub fn poll(&mut self) -> bool {
         if let Some(rx) = &self.pending {
             match rx.try_recv() {
                 Ok((address, connected)) => {
-                    self.active = self.output == address && connected;
+                    if self.output == address {
+                        if let Some(connected) = connected {
+                            self.active = connected;
+                        }
+                    }
                     self.pending = None;
                 }
                 Err(mpsc::TryRecvError::Disconnected) => {
-                    self.active = false;
                     self.pending = None;
                 }
                 Err(mpsc::TryRecvError::Empty) => {}
             }
         }
-        if self
-            .checked
-            .is_some_and(|t| t.elapsed() < std::time::Duration::from_secs(3))
-        {
-            return self.active;
-        }
-        self.checked = Some(std::time::Instant::now());
         let path = std::env::var_os("SLOT_AUDIO_ROUTE")
             .map(PathBuf::from)
             .unwrap_or_else(|| PathBuf::from("/run/slot-audio-device"));
@@ -733,11 +775,19 @@ impl Indicator {
         if address != self.output {
             self.active = false;
             self.output = address.clone();
+            self.checked = None;
         }
         if address.is_empty() {
             self.active = false;
             return false;
         }
+        if self
+            .checked
+            .is_some_and(|t| t.elapsed() < std::time::Duration::from_secs(1))
+        {
+            return self.active;
+        }
+        self.checked = Some(std::time::Instant::now());
         if self.pending.is_none() {
             let (tx, rx) = mpsc::channel();
             self.pending = Some(rx);
@@ -747,12 +797,21 @@ impl Indicator {
                     .args(["2", "bluetoothctl", "info", &address])
                     .output()
                     .ok()
-                    .is_some_and(|output| {
-                        output.status.success()
-                            && connection_present(&String::from_utf8_lossy(&output.stdout))
+                    .and_then(|output| {
+                        if !output.status.success() {
+                            return None;
+                        }
+                        let info = String::from_utf8_lossy(&output.stdout);
+                        if connection_present(&info) {
+                            Some(true)
+                        } else if info.lines().any(|l| l.trim() == "Connected: no") {
+                            Some(false)
+                        } else {
+                            None
+                        }
                     });
                 #[cfg(not(feature = "device"))]
-                let connected = false;
+                let connected = Some(false);
                 let _ = tx.send((address, connected));
             });
         }
