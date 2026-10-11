@@ -30,8 +30,15 @@ Never disables automatic shutdown. The timer applies to both kinds of sleep.
 
 Holding Power retains Restart and Power Off, with Sleep added below. Sleep uses
 deep sleep when Lid Close is set to Deep Sleep; otherwise it uses light sleep.
-Power Off shows a short ridged sliding-switch animation with a quiet slide and click.
+Power Off shows a short-travel SP-style switch with a broad grey grip, three raised
+ribs, and moulded OFF/ON markings. The click is four times the cartridge click's
+amplitude and remains controlled by output volume. Restart switches off, pauses,
+then switches on again, with a click at each detent. Sleep from the power menu
+closes the screen into a fading line over 320 ms before turning off the backlight
+and suspending. Closing the physical lid still sleeps immediately.
 Automatic shutdown while sleeping stays silent.
+
+Switch visual reference: https://gbasp.ru/japangreen.html (Pearl Green side view).
 
 Deep sleep uses BaseOS Super Standby. **Press Power to wake; opening the lid alone
 does not wake it.** Timed sleep arms the RTC alarm, wakes at the deadline, and shuts

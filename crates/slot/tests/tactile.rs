@@ -3,6 +3,19 @@ use slot::{app::App, audio::Sfx};
 use slot_input::{Action, Btn};
 
 #[test]
+fn switch_clicks_are_stronger_and_restart_has_two_detents() {
+    let rate = 48_000;
+    let peak = |v: &[i16]| v.iter().map(|s| s.unsigned_abs()).max().unwrap_or(0);
+    let cartridge = Sfx::Cartridge(0).render(rate);
+    let off = Sfx::PowerSwitch.render(rate);
+    let restart = Sfx::RestartSwitch.render(rate);
+    assert!(peak(&off) >= peak(&cartridge) * 3);
+    assert_eq!(&restart[..off.len()], &off);
+    assert!(peak(&restart[rate as usize..]) > 0);
+    assert!(peak(&off) < 24000);
+}
+
+#[test]
 fn synthesized_clips_are_short_quiet_stereo_and_distinct() {
     let sounds = [Sfx::Cartridge(0), Sfx::Cartridge(1)];
     let mut clips = Vec::new();

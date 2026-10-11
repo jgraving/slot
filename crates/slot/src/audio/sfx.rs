@@ -8,6 +8,7 @@ pub enum Sfx {
     Eject,
     Cartridge(u8),
     PowerSwitch,
+    RestartSwitch,
 }
 
 impl Sfx {
@@ -21,7 +22,10 @@ impl Sfx {
 
     pub fn tail(self) -> f32 {
         if self == Self::PowerSwitch {
-            return 0.54;
+            return 0.40;
+        }
+        if self == Self::RestartSwitch {
+            return 0.92;
         }
         if let Self::Cartridge(_) = self {
             return 0.028;
@@ -35,26 +39,20 @@ impl Sfx {
     }
 
     pub fn render(self, sample_rate: u32) -> Vec<i16> {
-        if self == Self::PowerSwitch {
-            let mut clip = vec![0; (sample_rate as f32 * 0.54) as usize * 2];
-            let mut seed = 0x51de_u32;
-            let mut smooth = 0.0_f32;
-            for (i, frame) in clip.chunks_exact_mut(2).enumerate() {
-                let t = i as f32 / sample_rate as f32;
-                if t >= 0.46 {
-                    break;
-                }
-                seed = seed.wrapping_mul(1664525).wrapping_add(1013904223);
-                let noise = (seed >> 8) as f32 / 8388608.0 - 1.0;
-                smooth += (noise - smooth) * (1800.0 / sample_rate as f32).min(1.0);
-                let envelope = (t / 0.08).min(1.0) * ((0.46 - t) / 0.1).min(1.0);
-                let value = (smooth * envelope * 500.0) as i16;
-                frame.fill(value);
-            }
+        if matches!(self, Self::PowerSwitch | Self::RestartSwitch) {
+            let mut clip = vec![0; (sample_rate as f32 * self.tail()) as usize * 2];
             let click = tactile(Self::Cartridge(0), sample_rate);
-            let offset = (sample_rate as f32 * 0.48) as usize * 2;
-            for (dest, src) in clip.iter_mut().skip(offset).zip(click) {
-                *dest = src;
+            let times: &[f32] = if self == Self::RestartSwitch {
+                &[0.34, 0.86]
+            } else {
+                &[0.34]
+            };
+            for time in times {
+                let offset = (sample_rate as f32 * time) as usize * 2;
+                for (dest, src) in clip.iter_mut().skip(offset).zip(&click) {
+                    // A firm switch detent, clearly stronger than carousel clicks.
+                    *dest = (i32::from(*src) * 4).clamp(-24000, 24000) as i16;
+                }
             }
             return clip;
         }

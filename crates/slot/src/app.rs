@@ -64,6 +64,8 @@ pub const LINK_LOST_MS: Millis = 2000;
 const PLAY_HOLD_MS: Millis = 500;
 
 const SHUTDOWN_SHOW_MS: Millis = 700;
+const RESTART_SHOW_MS: Millis = 1100;
+const SLEEP_SHOW_MS: Millis = 320;
 
 const POWER_MENU_PITCH: f32 = 44.0;
 const POWER_MENU_BAR_INSET: f32 = 4.0;
@@ -363,6 +365,7 @@ pub struct App {
     battery: Option<Battery>,
     last_led: Option<LedState>,
     powering_off: bool,
+    sleep_visual: Option<(Millis, Vec<Draw>)>,
     radio: Box<dyn RadioJobs>,
     state_writer: crate::state_writer::StateWriter,
 }
@@ -526,6 +529,7 @@ impl App {
             battery: None,
             last_led: None,
             powering_off: false,
+            sleep_visual: None,
         }
     }
 
@@ -2085,6 +2089,16 @@ impl App {
             self.name_pending = false;
             self.shelf_named = Some(self.now());
         }
+        if self
+            .sleep_visual
+            .as_ref()
+            .is_some_and(|(at, _)| self.now() >= *at + SLEEP_SHOW_MS)
+        {
+            self.sleep_visual = None;
+            if let Some(power) = &mut self.power {
+                power.on_close();
+            }
+        }
         self.timers();
         self.poll_link();
         let now = self.now();
@@ -2475,26 +2489,21 @@ impl App {
                 h: OUT_H as f32,
                 colour: [0.0, 0.0, 0.0, 1.0],
             });
-            if self.powering_off {
-                let remaining = self.act_at.saturating_sub(self.now()) as f32;
-                slot_ui::draw_power_switch(1.0 - remaining / SHUTDOWN_SHOW_MS as f32, out);
-                return;
-            }
-            let which = if self.restarting {
-                PowerChoice::Restart
+            let duration = if self.restarting {
+                RESTART_SHOW_MS
             } else {
-                PowerChoice::PowerOff
+                SHUTDOWN_SHOW_MS
             };
-            if let Some((tex, w, h)) = self.shutdown_faces.get(which.index()).copied() {
-                out.push(Draw::Tex {
-                    x: ((OUT_W - w) / 2) as f32,
-                    y: ((OUT_H - h) / 2) as f32,
-                    w: w as f32,
-                    h: h as f32,
-                    tex,
-                    alpha: 1.0,
-                });
-            }
+            let remaining = self.act_at.saturating_sub(self.now()) as f32;
+            slot_ui::draw_power_switch(1.0 - remaining / duration as f32, self.restarting, out);
+            return;
+        }
+        if let Some((at, frame)) = &self.sleep_visual {
+            out.extend_from_slice(frame);
+            slot_ui::draw_sleep(
+                self.now().saturating_sub(*at) as f32 / SLEEP_SHOW_MS as f32,
+                out,
+            );
             return;
         }
         if let Some(bluetooth) = self
@@ -3098,7 +3107,9 @@ impl App {
     }
 
     pub fn suspend_requested(&self) -> bool {
-        self.suspend_pending && matches!(self.phase, Phase::Doze { .. })
+        self.suspend_pending
+            && self.sleep_visual.is_none()
+            && matches!(self.phase, Phase::Doze { .. })
     }
 
     pub fn suspend_if_requested(&mut self) {
@@ -3149,12 +3160,15 @@ impl App {
         self.phase = Phase::Doze { cart };
         self.dozed_at = self.now();
         self.radio.ask(RadioJob::Cool);
-        if let Some(power) = &mut self.power {
-            power.on_close();
+        if self.sleep_visual.is_none() {
+            if let Some(power) = &mut self.power {
+                power.on_close();
+            }
         }
     }
 
     fn wake(&mut self) {
+        self.sleep_visual = None;
         self.suspend_pending = false;
         let Phase::Doze { cart } = &mut self.phase else {
             return;
@@ -3215,11 +3229,15 @@ impl App {
                 match PowerChoice::ALL[index] {
                     PowerChoice::Restart => {
                         self.restarting = true;
-                        self.act_at = self.now() + SHUTDOWN_SHOW_MS;
+                        self.act_at = self.now() + RESTART_SHOW_MS;
+                        self.sfx = Some(Sfx::RestartSwitch);
                         self.set_led(LedState::Off);
                     }
                     PowerChoice::PowerOff => self.begin_power_off(),
                     PowerChoice::Sleep => {
+                        let mut frame = Vec::new();
+                        self.draw(&mut frame);
+                        self.sleep_visual = Some((self.now(), frame));
                         self.doze();
                         self.suspend_pending = self.comfort.lid_close == 1;
                     }

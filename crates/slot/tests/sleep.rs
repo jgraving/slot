@@ -125,6 +125,29 @@ fn sleep_choice_enters_doze_without_powering_off() {
     a.apply(Action::GbaDown(Btn::Down));
     a.apply(Action::GbaDown(Btn::Down));
     a.apply(Action::GbaDown(Btn::A));
+    assert!(matches!(a.phase(), Phase::Doze { .. }));
+    assert!(
+        !a.suspend_requested(),
+        "finish the sleep animation before suspending"
+    );
+    a.update(0.2);
+    assert!(!a.suspend_requested());
+    a.update(0.13);
     assert!(a.suspend_requested());
     assert!(!a.powering_off());
+}
+
+#[test]
+fn waking_during_sleep_animation_cancels_suspend() {
+    let (_d, mut a, calls) = setup(false, 0);
+    a.apply(Action::PowerHold);
+    a.apply(Action::GbaDown(Btn::Down));
+    a.apply(Action::GbaDown(Btn::Down));
+    a.apply(Action::GbaDown(Btn::A));
+    a.update(0.1);
+    a.apply(Action::LidOpen);
+    a.update(0.3);
+    a.suspend_if_requested();
+    assert!(matches!(a.phase(), Phase::Shelf));
+    assert!(calls.lock().unwrap().is_empty());
 }
