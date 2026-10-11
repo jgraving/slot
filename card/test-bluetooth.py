@@ -1,5 +1,6 @@
 """Exercise pairing and routing using fake BaseOS commands; no radio required."""
 import os
+import time
 from pathlib import Path
 import subprocess
 import tempfile
@@ -36,7 +37,15 @@ case "$*" in
        quit) exit 0;;
      esac
    done;;
- *show*) echo "Controller AA:BB:CC:DD:EE:00"; echo "Powered: yes";;
+ *show*)
+   echo "Controller AA:BB:CC:DD:EE:00"; echo "Powered: yes"
+   count=$(cat "$SLOT_ROOT/show-count" 2>/dev/null || echo 0)
+   count=$((count + 1)); echo "$count" > "$SLOT_ROOT/show-count"
+   if [ "$count" -gt "${MOCK_SOURCE_DELAY:-0}" ]; then echo 'UUID: Audio Source (0000110a-0000-1000-8000-00805f9b34fb)'; touch "$SLOT_ROOT/source-ready"; fi;;
+ connect*)
+   if [ "${MOCK_REQUIRE_READY:-no}" = yes ] && [ ! -f "$SLOT_ROOT/source-ready" ]; then echo 'Failed to connect: org.bluez.Error.Failed br-connection-profile-unavailable'; exit 1; fi
+   if [ "${MOCK_CONNECT_ERROR:-}" != '' ]; then echo "Failed to connect: $MOCK_CONNECT_ERROR"; exit 1; fi
+   if [ "${MOCK_PROFILE_ONCE:-no}" = yes ] && [ ! -f "$SLOT_ROOT/connect-retried" ]; then touch "$SLOT_ROOT/connect-retried"; echo 'Failed to connect: org.bluez.Error.Failed br-connection-profile-unavailable'; exit 1; fi;;
  *devices*) echo 'Device AA:BB:CC:DD:EE:FF My headphones'; echo 'Device 00:11:22:33:44:55 00-11-22-33-44-55';;
  *info*)
    if [ -f "$SLOT_ROOT/paired" ]; then echo 'Paired: yes'; else echo "Paired: ${MOCK_PAIRED:-yes}"; fi
@@ -48,7 +57,7 @@ esac
         self.env = dict(os.environ, PATH=str(bin_dir) + ':' + os.environ['PATH'],
             SLOT_ROOT=str(self.root), SLOT_AUDIO_ROUTE=str(self.root / 'route'),
             SLOT_BT_LOCK=str(self.root / 'lock'), SLOT_BT_INIT=str(init),
-            SLOT_HCI_PATH=str(self.root / 'hci0'), SLOT_BT_POLL_INTERVAL='0.01', SLOT_BT_SCAN_SECONDS='0')
+            SLOT_HCI_PATH=str(self.root / 'hci0'), SLOT_BT_POLL_INTERVAL='0.01', SLOT_BT_SCAN_SECONDS='0', SLOT_BT_LOCK_TRIES='150')
 
     def tearDown(self):
         self.temp.cleanup()
@@ -114,6 +123,79 @@ esac
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn('My headphones', result.stdout)
         self.assertNotIn('DEVICE 00:11:22:33:44:55', result.stdout)
+
+    def test_connection_waits_for_audio_source_registration(self):
+        self.env.update(MOCK_SOURCE_DELAY='4', MOCK_REQUIRE_READY='yes')
+        result = self.run_command('connect', MAC)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        calls = (self.root / 'calls').read_text().splitlines()
+        first_connect = calls.index('connect ' + MAC)
+        self.assertGreaterEqual(calls[:first_connect].count('show'), 5)
+
+    def test_endpoint_race_gets_one_connection_retry(self):
+        self.env['MOCK_PROFILE_ONCE'] = 'yes'
+        result = self.run_command('connect', MAC)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual((self.root / 'calls').read_text().splitlines().count('connect ' + MAC), 2)
+
+    def test_list_and_diagnostics_do_not_remove_or_wait_for_another_lock(self):
+        lock = self.root / 'lock'; lock.mkdir()
+        (lock / 'pid').write_text(str(os.getpid()))
+        (lock / 'verb').write_text('restore')
+        for command in ['list', 'diagnose']:
+            result = self.run_command(command)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual((lock / 'pid').read_text(), str(os.getpid()))
+        self.assertFalse((lock / 'cancel').exists())
+
+    def test_manual_speaker_cancels_only_automatic_reconnect(self):
+        (self.root / 'Config').mkdir()
+        (self.root / 'Config/bluetooth-headphones').write_text(MAC)
+        env = dict(self.env, MOCK_CONNECTED='no', SLOT_BT_POLL_INTERVAL='0.05')
+        worker = subprocess.Popen(['sh', str(SCRIPT), 'restore'], env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        try:
+            deadline = time.monotonic() + 2
+            while not (self.root / 'lock/verb').exists() and time.monotonic() < deadline: time.sleep(0.01)
+            self.assertEqual((self.root / 'lock/verb').read_text().strip(), 'restore')
+            result = self.run_command('speaker')
+            self.assertEqual(result.returncode, 0, result.stderr)
+            _, error = worker.communicate(timeout=3)
+            self.assertEqual(worker.returncode, 0, error)
+            self.assertFalse((self.root / 'lock').exists())
+            self.assertFalse((self.root / 'Config/bluetooth-headphones').exists())
+            logs = '\n'.join(p.read_text() for p in (self.root / 'Bluetooth').glob('operation-*.log'))
+            self.assertIn('Automatic reconnect cancelled', logs)
+        finally:
+            if worker.poll() is None: worker.kill(); worker.communicate()
+
+    def test_restore_with_unavailable_headphones_keeps_preference_and_manual_errors(self):
+        (self.root / 'Config').mkdir()
+        (self.root / 'Config/bluetooth-headphones').write_text(MAC)
+        (self.root / 'Bluetooth').mkdir()
+        previous = self.root / 'Bluetooth/latest-error.txt'; previous.write_text('previous manual error')
+        self.env['MOCK_CONNECTED'] = 'no'
+        result = self.run_command('restore')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(previous.read_text(), 'previous manual error')
+        self.assertTrue((self.root / 'Bluetooth/latest-restore.txt').exists())
+        self.assertTrue((self.root / 'Config/bluetooth-headphones').exists())
+        self.assertFalse((self.root / 'lock').exists())
+
+    def test_live_manual_lock_is_preserved_and_busy_failure_is_logged(self):
+        lock = self.root / 'lock'; lock.mkdir()
+        (lock / 'pid').write_text(str(os.getpid())); (lock / 'verb').write_text('scan')
+        self.env['SLOT_BT_LOCK_TRIES'] = '3'
+        result = self.run_command('speaker')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual((lock / 'pid').read_text(), str(os.getpid()))
+        self.assertFalse((lock / 'cancel').exists())
+        self.assertIn('Another Bluetooth operation', (self.root / 'Bluetooth/latest-error.txt').read_text())
+
+    def test_orphaned_lock_without_pid_is_reclaimed(self):
+        (self.root / 'lock').mkdir()
+        result = self.run_command('speaker')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse((self.root / 'lock').exists())
 
     def test_restore_without_preference_does_not_start_radio(self):
         self.assertEqual(self.run_command('restore').returncode, 0)

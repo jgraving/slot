@@ -1,4 +1,4 @@
-# RG SP Bluetooth audio update v3
+# RG SP Bluetooth audio update v3.1
 
 MERGE this update into your existing slot installation. DO NOT replace or delete the System folder.
 This update does not contain emulator cores. If the previous update replaced your entire System
@@ -36,6 +36,10 @@ When an operation fails, attach Bluetooth/latest-error.txt from your content SD 
 It includes the pairing transcript, exact BlueZ error, adapter/service state, audio route,
 installed emulator file list and recent slot.log. Older failures are retained in Bluetooth/errors.
 Press X anywhere in the Bluetooth menus to save Bluetooth/latest-report.txt without needing a failure.
+Automatic reconnect failures use Bluetooth/latest-restore.txt so unavailable headphones
+at startup do not overwrite a manual failure report. Listing devices and saving reports
+never wait for the reconnect lock. A manual scan, connect, Speaker or Forget action
+asks the automatic reconnect to stop; it does not kill or restart Bluetooth services.
 Reports contain Bluetooth names/addresses and application log paths; review before sharing publicly.
 
 ## Changes and validation
@@ -45,8 +49,10 @@ checks actual Paired/Connected properties, and waits for the A2DP Audio Sink ser
 Helper tests cover live-agent pairing, failure reporting, filtering, routing, restore and forgetting.
 Rust checks cover list/state parsing, menu access, highlighted rendering, settings and audio behavior.
 The v2 pairing/audio implementation was confirmed working by the RG SP user.
-V3 changes the menu presentation and navigation; the pairing helper and ALSA backend are unchanged.
-The new UI still needs a device test.
+V3 simplifies the menus and adds the carousel indicator. V3.1 also fixes the startup race
+seen in the supplied log: wait for the A2DP source before connecting, retry a transient
+profile-unavailable response once, and give manual actions priority over automatic reconnect.
+The ALSA backend and startup script are unchanged. The new UI/startup handling needs a device test.
 
 ## Restore
 
