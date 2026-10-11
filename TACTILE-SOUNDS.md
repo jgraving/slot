@@ -11,7 +11,7 @@ The preference carries over from Interface sounds. Existing cartridge insertion 
 ejection sounds are unchanged. Bluetooth connection/disconnection sounds are removed.
 
 All sounds respect output volume and mute. With Mute on disconnect enabled, the
-speaker still switches to volume zero. The notice now reads “Disconnected · vol 0”
+speaker still switches to volume zero. The notice now reads “Device disconnected · Volume 0%”
 in the standard shaded top notification strip, using the same size and fade timing
 as Day/Night mode. It does not interrupt gameplay.
 

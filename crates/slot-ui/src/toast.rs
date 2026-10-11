@@ -84,7 +84,7 @@ impl Toast {
         match self {
             Toast::NightOn => "Night mode",
             Toast::NightOff => "Day mode",
-            Toast::HeadphonesDisconnected => "Disconnected · vol 0",
+            Toast::HeadphonesDisconnected => "Device disconnected · Volume 0%",
             Toast::FavoriteAdded => "Favorite added",
             Toast::FavoriteRemoved => "Favorite removed",
             Toast::StateSaved => "State Saved",
@@ -136,7 +136,11 @@ fn setting(toast: Toast) -> Setting {
             middle: OUT_H as f32 / 2.0,
         },
         false => Setting {
-            w: TOAST_W,
+            w: if toast == Toast::HeadphonesDisconnected {
+                420
+            } else {
+                TOAST_W
+            },
             h: TOAST_H,
             px: TOAST_PX,
             min_px: TOAST_MIN_PX,
