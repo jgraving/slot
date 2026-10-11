@@ -8,6 +8,9 @@ use crate::CartFace;
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum Toast {
+    NightOn,
+    NightOff,
+    HeadphonesDisconnected,
     FavoriteAdded,
     FavoriteRemoved,
     StateSaved,
@@ -29,7 +32,10 @@ pub enum Toast {
 }
 
 impl Toast {
-    const FIXED: [Toast; 17] = [
+    const FIXED: [Toast; 20] = [
+        Toast::NightOn,
+        Toast::NightOff,
+        Toast::HeadphonesDisconnected,
         Toast::FavoriteAdded,
         Toast::FavoriteRemoved,
         Toast::StateSaved,
@@ -64,18 +70,22 @@ impl Toast {
     }
 
     pub fn alarm(self) -> bool {
-        self == Toast::CardUnwritable
+        matches!(self, Toast::CardUnwritable | Toast::HeadphonesDisconnected)
     }
 
     pub fn detail(self) -> Option<&'static str> {
         match self {
             Toast::CardUnwritable => Some("Progress is not being saved"),
+            Toast::HeadphonesDisconnected => Some("Speaker volume 0"),
             _ => None,
         }
     }
 
     pub fn text(self) -> &'static str {
         match self {
+            Toast::NightOn => "Night mode",
+            Toast::NightOff => "Day mode",
+            Toast::HeadphonesDisconnected => "Headphones disconnected",
             Toast::FavoriteAdded => "Favorite added",
             Toast::FavoriteRemoved => "Favorite removed",
             Toast::StateSaved => "State Saved",

@@ -267,6 +267,13 @@ pub struct App {
     collections: crate::collections::Collections,
     collections_writable: bool,
     face_revision: u64,
+    comfort: crate::comfort::Comfort,
+    comfort_writable: bool,
+    comfort_dirty: Option<Millis>,
+    bluetooth_route: Option<String>,
+    bluetooth_connected: bool,
+    audio_paused: bool,
+    disconnect_muted: bool,
     retired_faces: Vec<TexId>,
     shelf_at: usize,
     play_held: Option<Millis>,
@@ -417,6 +424,13 @@ impl App {
             collections: Default::default(),
             collections_writable: true,
             face_revision: 0,
+            comfort: crate::comfort::Comfort::new(&SlotState::default()),
+            comfort_writable: true,
+            comfort_dirty: None,
+            bluetooth_route: None,
+            bluetooth_connected: false,
+            audio_paused: false,
+            disconnect_muted: false,
             retired_faces: Vec::new(),
             shelf_at,
             play_held: None,
@@ -516,6 +530,14 @@ impl App {
         let mut app = App::new(carts);
         app.root = Some(root.to_path_buf());
         app.state = read_slot_state(root);
+        match crate::comfort::Comfort::read(root, &app.state) {
+            Ok(c) => app.comfort = c,
+            Err(e) => {
+                eprintln!("slot: comfort: {e}");
+                app.comfort_writable = false;
+            }
+        }
+        crate::comfort::QUIET_AUDIO.store(app.comfort.quiet, Ordering::Relaxed);
         match crate::collections::Collections::read(root) {
             Ok(collections) => app.collections = collections,
             Err(e) => {
@@ -527,6 +549,7 @@ impl App {
         if !app.shelves[RECENT_SHELF].1.carts.is_empty() {
             app.shelf_at = RECENT_SHELF;
         }
+        app.restore_browsing();
         if app.state.clock_set {
             app.start();
         } else {
@@ -541,7 +564,16 @@ impl App {
         } else {
             let stem = self.state.cart.clone();
             let platform = self.state.cart_platform;
-            stem.and_then(|stem| self.seat_of(&stem, platform))
+            stem.and_then(|stem| {
+                let selected = self.shelf().carts.get(self.shelf().index);
+                if selected
+                    .is_some_and(|c| c.stem == stem && platform.is_none_or(|p| p == c.platform))
+                {
+                    Some((self.shelf_at, self.shelf().index))
+                } else {
+                    self.seat_of(&stem, platform)
+                }
+            })
         };
         self.phase = Phase::Shelf;
         match seated {
@@ -559,6 +591,156 @@ impl App {
                 self.state.cart_platform = None;
                 self.name_pending = true;
             }
+        }
+    }
+
+    fn restore_browsing(&mut self) {
+        for (at, key) in &self.comfort.positions {
+            if let Some((_, shelf)) = self.shelves.get_mut(*at) {
+                if let Some(i) = shelf.carts.iter().position(|c| Self::browse_key(c) == *key) {
+                    shelf.select(i);
+                }
+            }
+        }
+        if self.comfort.positions.contains_key(&self.comfort.shelf)
+            && !self.shelves[self.comfort.shelf].1.carts.is_empty()
+        {
+            self.shelf_at = self.comfort.shelf;
+        }
+    }
+
+    fn browse_key(cart: &Cart) -> String {
+        format!("{}/{}", cart.platform.dir_name(), cart.stem)
+    }
+
+    fn remember_browsing(&mut self) {
+        if !self.on_shelf() {
+            return;
+        }
+        let Some(cart) = self.shelf().carts.get(self.shelf().index) else {
+            return;
+        };
+        let key = Self::browse_key(cart);
+        if self.comfort.shelf != self.shelf_at
+            || self.comfort.positions.get(&self.shelf_at) != Some(&key)
+        {
+            self.comfort.shelf = self.shelf_at;
+            self.comfort.positions.insert(self.shelf_at, key);
+            self.comfort_changed();
+        }
+    }
+
+    fn comfort_changed(&mut self) {
+        self.comfort_dirty = Some(self.now());
+    }
+
+    fn save_comfort(&mut self) {
+        if self.comfort_dirty.is_none() || !self.comfort_writable {
+            return;
+        }
+        if let Some(root) = &self.root {
+            if let Err(e) = self.comfort.save(root) {
+                eprintln!("slot: comfort: {e}");
+                self.comfort_dirty = Some(self.now());
+                self.hud.toast(Toast::CardUnwritable, self.now());
+                return;
+            }
+        }
+        self.comfort_dirty = None;
+    }
+
+    pub fn night_mode(&self) -> bool {
+        self.comfort.night
+    }
+    pub fn quiet_disconnect(&self) -> bool {
+        self.comfort.quiet
+    }
+    pub fn bluetooth_active(&self) -> bool {
+        self.bluetooth_route.is_some() && self.bluetooth_connected
+    }
+
+    pub fn audio_paused(&self) -> bool {
+        self.audio_paused
+    }
+
+    pub fn set_quiet_disconnect(&mut self, enabled: bool) {
+        self.comfort.quiet = enabled;
+        crate::comfort::QUIET_AUDIO.store(enabled, Ordering::Relaxed);
+        self.comfort_changed();
+        self.save_comfort();
+    }
+
+    fn remember_display(&mut self) {
+        let d = crate::comfort::Display {
+            brightness: self.state.brightness,
+            warmth: self.state.blue_light,
+        };
+        if self.comfort.night {
+            self.comfort.bedtime = d;
+        } else {
+            self.comfort.day = d;
+        }
+        self.comfort_changed();
+    }
+
+    fn toggle_night(&mut self) {
+        self.remember_display();
+        self.comfort.night = !self.comfort.night;
+        let d = if self.comfort.night {
+            self.comfort.bedtime
+        } else {
+            self.comfort.day
+        };
+        self.state.brightness = d.brightness;
+        self.state.blue_light = d.warmth;
+        if let Some(power) = &mut self.power {
+            power.set_backlight(d.brightness);
+        }
+        self.save_comfort();
+        self.persist_soon();
+        self.hud.toast(
+            if self.comfort.night {
+                Toast::NightOn
+            } else {
+                Toast::NightOff
+            },
+            self.now(),
+        );
+    }
+
+    fn sound_menu(&mut self, disconnected: bool) {
+        let root = self.root.clone().unwrap_or_else(|| "/mnt/sdcard".into());
+        let mut manager = crate::bluetooth::Manager::new(root);
+        manager.mute_on_disconnect = self.comfort.quiet;
+        manager.disconnect_notice = disconnected;
+        self.bluetooth = Some(manager);
+    }
+
+    pub fn bluetooth_state(&mut self, address: Option<String>, connected: bool) {
+        let address = address.map(|s| s.to_ascii_uppercase());
+        let lost = self.bluetooth_route.is_some()
+            && self.bluetooth_route == address
+            && self.bluetooth_connected
+            && !connected;
+        if address != self.bluetooth_route {
+            self.disconnect_muted = false;
+            self.vol_before.clear();
+        }
+        self.bluetooth_route = address;
+        self.bluetooth_connected = connected;
+        if let Some(menu) = &mut self.bluetooth {
+            menu.observe_output(self.bluetooth_route.as_deref(), connected);
+        }
+        self.hud
+            .set_headphones(self.headphones || self.bluetooth_route.is_some());
+        if lost && self.comfort.quiet {
+            self.disconnect_muted = true;
+            self.state.volume = 0;
+            self.state.muted = false;
+            self.persist_soon();
+            self.hud.toast(Toast::HeadphonesDisconnected, self.now());
+            let root = self.root.clone().unwrap_or_else(|| "/mnt/sdcard".into());
+            crate::bluetooth::return_to_speaker(root);
         }
     }
 
@@ -661,6 +843,7 @@ impl App {
     }
 
     fn switch_shelf(&mut self, by: i32) {
+        self.remember_browsing();
         let Some(to) = self.next_shelf(by) else {
             return;
         };
@@ -788,6 +971,7 @@ impl App {
     pub fn quick_value(&self, row: QuickRow) -> Option<QuickValue> {
         match row {
             QuickRow::FastForward => QuickValue::speed(self.state.ff_speed),
+            QuickRow::Night => Some(QuickValue::flag(self.comfort.night)),
             QuickRow::FastForwardSound => Some(QuickValue::flag(self.state.ff_sound)),
             QuickRow::ColourCorrection => Some(QuickValue::flag(self.state.colour_correction)),
             QuickRow::GbPalettes => Some(QuickValue::flag(self.state.gb_palettes)),
@@ -1361,12 +1545,20 @@ impl App {
             Action::PowerOff => return,
             _ => {}
         }
+        if matches!(self.phase, Phase::Doze { .. }) {
+            return;
+        }
         if self.bluetooth.is_some() && self.adjust(action) {
             return;
         }
         if let Some(bluetooth) = &mut self.bluetooth {
-            if bluetooth.input(action) {
+            let close = bluetooth.input(action);
+            let quiet = bluetooth.mute_on_disconnect;
+            if close && !self.audio_paused {
                 self.bluetooth = None;
+            }
+            if quiet != self.comfort.quiet {
+                self.set_quiet_disconnect(quiet);
             }
             return;
         }
@@ -1463,6 +1655,8 @@ impl App {
     }
 
     fn open_quick_menu(&mut self) {
+        self.remember_browsing();
+        self.save_comfort();
         self.phase = Phase::QuickMenu {
             row: QuickRow::MAIN[0],
         };
@@ -1489,13 +1683,13 @@ impl App {
 
     fn open_quick_row(&mut self, row: QuickRow) {
         match row {
+            QuickRow::Night => self.toggle_night(),
             QuickRow::DateTime => {
                 self.phase = clock_screen(self.utc_secs(), self.state.utc_offset_min, true);
             }
             QuickRow::About => self.phase = Phase::About,
             QuickRow::Bluetooth => {
-                let root = self.root.clone().unwrap_or_else(|| "/mnt/sdcard".into());
-                self.bluetooth = Some(crate::bluetooth::Manager::new(root));
+                self.sound_menu(false);
             }
             QuickRow::Screen | QuickRow::Game => {
                 if let Some(row) = row.child() {
@@ -1516,6 +1710,10 @@ impl App {
     }
 
     fn change_setting(&mut self, row: QuickRow, right: bool) {
+        if row == QuickRow::Night {
+            self.toggle_night();
+            return;
+        }
         let s = &mut self.state;
         match row {
             QuickRow::FastForward => {
@@ -1553,7 +1751,8 @@ impl App {
             | QuickRow::About
             | QuickRow::Screen
             | QuickRow::Game
-            | QuickRow::Bluetooth => return,
+            | QuickRow::Bluetooth
+            | QuickRow::Night => return,
         }
         self.persist();
     }
@@ -1584,6 +1783,10 @@ impl App {
     }
 
     fn adjust(&mut self, action: Action) -> bool {
+        if action == Action::NightToggle {
+            self.toggle_night();
+            return true;
+        }
         if action == Action::MuteToggle {
             self.mute_toggle();
             return true;
@@ -1630,8 +1833,7 @@ impl App {
         let level = match kind {
             HudKind::Brightness => &mut self.state.brightness,
             HudKind::BlueLight => &mut self.state.blue_light,
-            HudKind::Volume if self.headphones => &mut self.state.volume_hp,
-            HudKind::Volume => &mut self.state.volume,
+            HudKind::Volume => self.level_mut(),
             HudKind::Rewind => return false,
         };
         let moved = *level != value;
@@ -1643,6 +1845,12 @@ impl App {
             power.set_backlight(value);
         }
         if moved || unmuted {
+            if matches!(kind, HudKind::Brightness | HudKind::BlueLight) {
+                self.remember_display();
+            }
+            if kind == HudKind::Volume && self.bluetooth_route.is_some() {
+                self.comfort_changed();
+            }
             self.persist_soon();
         }
         true
@@ -1668,6 +1876,9 @@ impl App {
             *self.muted_mut() = muted;
         }
         self.vol_before.clear();
+        if self.bluetooth_route.is_some() {
+            self.comfort_changed();
+        }
         let muted = !self.muted();
         *self.muted_mut() = muted;
         self.hud
@@ -1712,6 +1923,13 @@ impl App {
     }
 
     fn level(&self) -> u8 {
+        if let Some(address) = &self.bluetooth_route {
+            return self
+                .comfort
+                .headsets
+                .get(address)
+                .map_or(self.state.volume_hp, |h| h.volume);
+        }
         if self.headphones {
             self.state.volume_hp
         } else {
@@ -1720,6 +1938,17 @@ impl App {
     }
 
     fn level_mut(&mut self) -> &mut u8 {
+        if let Some(address) = &self.bluetooth_route {
+            return &mut self
+                .comfort
+                .headsets
+                .entry(address.clone())
+                .or_insert(crate::comfort::Headset {
+                    volume: self.state.volume_hp,
+                    muted: self.state.muted_hp,
+                })
+                .volume;
+        }
         if self.headphones {
             &mut self.state.volume_hp
         } else {
@@ -1728,6 +1957,13 @@ impl App {
     }
 
     pub fn muted(&self) -> bool {
+        if let Some(address) = &self.bluetooth_route {
+            return self
+                .comfort
+                .headsets
+                .get(address)
+                .map_or(self.state.muted_hp, |h| h.muted);
+        }
         if self.headphones {
             self.state.muted_hp
         } else {
@@ -1736,6 +1972,17 @@ impl App {
     }
 
     fn muted_mut(&mut self) -> &mut bool {
+        if let Some(address) = &self.bluetooth_route {
+            return &mut self
+                .comfort
+                .headsets
+                .entry(address.clone())
+                .or_insert(crate::comfort::Headset {
+                    volume: self.state.volume_hp,
+                    muted: self.state.muted_hp,
+                })
+                .muted;
+        }
         if self.headphones {
             &mut self.state.muted_hp
         } else {
@@ -1744,7 +1991,11 @@ impl App {
     }
 
     pub fn output_volume(&self) -> u8 {
-        if self.muted() {
+        if self.muted()
+            || self.audio_paused
+            || self.disconnect_muted
+            || (self.comfort.quiet && self.bluetooth_route.is_some() && !self.bluetooth_connected)
+        {
             0
         } else {
             self.level()
@@ -1902,8 +2153,26 @@ impl App {
     }
 
     fn timers(&mut self) {
-        if let Some(bluetooth) = &mut self.bluetooth {
+        self.remember_browsing();
+        if self
+            .comfort_dirty
+            .is_some_and(|at| self.now().saturating_sub(at) >= 750)
+        {
+            self.save_comfort();
+        }
+        let choice = if let Some(bluetooth) = &mut self.bluetooth {
             bluetooth.poll();
+            bluetooth.route_choice.take()
+        } else {
+            None
+        };
+        if let Some(output) = choice {
+            let address = crate::bluetooth::valid_address(&output).then_some(output);
+            self.bluetooth_state(address.clone(), address.is_some());
+            if self.audio_paused {
+                self.audio_paused = false;
+                self.bluetooth = None;
+            }
         }
         self.play_hold();
         let offer = self.undo_label();
@@ -1941,7 +2210,8 @@ impl App {
             let on = self.power.as_ref().is_some_and(|p| p.headphones());
             if on != self.headphones {
                 self.headphones = on;
-                self.hud.set_headphones(on);
+                self.hud
+                    .set_headphones(on || self.bluetooth_route.is_some());
                 let now = self.now();
                 self.hud
                     .show(HudKind::Volume, self.output_volume(), self.muted(), now);
@@ -2119,6 +2389,7 @@ impl App {
     pub fn draw(&self, out: &mut Vec<Draw>) {
         if let Some(index) = self.power_menu {
             self.draw_power_menu(index, out);
+            self.hud.draw(self.now(), out);
             return;
         }
         if self.shutting_down() {
@@ -2146,7 +2417,11 @@ impl App {
             }
             return;
         }
-        if let Some(bluetooth) = &self.bluetooth {
+        if let Some(bluetooth) = self
+            .bluetooth
+            .as_ref()
+            .filter(|_| !matches!(self.phase, Phase::Doze { .. }))
+        {
             if let Some(tex) = bluetooth.face {
                 out.push(Draw::Tex {
                     x: 0.0,
@@ -2157,6 +2432,7 @@ impl App {
                     alpha: 1.0,
                 });
             }
+            self.hud.draw(self.now(), out);
             return;
         }
         match &self.phase {
@@ -2173,6 +2449,7 @@ impl App {
                     .filter(|_| *from_menu)
                     .map(|f| f.legend[0]);
                 picker.draw(line, hint, back, out);
+                self.hud.draw(self.now(), out);
                 return;
             }
             Phase::QuickMenu { row } => QuickMenu {
@@ -2209,6 +2486,7 @@ impl App {
             Phase::About => {
                 draw_backdrop(self.wallpaper, out);
                 draw_sticker(self.sticker_face, out);
+                self.hud.draw(self.now(), out);
                 return;
             }
             Phase::Inserting { cart, resumed, .. } => {
@@ -2629,6 +2907,8 @@ impl App {
     }
 
     fn insert(&mut self, clean: bool) {
+        self.remember_browsing();
+        self.save_comfort();
         if !self.on_shelf() {
             return;
         }
@@ -2724,6 +3004,8 @@ impl App {
     }
 
     fn doze(&mut self) {
+        self.remember_browsing();
+        self.save_comfort();
         if self.link_active() {
             self.end_link();
         }
@@ -3203,6 +3485,8 @@ impl App {
     }
 
     pub fn settle_saves(&mut self) {
+        self.remember_browsing();
+        self.save_comfort();
         self.state_writer.flush();
         if let Some(h) = self.pending_save.take() {
             let _ = h.join();

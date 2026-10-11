@@ -32,6 +32,7 @@ pub enum Action {
     BrightnessDown,
     BlueLightUp,
     BlueLightDown,
+    NightToggle,
     VolumeUp,
     VolumeDown,
     QuickMenu,
@@ -408,6 +409,7 @@ impl Gestures {
 
 fn chord(b: Btn) -> Option<(u16, Action)> {
     Some(match b {
+        Btn::X => (8192, Action::NightToggle),
         Btn::Up => (1, Action::BrightnessUp),
         Btn::Down => (2, Action::BrightnessDown),
         Btn::Left => (4, Action::BlueLightDown),

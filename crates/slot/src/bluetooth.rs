@@ -49,7 +49,7 @@ pub fn parse_devices(text: &str) -> Vec<Headphones> {
     devices
 }
 
-fn valid_address(address: &str) -> bool {
+pub fn valid_address(address: &str) -> bool {
     let parts: Vec<_> = address.split(':').collect();
     parts.len() == 6
         && parts
@@ -81,6 +81,10 @@ pub struct Manager {
     output: String,
     pending: Option<Receiver<ResultMessage>>,
     pub face: Option<TexId>,
+    pub mute_on_disconnect: bool,
+    pub disconnect_notice: bool,
+    pub route_choice: Option<String>,
+    choosing_route: bool,
 }
 
 impl Manager {
@@ -91,10 +95,14 @@ impl Manager {
             stack: Vec::new(),
             devices: Vec::new(),
             selected: 0,
-            status: "Loading...".into(),
+            status: String::new(),
             output: "speaker".into(),
             pending: None,
             face: None,
+            mute_on_disconnect: false,
+            disconnect_notice: false,
+            route_choice: None,
+            choosing_route: false,
         };
         manager.ask("list", None);
         manager
@@ -104,11 +112,12 @@ impl Manager {
         if self.pending.is_some() {
             return;
         }
+        self.choosing_route = matches!(verb, "speaker" | "connect");
         let root = self.root.clone();
         let (tx, rx) = mpsc::channel();
         self.pending = Some(rx);
         self.status = match verb {
-            "scan" => "Scanning; put headphones in pairing mode",
+            "scan" => "Scanning…",
             "connect"
                 if self
                     .devices
@@ -121,7 +130,7 @@ impl Manager {
             "forget" => "Forgetting headphones...",
             "speaker" => "Switching to speaker...",
             "diagnose" => "Saving report...",
-            _ => "Loading...",
+            _ => "",
         }
         .into();
         std::thread::spawn(move || {
@@ -139,6 +148,10 @@ impl Manager {
                     self.devices = message.devices;
                 }
                 if let Some(output) = message.output {
+                    if self.choosing_route && !message.status.starts_with("Error:") {
+                        self.route_choice = Some(output.clone());
+                    }
+                    self.choosing_route = false;
                     self.output = output;
                 }
                 self.status = if message.status.starts_with("Error:")
@@ -156,6 +169,15 @@ impl Manager {
                 self.pending = None;
             }
             Err(mpsc::TryRecvError::Empty) => {}
+        }
+    }
+
+    pub fn observe_output(&mut self, address: Option<&str>, connected: bool) {
+        self.output = address.unwrap_or("speaker").to_owned();
+        for device in &mut self.devices {
+            if Some(device.address.as_str()) == address {
+                device.connected = connected;
+            }
         }
     }
 
@@ -184,18 +206,17 @@ impl Manager {
     pub fn rows(&self) -> Vec<String> {
         match self.page {
             Page::Home => {
-                let mut rows = vec![
-                    "Pair headphones".into(),
-                    if self.active_device().is_none() {
-                        "ACTIVE Speaker"
-                    } else {
-                        "Speaker"
-                    }
-                    .into(),
-                ];
+                let mut rows = vec![if self.active_device().is_none()
+                    && !(self.mute_on_disconnect && valid_address(&self.output))
+                {
+                    "ACTIVE Internal speaker"
+                } else {
+                    "Internal speaker"
+                }
+                .into()];
                 rows.extend(self.device_indices().iter().map(|i| {
                     format!(
-                        "{}{}",
+                        "{}DEVICE {}",
                         if self.active_device() == Some(*i) {
                             "ACTIVE "
                         } else {
@@ -204,6 +225,11 @@ impl Manager {
                         self.devices[*i].name
                     )
                 }));
+                rows.push("Pair device".into());
+                rows.push(format!(
+                    "TOGGLE {}",
+                    if self.mute_on_disconnect { "On" } else { "Off" }
+                ));
                 rows
             }
             Page::Pair => {
@@ -211,7 +237,7 @@ impl Manager {
                 rows.extend(
                     self.device_indices()
                         .iter()
-                        .map(|i| self.devices[*i].name.clone()),
+                        .map(|i| format!("DEVICE {}", self.devices[*i].name)),
                 );
                 rows
             }
@@ -240,11 +266,16 @@ impl Manager {
         match action {
             Action::GbaDown(Btn::Up) => self.selected = (self.selected + count - 1) % count,
             Action::GbaDown(Btn::Down) => self.selected = (self.selected + 1) % count,
+            Action::GbaDown(Btn::Left | Btn::Right)
+                if self.page == Page::Home && self.selected == 2 + self.device_indices().len() =>
+            {
+                self.mute_on_disconnect = !self.mute_on_disconnect;
+            }
             Action::GbaDown(Btn::X) => self.ask("diagnose", None),
             Action::GbaDown(Btn::Y) if self.page == Page::Home => {
                 if let Some(i) = self
                     .selected
-                    .checked_sub(2)
+                    .checked_sub(1)
                     .and_then(|n| self.device_indices().get(n).copied())
                 {
                     self.open(Page::Device(i));
@@ -252,10 +283,15 @@ impl Manager {
             }
             Action::GbaDown(Btn::A) => match self.page.clone() {
                 Page::Home => match self.selected {
-                    0 => self.open(Page::Pair),
-                    1 => self.ask("speaker", None),
+                    0 => self.ask("speaker", None),
+                    selected if selected == 1 + self.device_indices().len() => {
+                        self.open(Page::Pair)
+                    }
+                    selected if selected == 2 + self.device_indices().len() => {
+                        self.mute_on_disconnect = !self.mute_on_disconnect;
+                    }
                     selected => {
-                        if let Some(i) = self.device_indices().get(selected - 2) {
+                        if let Some(i) = self.device_indices().get(selected - 1) {
                             self.ask("connect", Some(self.devices[*i].address.clone()));
                         }
                     }
@@ -311,23 +347,26 @@ impl Manager {
         };
         let message = if self.status.is_empty() && matches!(self.page, Page::Forget(_)) {
             "You will need to pair this device again.".to_owned()
+        } else if self.status.is_empty() && self.disconnect_notice {
+            "Headphones disconnected — choose output".into()
+        } else if self.status.is_empty() && self.page == Page::Pair {
+            "Put headphones in pairing mode".into()
         } else {
             self.status.clone()
         };
+        let compact = matches!(self.page, Page::Home | Page::Pair);
         let mut lines = vec![
             title.to_owned(),
             message,
-            if self.status.starts_with("Error:") {
+            if compact {
+                "COMPACT".into()
+            } else if self.status.starts_with("Error:") {
                 "Log: Bluetooth/latest-error.txt".into()
             } else {
                 String::new()
             },
         ];
-        let visible = if lines[..3].iter().all(String::is_empty) {
-            6
-        } else {
-            4
-        };
+        let visible = if compact { 6 } else { 4 };
         let first = self.selected.saturating_sub(visible - 1);
         for (i, row) in self.rows().iter().enumerate().skip(first).take(visible) {
             lines.push(format!(
@@ -341,7 +380,18 @@ impl Manager {
             ));
         }
         lines.push(
-            if self.page == Page::Home && self.selected >= 2 && self.pending.is_none() {
+            if self.page == Page::Home && self.selected == 2 + self.device_indices().len() {
+                if self.disconnect_notice {
+                    "Change"
+                } else {
+                    "B Back · Change"
+                }
+            } else if self.disconnect_notice && self.page == Page::Home {
+                "A Select"
+            } else if self.page == Page::Home
+                && self.selected >= 1
+                && self.selected < 1 + self.device_indices().len()
+            {
                 "B Back · A Select · Y Manage"
             } else {
                 "B Back · A Select"
@@ -350,6 +400,15 @@ impl Manager {
         );
         lines
     }
+}
+
+pub fn return_to_speaker(root: PathBuf) {
+    std::thread::spawn(move || {
+        let result = run(root, "speaker", None);
+        if result.status.starts_with("Error:") {
+            eprintln!("slot: {}", result.status);
+        }
+    });
 }
 
 #[cfg(feature = "device")]
@@ -451,15 +510,24 @@ pub fn screen_face(lines: &[String]) -> UndoFace {
         };
     };
     let label_w = OUT_W - 64;
+    let compact = lines.get(2).is_some_and(|line| line == "COMPACT");
     let clean = lines.iter().take(3).all(String::is_empty);
     let row_count = lines.len().saturating_sub(4) as u32;
-    let row_top = if clean {
+    // Reserve six row positions so status text and new scan results cannot
+    // recenter the menu or change the visible window.
+    let row_top = if compact {
+        88
+    } else if clean {
         (OUT_H - row_count * 52) / 2 + 4
     } else {
         184
     };
     for (i, line) in lines.iter().enumerate() {
+        if compact && (i == 0 || i == 2) {
+            continue;
+        }
         let (label, top, h, px, max_lines, highlight) = match i {
+            1 if compact => (line.as_str(), 12, 64, 20.0, 2, false),
             0 => (line.as_str(), 16, 46, 30.0, 1, false),
             1 => (line.as_str(), 66, 82, 22.0, 3, false),
             2 => (line.as_str(), 146, 30, 20.0, 1, false),
@@ -484,10 +552,15 @@ pub fn screen_face(lines: &[String]) -> UndoFace {
             }
         }
         if i == lines.len() - 1 {
-            let mut hints = vec![
-                slot_ui::hint_face("B", "Back"),
-                slot_ui::hint_face("A", "Select"),
-            ];
+            let mut hints = Vec::new();
+            if line.contains("B Back") {
+                hints.push(slot_ui::hint_face("B", "Back"));
+            }
+            hints.push(if line.contains("Change") {
+                slot_ui::arrows_hint_face("Change")
+            } else {
+                slot_ui::hint_face("A", "Select")
+            });
             if line.contains("Y Manage") {
                 hints.push(slot_ui::hint_face("Y", "Manage"));
             }
@@ -500,14 +573,60 @@ pub fn screen_face(lines: &[String]) -> UndoFace {
             }
             continue;
         }
+        if let Some(value) = label.strip_prefix("TOGGLE ") {
+            // Use the Screen menu's text, dimming and caret assets and spacing.
+            let name = slot_ui::quick_value_face("Mute on disconnect", true);
+            blit(&mut rgba, &name, 14, top);
+            let value = slot_ui::quick_value_face(value, highlight);
+            if highlight {
+                let left = slot_ui::quick_caret_face(false);
+                let right = slot_ui::quick_caret_face(true);
+                let rx = OUT_W - 32 - right.w;
+                let vx = rx - 14 + 18 - value.w;
+                blit(&mut rgba, &right, rx, top);
+                blit(&mut rgba, &value, vx, top);
+                blit(&mut rgba, &left, vx + 18 - 14 - left.w, top);
+            } else {
+                blit(&mut rgba, &value, OUT_W - 32 + 18 - value.w, top);
+            }
+            continue;
+        }
         let active = label.starts_with("ACTIVE ");
         let label = label.strip_prefix("ACTIVE ").unwrap_or(label);
+        let device = label.starts_with("DEVICE ");
+        let label = label.strip_prefix("DEVICE ").unwrap_or(label);
+        let inset = if device { 68 } else { 32 };
+        let label_w = label_w - (inset - 32);
+        if device {
+            blit(&mut rgba, &indicator_face(), 36, top + 12);
+            let is_device = |line: &String| {
+                let label = line
+                    .strip_prefix("ROW ")
+                    .or_else(|| line.strip_prefix("SELECTED "))
+                    .unwrap_or(line);
+                label
+                    .strip_prefix("ACTIVE ")
+                    .unwrap_or(label)
+                    .starts_with("DEVICE ")
+            };
+            for (boundary, y) in [
+                (!lines.get(i - 1).is_some_and(is_device), top - 4),
+                (!lines.get(i + 1).is_some_and(is_device), top + 48),
+            ] {
+                if boundary {
+                    for x in 32..OUT_W - 32 {
+                        let at = ((y * OUT_W + x) * 4) as usize;
+                        rgba[at..at + 4].copy_from_slice(&[40, 40, 46, 255]);
+                    }
+                }
+            }
+        }
         let layout = slot_ui::text::fit(
             font,
             label,
             (label_w - if active { 44 } else { 0 }) as f32,
             max_lines,
-            px,
+            if device { 26.0 } else { px },
             18.0,
         );
         let row = i >= 3 && i != lines.len() - 1;
@@ -532,7 +651,7 @@ pub fn screen_face(lines: &[String]) -> UndoFace {
         for y in 0..h {
             for x in 0..face_w {
                 let src = ((y * face_w + x) * 4) as usize;
-                let dst = (((top + y) * OUT_W + x + 32) * 4) as usize;
+                let dst = (((top + y) * OUT_W + x + inset) * 4) as usize;
                 let alpha = u32::from(face[src + 3]);
                 for c in 0..3 {
                     rgba[dst + c] = ((u32::from(face[src + c]) * alpha
@@ -599,12 +718,17 @@ mod menu_tests {
             output: "speaker".into(),
             pending: None,
             face: None,
+            mute_on_disconnect: false,
+            disconnect_notice: false,
+            route_choice: None,
+            choosing_route: false,
         }
     }
     #[test]
     fn pairing_is_separate_and_back_restores_the_parent() {
         let mut m = menu();
         m.devices[0].paired = false;
+        m.selected = 1;
         m.input(Action::GbaDown(Btn::A));
         assert_eq!(m.page, Page::Pair);
         m.input(Action::GbaDown(Btn::Down));
@@ -621,11 +745,36 @@ mod menu_tests {
         let mut m = menu();
         assert_eq!(
             m.rows(),
-            vec!["Pair headphones", "ACTIVE Speaker", "WF-C510"]
+            vec![
+                "ACTIVE Internal speaker",
+                "DEVICE WF-C510",
+                "Pair device",
+                "TOGGLE Off"
+            ]
         );
         assert!(m.lines()[0].is_empty());
         assert!(m.lines()[1].is_empty());
-        m.selected = 2;
+        let idle = screen_face(&m.lines());
+        for status in ["Connecting...", "Scanning…", "Error: Connection failed"] {
+            m.status = status.into();
+            let busy = screen_face(&m.lines());
+            assert_eq!(
+                &idle.rgba[(88 * OUT_W * 4) as usize..],
+                &busy.rgba[(88 * OUT_W * 4) as usize..],
+                "status must not move or redraw the menu rows or hints"
+            );
+        }
+        m.status.clear();
+        m.selected = 3;
+        m.input(Action::GbaDown(Btn::Right));
+        assert!(m.mute_on_disconnect);
+        assert_eq!(m.lines().last().unwrap(), "B Back · Change");
+        m.input(Action::GbaDown(Btn::Left));
+        assert!(!m.mute_on_disconnect);
+        if let Ok(path) = std::env::var("SLOT_SOUND_TOGGLE_PREVIEW") {
+            std::fs::write(path, screen_face(&m.lines()).rgba).unwrap();
+        }
+        m.selected = 1;
         m.input(Action::GbaDown(Btn::Y));
         assert_eq!(m.page, Page::Device(0));
         m.selected = 1;
@@ -640,12 +789,12 @@ mod menu_tests {
     fn active_route_not_connection_alone_controls_checkmark() {
         let mut m = menu();
         m.devices[0].connected = true;
-        assert_eq!(m.rows()[1], "ACTIVE Speaker");
+        assert_eq!(m.rows()[0], "ACTIVE Internal speaker");
         m.output = m.devices[0].address.clone();
-        assert_eq!(m.rows()[1], "Speaker");
-        assert_eq!(m.rows()[2], "ACTIVE WF-C510");
+        assert_eq!(m.rows()[0], "Internal speaker");
+        assert_eq!(m.rows()[1], "ACTIVE DEVICE WF-C510");
         m.devices[0].connected = false;
-        assert_eq!(m.rows()[1], "ACTIVE Speaker");
+        assert_eq!(m.rows()[0], "ACTIVE Internal speaker");
     }
     #[test]
     #[cfg(feature = "device")]
@@ -660,7 +809,7 @@ mod menu_tests {
         let mut m = menu();
         m.root = root.path().into();
         m.open(Page::Pair);
-        assert_eq!(m.rows(), vec!["Scan for headphones", "WF-C510"]);
+        assert_eq!(m.rows(), vec!["Scan for headphones", "DEVICE WF-C510"]);
         m.selected = 1;
         m.input(Action::GbaDown(Btn::A));
         assert_eq!(m.page, Page::Pair);
@@ -698,33 +847,32 @@ mod menu_tests {
 #[derive(Default)]
 pub struct Indicator {
     checked: Option<std::time::Instant>,
-    pending: Option<Receiver<(String, bool)>>,
+    pending: Option<Receiver<(String, Option<bool>)>>,
     output: String,
     active: bool,
 }
 
 impl Indicator {
+    pub fn address(&self) -> Option<String> {
+        (!self.output.is_empty()).then(|| self.output.clone())
+    }
     pub fn poll(&mut self) -> bool {
         if let Some(rx) = &self.pending {
             match rx.try_recv() {
                 Ok((address, connected)) => {
-                    self.active = self.output == address && connected;
+                    if self.output == address {
+                        if let Some(connected) = connected {
+                            self.active = connected;
+                        }
+                    }
                     self.pending = None;
                 }
                 Err(mpsc::TryRecvError::Disconnected) => {
-                    self.active = false;
                     self.pending = None;
                 }
                 Err(mpsc::TryRecvError::Empty) => {}
             }
         }
-        if self
-            .checked
-            .is_some_and(|t| t.elapsed() < std::time::Duration::from_secs(3))
-        {
-            return self.active;
-        }
-        self.checked = Some(std::time::Instant::now());
         let path = std::env::var_os("SLOT_AUDIO_ROUTE")
             .map(PathBuf::from)
             .unwrap_or_else(|| PathBuf::from("/run/slot-audio-device"));
@@ -733,11 +881,19 @@ impl Indicator {
         if address != self.output {
             self.active = false;
             self.output = address.clone();
+            self.checked = None;
         }
         if address.is_empty() {
             self.active = false;
             return false;
         }
+        if self
+            .checked
+            .is_some_and(|t| t.elapsed() < std::time::Duration::from_secs(1))
+        {
+            return self.active;
+        }
+        self.checked = Some(std::time::Instant::now());
         if self.pending.is_none() {
             let (tx, rx) = mpsc::channel();
             self.pending = Some(rx);
@@ -747,12 +903,21 @@ impl Indicator {
                     .args(["2", "bluetoothctl", "info", &address])
                     .output()
                     .ok()
-                    .is_some_and(|output| {
-                        output.status.success()
-                            && connection_present(&String::from_utf8_lossy(&output.stdout))
+                    .and_then(|output| {
+                        if !output.status.success() {
+                            return None;
+                        }
+                        let info = String::from_utf8_lossy(&output.stdout);
+                        if connection_present(&info) {
+                            Some(true)
+                        } else if info.lines().any(|l| l.trim() == "Connected: no") {
+                            Some(false)
+                        } else {
+                            None
+                        }
                     });
                 #[cfg(not(feature = "device"))]
-                let connected = false;
+                let connected = Some(false);
                 let _ = tx.send((address, connected));
             });
         }
