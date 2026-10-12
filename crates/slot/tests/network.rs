@@ -19,6 +19,56 @@ fn menu_exposes_locked_credentials_and_closes_without_revealing_secrets() {
     let dir = tempfile::tempdir().unwrap();
     let mut manager = Manager::new(dir.path().to_owned());
     assert!(manager.rows().contains(&"Unlock saved network".into()));
+    wait(&mut manager);
     manager.input(Action::GbaDown(Btn::B));
     assert!(!manager.visible);
+}
+
+fn wait(manager: &mut Manager) {
+    for _ in 0..5000 {
+        manager.poll();
+        if !manager.busy() { return; }
+        std::thread::sleep(std::time::Duration::from_millis(1));
+    }
+    panic!("worker did not finish");
+}
+fn tap(manager: &mut Manager, button: Btn) { manager.input(Action::GbaDown(button)); }
+fn type_text(manager: &mut Manager, text: &str) {
+    let (mut bank, mut cursor) = (0, 0);
+    for byte in text.bytes() {
+        let pos = (byte - 32) as usize;
+        while bank != pos / 40 { tap(manager, Btn::R1); bank = (bank + 1) % 3; }
+        while cursor != pos % 40 { tap(manager, Btn::Right); cursor = (cursor + 1) % 40; }
+        tap(manager, Btn::A);
+    }
+    tap(manager, Btn::Start);
+    wait(manager);
+}
+
+#[test]
+fn session_connection_never_writes_a_credential_and_keyboard_stays_masked() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::create_dir(dir.path().join("System")).unwrap();
+    std::fs::write(dir.path().join("System/network.sh"), r#"#!/bin/sh
+case "$1" in
+scan) printf '00:11\t2412\t-40\t[WPA2-PSK-CCMP][ESS]\tHome\n';;
+connect) cat >/dev/null; echo 'IP 192.168.1.2/24';;
+esac
+"#).unwrap();
+    let mut manager = Manager::new(dir.path().to_owned());
+    wait(&mut manager);
+    tap(&mut manager, Btn::A);
+    wait(&mut manager);
+    tap(&mut manager, Btn::Down);
+    tap(&mut manager, Btn::A);
+    // The first key is space and must not expose typed text.
+    tap(&mut manager, Btn::A);
+    assert!(manager.lines().iter().any(|l| l.contains('•')));
+    tap(&mut manager, Btn::X);
+    type_text(&mut manager, "secret-password");
+    assert!(manager.rows().contains(&"Connect for this session".into()));
+    tap(&mut manager, Btn::A);
+    assert!(!dir.path().join("Config/wifi.vault").exists());
+    assert!(!manager.lines().iter().any(|l| l.contains("secret-password")));
+    assert!(manager.rows().contains(&"Reconnect".into()));
 }

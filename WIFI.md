@@ -33,8 +33,8 @@ move, A to type, X to delete, L1/R1 to change character pages, START to submit a
 to cancel. Passwords and vault passphrases remain masked. Hidden networks,
 enterprise authentication and WPA3-only networks are not supported in this version.
 
-On the first successful connection, create and confirm a separate unlock
-passphrase. Unlock saved network decrypts the saved profile and reconnects after
+On the first successful connection, choose Connect for this session (nothing
+saved) or Save encrypted credentials and create/confirm an unlock passphrase. Unlock saved network decrypts the saved profile and reconnects after
 restart. Disconnect keeps the vault unlocked in memory for this session; Disconnect
 and lock drops keys and disconnects. Forget requires confirmation and deletes the
 vault. Saving a different network replaces the single saved profile.

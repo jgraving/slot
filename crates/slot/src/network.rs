@@ -36,12 +36,13 @@ pub fn parse_scan(text: &str) -> Vec<Network> {
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Entry { Unlock, Password, NewVault, ConfirmVault }
 #[derive(Clone, Copy, PartialEq, Eq)]
-enum Page { Home, Scan, Entry(Entry), Forget }
+enum Page { Home, Scan, Entry(Entry), Forget, SaveChoice }
 
 pub struct Manager {
     root: PathBuf,
     page: Page,
     pub visible: bool,
+    ready: bool,
     pub face: Option<TexId>,
     pub selected: usize,
     pub status: String,
@@ -62,20 +63,24 @@ struct Reply {
     vault: Option<Vault>,
     profile: Option<Profile>,
     need_vault: bool,
+    prepared: bool,
 }
 
 enum Work {
-    Scan, Unlock(Zeroizing<String>), Password(String, Zeroizing<String>),
+    Prepare, Scan, Unlock(Zeroizing<String>), Password(String, Zeroizing<String>),
     Create(Zeroizing<String>), Reconnect, Disconnect, Lock, Forget,
 }
 
 impl Manager {
     pub fn new(root: PathBuf) -> Self {
-        Self { root, page: Page::Home, visible: true, face: None, selected: 0,
+        let mut manager = Self { root, page: Page::Home, visible: true, ready: false, face: None, selected: 0,
             status: "WPA2 networks · encrypted saved credentials".into(), networks: Vec::new(), ssid: String::new(),
             text: Zeroizing::new(String::new()), confirmation: Zeroizing::new(String::new()),
-            bank: 0, cursor: 0, vault: None, profile: None, pending: None }
+            bank: 0, cursor: 0, vault: None, profile: None, pending: None };
+        manager.ask(Work::Prepare);
+        manager
     }
+    pub fn busy(&self) -> bool { self.pending.is_some() }
     fn path(&self) -> PathBuf { self.root.join("Config/wifi.vault") }
     fn entry(&mut self, kind: Entry) {
         self.page = Page::Entry(kind); self.text.zeroize(); self.bank = 0; self.cursor = 0;
@@ -95,9 +100,10 @@ impl Manager {
         match rx.try_recv() {
             Ok(reply) => {
                 self.pending = None; self.status = reply.message;
+                self.ready |= reply.prepared;
                 if let Some(networks) = reply.networks { self.networks = networks; }
                 self.vault = reply.vault; self.profile = reply.profile;
-                if reply.need_vault { self.entry(Entry::NewVault); }
+                if reply.need_vault { self.page = Page::SaveChoice; self.selected = 0; }
                 else if matches!(self.page, Page::Entry(_) | Page::Forget) { self.page = Page::Home; self.selected = 0; }
             }
             Err(mpsc::TryRecvError::Disconnected) => { self.pending = None; self.status = "Network worker stopped".into(); }
@@ -106,9 +112,10 @@ impl Manager {
     }
     pub fn rows(&self) -> Vec<String> {
         match self.page {
-            Page::Home => vec!["Find a network".into(), if self.vault.is_some() { "Reconnect saved network" } else { "Unlock saved network" }.into(),
+            Page::Home => vec!["Find a network".into(), if self.profile.is_some() { "Reconnect" } else { "Unlock saved network" }.into(),
                 "Disconnect".into(), "Disconnect and lock".into(), "Forget saved network".into()],
             Page::Scan => std::iter::once("Scan again".into()).chain(self.networks.iter().map(|n| n.ssid.clone())).collect(),
+            Page::SaveChoice => vec!["Connect for this session".into(), "Save encrypted credentials".into()],
             Page::Forget => vec!["Cancel".into(), "Delete encrypted credentials".into()],
             Page::Entry(_) => Vec::new(),
         }
@@ -121,6 +128,7 @@ impl Manager {
             else { self.page = Page::Home; self.selected = 0; }
             return;
         }
+        if !self.ready { self.status = "Secure network setup unavailable; retry after restarting".into(); return; }
         if let Page::Entry(kind) = self.page {
             match action {
                 Action::GbaDown(Btn::Left) => self.cursor = (self.cursor + 39) % 40,
@@ -160,7 +168,7 @@ impl Manager {
             Action::GbaDown(Btn::A) => match self.page {
                 Page::Home => match self.selected {
                     0 => { self.page = Page::Scan; self.selected = 0; self.ask(Work::Scan); }
-                    1 if self.vault.is_some() => self.ask(Work::Reconnect),
+                    1 if self.profile.is_some() => self.ask(Work::Reconnect),
                     1 if self.path().is_file() => self.entry(Entry::Unlock),
                     1 => self.status = "No saved network; find a network first".into(),
                     2 => self.ask(Work::Disconnect),
@@ -174,6 +182,8 @@ impl Manager {
                         else { self.ssid = network.ssid.clone(); self.entry(Entry::Password); }
                     }
                 }
+                Page::SaveChoice if self.selected == 1 => self.entry(Entry::NewVault),
+                Page::SaveChoice => { self.page = Page::Home; self.selected = 0; self.status = "Connected for this session; nothing saved".into(); },
                 Page::Forget if self.selected == 1 => self.ask(Work::Forget),
                 Page::Forget => { self.page = Page::Home; self.selected = 0; }
                 Page::Entry(_) => {}
@@ -188,6 +198,7 @@ impl Manager {
             Page::Entry(Entry::NewVault) => "Set unlock passphrase",
             Page::Entry(Entry::ConfirmVault) => "Confirm unlock passphrase",
             Page::Forget => "Forget saved Wi-Fi?",
+            Page::SaveChoice => "Remember this network?",
             _ => "Network",
         };
         let message = if matches!(self.page, Page::Entry(_)) {
@@ -216,8 +227,9 @@ impl Manager {
 
 fn worker(root: PathBuf, work: Work, mut vault: Option<Vault>, mut profile: Option<Profile>) -> Reply {
     let path = root.join("Config/wifi.vault");
-    let mut networks = None; let mut need_vault = false;
+    let mut networks = None; let mut need_vault = false; let mut prepared = false;
     let result: io::Result<String> = (|| match work {
+        Work::Prepare => { helper(&root, "prepare", None)?; prepared = true; Ok("Choose a network".into()) }
         Work::Scan => { networks = Some(parse_scan(&helper(&root, "scan", None)?)); Ok("Select a WPA2 network".into()) }
         Work::Unlock(input) => {
             let (v, p) = Vault::unlock(&path, input)?;
@@ -247,7 +259,7 @@ fn worker(root: PathBuf, work: Work, mut vault: Option<Vault>, mut profile: Opti
             Ok("Disconnected · credentials locked".into())
         }
     })();
-    Reply { message: result.unwrap_or_else(|_| "Operation failed; check credentials, radio and connection".into()), networks, vault, profile, need_vault }
+    Reply { message: result.unwrap_or_else(|_| "Operation failed; check credentials, radio and connection".into()), networks, vault, profile, need_vault, prepared }
 }
 
 fn connection_status(text: &str) -> String {
