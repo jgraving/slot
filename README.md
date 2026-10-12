@@ -42,6 +42,17 @@ Release notes can be found in the [changelog](CHANGELOG.md).
 
 ---
 
+# USB updates on macOS
+
+With a BaseOS build that supports USB storage maintenance mode, hold MENU during
+power-on with a USB data cable connected to access the games card from your Mac.
+Copy the update into the existing `System` folder, eject, then restart.
+
+See [the USB update guide](USB-UPDATES.md) for the full procedure, troubleshooting,
+and the pending RG SP / TF2 hardware checks.
+
+---
+
 # Supported Devices
 
 | Device             | Supported                  | Since Version |
