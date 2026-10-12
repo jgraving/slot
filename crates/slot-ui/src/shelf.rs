@@ -420,13 +420,9 @@ impl Shelf {
                 }
             });
             if self.favorites.contains(&(cart.platform, cart.stem.clone())) {
-                let (lx, ly, lw) = match cart.platform {
-                    Platform::Gba => (crate::LABEL_X, crate::LABEL_Y, crate::LABEL_W),
-                    _ => (crate::GB_LABEL_X, crate::GB_LABEL_Y, crate::GB_LABEL_W),
-                };
                 draw_favorite(
-                    x + (lx + lw - 24) as f32 * scale,
-                    y + (ly + 7) as f32 * scale,
+                    x + w / 2.0 - 8.0 * scale,
+                    y - 22.0 * scale,
                     scale,
                     alpha * dim,
                     out,
@@ -436,15 +432,8 @@ impl Shelf {
     }
 }
 
-// Crisp five-point star with a dark badge: an overlay, never baked into label art.
+// Crisp five-point star floating above the shell, never baked into label art.
 fn draw_favorite(x: f32, y: f32, scale: f32, alpha: f32, out: &mut Vec<Draw>) {
-    out.push(Draw::Rect {
-        x: x - 3.0 * scale,
-        y: y - 3.0 * scale,
-        w: 22.0 * scale,
-        h: 22.0 * scale,
-        colour: [0.08, 0.08, 0.08, 0.85 * alpha],
-    });
     let rows = [
         (7, 2),
         (6, 4),

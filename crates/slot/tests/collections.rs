@@ -164,14 +164,16 @@ fn recent_boot_and_letter_jump_and_seated_cart_priority() {
     assert_eq!(app.seated_cart().unwrap().platform, Platform::Gbc);
 }
 #[test]
-fn toggling_last_favorite_skips_empty_shelf_and_persists() {
+fn y_toggles_last_favorite_skips_empty_shelf_and_persists() {
     let d = root();
     let mut app = App::boot(d.path());
     tap(&mut app, Btn::Select);
+    assert!(!app.selected_is_favorite());
+    tap(&mut app, Btn::Y);
     assert!(app.selected_is_favorite());
     tap(&mut app, Btn::L1);
     assert_eq!(app.shelf_platform_name(), Some("Favorites"));
-    tap(&mut app, Btn::Select);
+    tap(&mut app, Btn::Y);
     assert!(!app.selected_is_favorite());
     assert_eq!(app.shelf_platform_name(), Some("Game Boy Advance"));
     assert!(Collections::read(d.path()).unwrap().favorites.is_empty());
@@ -230,7 +232,7 @@ fn unreadable_membership_is_not_overwritten_or_reported_as_saved() {
     let d = root();
     fs::create_dir(d.path().join("Config/favourites")).unwrap();
     let mut app = App::boot(d.path());
-    tap(&mut app, Btn::Select);
+    tap(&mut app, Btn::Y);
     assert!(!app.selected_is_favorite());
     assert!(d.path().join("Config/favourites").is_dir());
 }
