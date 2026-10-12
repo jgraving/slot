@@ -39,3 +39,4 @@ pub mod wallpaper;
 
 pub mod bluetooth;
 pub mod wifi_vault;
+pub mod network;

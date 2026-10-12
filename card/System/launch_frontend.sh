@@ -15,7 +15,11 @@ if [ -z "$pid" ] || [ ! -d "/proc/$pid" ]; then
 	echo $! > "$RUN/slot-led.pid"
 fi
 
-echo "|/bin/sh $SYS/coresave.sh %p %s %e %t" > /proc/sys/kernel/core_pattern 2>/dev/null
+# Wi-Fi keys must never reach core dumps on the card.
+ulimit -c 0
+echo /dev/null > /proc/sys/kernel/core_pattern 2>/dev/null
+# Disable BaseOS password SSH before offering any Wi-Fi connection.
+sh "$SYS/network.sh" prepare > /dev/null 2>&1 || exit 1
 
 [ -f "$SD/slot.log" ] && mv -f "$SD/slot.log" "$SD/slot.log.1"
 sh "$SYS/bluetooth.sh" restore >> "$SD/bluetooth.log" 2>&1 &

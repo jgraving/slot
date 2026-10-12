@@ -24,3 +24,28 @@ as protection, because removable FAT/exFAT cards do not enforce Unix permissions
 The vault uses one saved WPA2-Personal network in this first version. Wi-Fi and
 transfer features are optional; existing cartridge, label, save and settings
 formats are unchanged.
+
+## Connecting on the handheld
+
+Settings → Network → Find a network lists WPA2-Personal networks using AES/CCMP.
+Select a network and enter its password. The on-screen keyboard uses the D-pad to
+move, A to type, X to delete, L1/R1 to change character pages, START to submit and B
+to cancel. Passwords and vault passphrases remain masked. Hidden networks,
+enterprise authentication and WPA3-only networks are not supported in this version.
+
+On the first successful connection, create and confirm a separate unlock
+passphrase. Unlock saved network decrypts the saved profile and reconnects after
+restart. Disconnect keeps the vault unlocked in memory for this session; Disconnect
+and lock drops keys and disconnects. Forget requires confirmation and deletes the
+vault. Saving a different network replaces the single saved profile.
+
+Before accepting credentials, the launcher disables core dumps and persistent
+swap, stops BaseOS's default password SSH daemon and checks these operations.
+Networking fails closed if this preparation fails. The supplicant configuration is
+written only under `/run/slot-wifi` and unlinked after association. DHCP renewal
+runs in the background. Passwords never appear in subprocess arguments or logs.
+
+Device validation: check a correct/incorrect password, special characters, DHCP
+renewal, reboot/unlock, lock/forget, airplane-mode routers, audio after sleep and
+multiplayer. Link play takes over the radio; use Reconnect saved network afterward.
+No claim of hardware validation is made by the automated tests.

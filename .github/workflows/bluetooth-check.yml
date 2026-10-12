@@ -15,9 +15,9 @@ jobs:
         with:
           toolchain: '1.96'
           components: rustfmt, clippy
-      - run: cargo fmt --all -- --check
+      - run: cargo fmt --all && git diff --exit-code
       - run: cargo clippy -p slot --no-default-features --features device -- -D warnings
-      - run: cargo test -p slot --no-default-features --features device --lib --test bluetooth --test quick_menu --test audio --test collections --test cart_faces --test app --test boot --test single --test comfort --test headphones --test volume --test sfx --test tactile --test sleep --test power --test wifi_vault
+      - run: cargo test -p slot --no-default-features --features device --lib --test bluetooth --test quick_menu --test audio --test collections --test cart_faces --test app --test boot --test single --test comfort --test headphones --test volume --test sfx --test tactile --test sleep --test power --test wifi_vault --test network
       - run: cargo test -p slot-power
       - run: cargo test -p slot-gfx --no-default-features --features device --test grade
       - run: cargo test -p slot-ui

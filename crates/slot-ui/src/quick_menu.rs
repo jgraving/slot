@@ -25,10 +25,11 @@ pub enum QuickRow {
     Power,
     LidClose,
     SleepTimeout,
+    Network,
 }
 
 impl QuickRow {
-    pub const ALL: [QuickRow; 19] = [
+    pub const ALL: [QuickRow; 20] = [
         QuickRow::FastForward,
         QuickRow::FastForwardSound,
         QuickRow::Screen,
@@ -48,12 +49,14 @@ impl QuickRow {
         QuickRow::Power,
         QuickRow::LidClose,
         QuickRow::SleepTimeout,
+        QuickRow::Network,
     ];
 
-    pub const MAIN: [QuickRow; 6] = [
+    pub const MAIN: [QuickRow; 7] = [
         QuickRow::Screen,
         QuickRow::Bluetooth,
         QuickRow::Game,
+        QuickRow::Network,
         QuickRow::Power,
         QuickRow::DateTime,
         QuickRow::About,
@@ -123,6 +126,7 @@ impl QuickRow {
 
     pub fn label(self) -> &'static str {
         match self {
+            QuickRow::Network => "Network",
             QuickRow::FastForward => "Fast Forward",
             QuickRow::FastForwardSound => "Fast Forward Sound",
             QuickRow::Screen => "Screen",
@@ -154,6 +158,7 @@ impl QuickRow {
                 | QuickRow::Game
                 | QuickRow::Bluetooth
                 | QuickRow::Power
+                | QuickRow::Network
         )
     }
 
