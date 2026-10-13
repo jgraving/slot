@@ -46,7 +46,12 @@ fn favorite_stars_stay_above_their_cartridges_during_scroll_and_recede() {
         for draw in &out {
             match *draw {
                 Draw::Tex {
-                    x, y, w, h, tex, alpha,
+                    x,
+                    y,
+                    w,
+                    h,
+                    tex,
+                    alpha,
                 } if tex == star => {
                     let (cx, cy, cw, cart_alpha) = cart.expect("star follows its cartridge");
                     assert!(y + h < cy, "star overlaps the cartridge");
