@@ -631,7 +631,6 @@ impl UiFaces {
                 .iter()
                 .map(|c| {
                     menu_face(match c {
-                        PowerChoice::Restart => "Restarting",
                         PowerChoice::PowerOff => "Powering Down",
                         PowerChoice::Sleep => "Sleep",
                     })

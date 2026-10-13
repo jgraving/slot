@@ -28,12 +28,16 @@ Power → Lid Close offers Light Sleep (default), Deep Sleep, and Power Off.
 Power → Sleep Timer shuts down after 3 Minutes (default), 15 Minutes, or 30 Minutes.
 Never disables automatic shutdown. The timer applies to both kinds of sleep.
 
-Holding Power retains Restart and Power Off, with Sleep added below. Sleep uses
+Holding Power offers Power Off and Sleep. Restart is removed after a device reboot
+hang report; OS reboot behavior has not been verified on the installed firmware. Sleep uses
 deep sleep when Lid Close is set to Deep Sleep; otherwise it uses light sleep.
 Power Off shows the photo-referenced Flame Red GBA SP switch with a recessed shell
 surround, charcoal slider, raised grip, and moulded OFF/ON markings. The click is four times the cartridge click's
-amplitude and remains controlled by output volume. Restart switches off, pauses,
-then switches on again, with a click at each detent. Sleep from the power menu
+amplitude and remains controlled by output volume. Shutdown shows the switch for
+380 ms, then uses Sleep's 320 ms fading-line effect: 700 ms total, with no added
+animation delay. Disk syncing starts in the background during the animation; the
+final save settlement and sync remain before signalling init. The backlight turns
+off at the end of the effect. Sleep from the power menu
 closes the screen into a fading line over 320 ms before turning off the backlight
 and suspending. Closing the physical lid still sleeps immediately.
 Automatic shutdown while sleeping stays silent.
@@ -65,4 +69,4 @@ older RG35XXSP or RG34XXSP. These are photo-matched approximations, not manufact
 paint specifications. The preference is saved as `shell_colour` in
 `Config/comfort.txt`; missing or unknown values retain Flame Red. Changing finish
 reuses the existing textures and recolours only the surround; the slider remains
-charcoal. Power Off and Restart use the same selected finish.
+charcoal. Power Off uses the selected finish.

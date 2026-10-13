@@ -139,6 +139,9 @@ pub fn run() {
             frontend.restart();
         }
         if frontend.powering_off() {
+            // Present the fully closed screen before sync/init can block us.
+            frontend.render(&mut compositor, window);
+            let _ = surface.swap();
             frontend.poweroff();
             return;
         }

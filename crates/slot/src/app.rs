@@ -66,6 +66,7 @@ const PLAY_HOLD_MS: Millis = 500;
 const SHUTDOWN_SHOW_MS: Millis = 700;
 const RESTART_SHOW_MS: Millis = 1100;
 const SLEEP_SHOW_MS: Millis = 320;
+const SHUTDOWN_SWITCH_MS: Millis = SHUTDOWN_SHOW_MS - SLEEP_SHOW_MS;
 
 const POWER_MENU_PITCH: f32 = 44.0;
 const POWER_MENU_BAR_INSET: f32 = 4.0;
@@ -1546,6 +1547,7 @@ impl App {
     pub fn poweroff(&mut self) {
         self.settle_saves();
         if let Some(power) = &mut self.power {
+            power.set_backlight(0);
             power.poweroff();
         }
     }
@@ -2506,11 +2508,24 @@ impl App {
                 SHUTDOWN_SHOW_MS
             };
             let remaining = self.act_at.saturating_sub(self.now()) as f32;
+            let elapsed = duration as f32 - remaining;
             if let Some(faces) = self.power_switch_faces {
+                // Hold the switch at OFF while the sleep effect closes over it.
+                let switch_elapsed = if self.restarting {
+                    elapsed
+                } else {
+                    elapsed.min(SHUTDOWN_SWITCH_MS as f32)
+                };
                 slot_ui::draw_power_switch(
-                    1.0 - remaining / duration as f32,
+                    switch_elapsed / duration as f32,
                     self.restarting,
                     faces,
+                    out,
+                );
+            }
+            if !self.restarting && elapsed >= SHUTDOWN_SWITCH_MS as f32 {
+                slot_ui::draw_sleep(
+                    (elapsed - SHUTDOWN_SWITCH_MS as f32) / SLEEP_SHOW_MS as f32,
                     out,
                 );
             }
@@ -3253,12 +3268,6 @@ impl App {
                 self.power_menu = None;
                 self.close_game_menu();
                 match PowerChoice::ALL[index] {
-                    PowerChoice::Restart => {
-                        self.restarting = true;
-                        self.act_at = self.now() + RESTART_SHOW_MS;
-                        self.sfx = Some(Sfx::RestartSwitch);
-                        self.set_led(LedState::Off);
-                    }
                     PowerChoice::PowerOff => self.begin_power_off(),
                     PowerChoice::Sleep => {
                         let mut frame = Vec::new();
@@ -3637,6 +3646,9 @@ impl App {
             self.sfx = Some(Sfx::PowerSwitch);
         }
         self.act_at = self.now() + SHUTDOWN_SHOW_MS;
+        if let Some(power) = &mut self.power {
+            power.prepare_poweroff();
+        }
         self.set_led(LedState::Off);
     }
 

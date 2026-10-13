@@ -178,7 +178,6 @@ fn a_power_off_draws_a_shutdown_screen_over_everything() {
     ];
     a.set_power_switch_faces(faces);
     a.apply(Action::PowerHold);
-    a.apply(Action::GbaDown(Btn::Down));
     a.apply(Action::GbaDown(Btn::A));
 
     let mut out = Vec::new();
@@ -205,7 +204,7 @@ fn a_hold_opens_the_menu_and_commits_nothing() {
     let d = tmp_root_with_carts(&["Emerald"]);
     let mut a = app_playing_in(d.path(), "Emerald");
     a.apply(Action::PowerHold);
-    assert_eq!(a.power_menu(), Some(0), "the menu opens on Restart");
+    assert_eq!(a.power_menu(), Some(0), "the menu opens on Power Off");
     assert!(!a.powering_off() && !a.restarting());
     assert!(
         StateRing::new(d.path(), Platform::Gba, Core::Mgba, "Emerald")
@@ -248,7 +247,7 @@ fn b_leaves_the_menu_without_doing_anything() {
 
 #[test]
 fn each_row_commits_to_its_own_outcome() {
-    for (down, want) in [(0, "restart"), (1, "off")] {
+    for (down, want) in [(0, "off"), (1, "sleep")] {
         let d = tmp_root_with_carts(&["Emerald"]);
         let mut a = app_playing_in(d.path(), "Emerald");
         a.apply(Action::PowerHold);
@@ -262,7 +261,10 @@ fn each_row_commits_to_its_own_outcome() {
             "{want}: the menu closes on the choice"
         );
         match want {
-            "restart" => assert!(a.restarting() && !a.powering_off()),
+            "sleep" => {
+                assert!(matches!(a.phase(), Phase::Doze { .. }));
+                assert!(!a.restarting() && !a.powering_off());
+            }
             _ => assert!(a.powering_off() && !a.restarting()),
         }
     }
@@ -273,7 +275,6 @@ fn the_shutdown_screen_is_up_before_the_machine_may_stop() {
     let d = tmp_root_with_carts(&["Emerald"]);
     let mut a = app_playing_in(d.path(), "Emerald");
     a.apply(Action::PowerHold);
-    a.apply(Action::GbaDown(Btn::Down));
     a.apply(Action::GbaDown(Btn::A));
 
     assert!(a.powering_off(), "the choice decides immediately");
@@ -337,9 +338,8 @@ fn a_committed_shutdown_holds_the_core_still() {
     play(&mut s, &mut now);
 
     hold_power(&mut s, &mut now);
-    s.app_mut().apply(Action::GbaDown(Btn::Down));
     s.app_mut().apply(Action::GbaDown(Btn::A));
-    assert!(s.app().powering_off(), "Power Off is the second row");
+    assert!(s.app().powering_off(), "Power Off is the first row");
     s.update(DT);
     await_paused(&mut s);
 }
@@ -522,4 +522,28 @@ fn a_shut_lid_over_a_session_takes_its_network_down_too() {
         "the session's own network must come down before the driver does: {jobs:?}"
     );
     assert!(jobs.contains(&RadioJob::Cool));
+}
+
+#[test]
+fn shutdown_ends_with_the_sleep_effect_without_extending_the_delay() {
+    let d = tmp_root_with_carts(&["Emerald"]);
+    let mut a = app_playing_in(d.path(), "Emerald");
+    a.set_power_switch_faces([
+        slot_gfx::TexId::from_raw(100),
+        slot_gfx::TexId::from_raw(101),
+    ]);
+    assert_eq!(PowerChoice::ALL, [PowerChoice::PowerOff, PowerChoice::Sleep]);
+    a.apply(Action::PowerHold);
+    a.apply(Action::GbaDown(Btn::A));
+    let start = a.now();
+    for elapsed in [380, 540, 620, 699, 700] {
+        a.tick_ms(start + elapsed);
+        let mut out = Vec::new();
+        a.draw(&mut out);
+        let mut closing = Vec::new();
+        slot_ui::draw_sleep((elapsed - 380) as f32 / 320.0, &mut closing);
+        assert_eq!(&out[3..], closing.as_slice());
+        assert_eq!(a.ready_to_power_off(), elapsed >= 700);
+        assert!(!a.restarting());
+    }
 }

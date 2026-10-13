@@ -527,6 +527,19 @@ impl Platform for DevicePlatform {
         std::process::exit(0)
     }
 
+    fn prepare_poweroff(&mut self) {
+        // Only pre-flush here: signalling init kills the renderer immediately.
+        // Keep the final sync after App settles any outstanding save writer.
+        if let Err(e) = std::thread::Builder::new()
+            .name("slot-shutdown-sync".into())
+            .spawn(|| {
+                let _ = Command::new("sync").status();
+            })
+        {
+            eprintln!("slot: background shutdown sync: {e}");
+        }
+    }
+
     fn poweroff(&mut self) -> ! {
         self.breadcrumb("poweroff: reached slot, about to sync");
         let _ = Command::new("sync").status();

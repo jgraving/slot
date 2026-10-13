@@ -16,6 +16,7 @@ struct SleepPlatform {
     root: PathBuf,
     calls: Arc<Mutex<Vec<Option<Duration>>>>,
     expired: bool,
+    prepares: Arc<std::sync::atomic::AtomicUsize>,
 }
 impl Platform for SleepPlatform {
     fn set_backlight(&mut self, _: u8) {}
@@ -26,6 +27,9 @@ impl Platform for SleepPlatform {
         Charge::Unknown
     }
     fn set_led(&mut self, _: LedState) {}
+    fn prepare_poweroff(&mut self) {
+        self.prepares.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    }
     fn poweroff(&mut self) -> ! {
         panic!("unexpected poweroff")
     }
@@ -65,6 +69,7 @@ fn setup(
             root: d.path().into(),
             calls: calls.clone(),
             expired,
+            prepares: Arc::default(),
         }),
         Duration::from_secs(180),
     ));
@@ -123,7 +128,6 @@ fn sleep_choice_enters_doze_without_powering_off() {
     let (_d, mut a, _) = setup(false, 0);
     a.apply(Action::PowerHold);
     a.apply(Action::GbaDown(Btn::Down));
-    a.apply(Action::GbaDown(Btn::Down));
     a.apply(Action::GbaDown(Btn::A));
     assert!(matches!(a.phase(), Phase::Doze { .. }));
     assert!(
@@ -142,12 +146,36 @@ fn waking_during_sleep_animation_cancels_suspend() {
     let (_d, mut a, calls) = setup(false, 0);
     a.apply(Action::PowerHold);
     a.apply(Action::GbaDown(Btn::Down));
-    a.apply(Action::GbaDown(Btn::Down));
     a.apply(Action::GbaDown(Btn::A));
     a.update(0.1);
     a.apply(Action::LidOpen);
     a.update(0.3);
     a.suspend_if_requested();
     assert!(matches!(a.phase(), Phase::Shelf));
+    assert!(calls.lock().unwrap().is_empty());
+}
+
+#[test]
+fn shutdown_preparation_starts_once_before_the_animation_finishes() {
+    let (d, mut a, calls) = setup(false, 0);
+    let prepares = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    a.set_power(Power::new(
+        Box::new(SleepPlatform {
+            root: d.path().into(),
+            calls: calls.clone(),
+            expired: false,
+            prepares: prepares.clone(),
+        }),
+        Duration::from_secs(180),
+    ));
+    a.apply(Action::PowerHold);
+    a.apply(Action::GbaDown(Btn::A));
+    assert!(a.powering_off());
+    assert!(!a.ready_to_power_off());
+    assert_eq!(prepares.load(std::sync::atomic::Ordering::Relaxed), 1);
+    a.update(0.2);
+    a.apply(Action::PowerHold);
+    a.apply(Action::GbaDown(Btn::A));
+    assert_eq!(prepares.load(std::sync::atomic::Ordering::Relaxed), 1);
     assert!(calls.lock().unwrap().is_empty());
 }

@@ -42,6 +42,9 @@ pub trait Platform: Send {
     fn battery(&self) -> Option<Battery>;
     fn charge(&self) -> Charge;
     fn set_led(&mut self, state: LedState);
+    /// Begin non-blocking disk flushing while the frontend animates shutdown.
+    /// Must not signal init or stop rendering; poweroff performs the final sync.
+    fn prepare_poweroff(&mut self) {}
     fn poweroff(&mut self) -> !;
     fn restart(&mut self) -> !;
     fn root(&self) -> &Path;

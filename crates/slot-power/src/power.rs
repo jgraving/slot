@@ -62,6 +62,10 @@ impl Power {
         self.platform.suspend(timeout)
     }
 
+    pub fn prepare_poweroff(&mut self) {
+        self.platform.prepare_poweroff();
+    }
+
     pub fn poweroff(&mut self) -> ! {
         self.platform.poweroff()
     }
