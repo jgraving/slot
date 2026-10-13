@@ -1,0 +1,23 @@
+name: Stop stale switch test
+on:
+  pull_request:
+permissions:
+  actions: write
+jobs:
+  cancel:
+    if: github.head_ref == 'faithful-sp-power-switch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            // Cancel only the test run created by this PR before its loop was fixed.
+            const { data: run } = await github.rest.actions.getWorkflowRun({
+              owner: 'jgraving', repo: 'slot', run_id: 38399028674
+            });
+            if (run.head_sha === 'ebb323f52f9df284de37787cfd6d9b9c0a72d148' && run.status !== 'completed') {
+              await github.rest.actions.cancelWorkflowRun({
+                owner: 'jgraving', repo: 'slot', run_id: 38399028674
+              });
+            }
