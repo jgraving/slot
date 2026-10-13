@@ -3279,7 +3279,7 @@ impl App {
             Action::GbaDown(Btn::Left) | Action::ShelfLeft => Press::Left,
             Action::GbaDown(Btn::Right) | Action::ShelfRight => Press::Right,
             Action::GbaDown(Btn::A) => Press::Keep,
-            Action::GbaDown(Btn::B) => Press::Back,
+            Action::GbaDown(Btn::B | Btn::Start) => Press::Back,
             _ => return,
         };
         let now = self.now();
