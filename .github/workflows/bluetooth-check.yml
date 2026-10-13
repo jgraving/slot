@@ -25,7 +25,7 @@ jobs:
 
   device-package:
     name: RG SP test package
-    if: github.event_name == 'pull_request' && (github.head_ref == 'favorites-y-star' || github.head_ref == 'start-closes-options')
+    if: github.event_name == 'pull_request' && (github.head_ref == 'favorites-y-star' || github.head_ref == 'start-closes-options' || github.head_ref == 'faithful-sp-power-switch')
     runs-on: ubuntu-24.04-arm
     container: rust:1-bullseye
     steps:
@@ -51,9 +51,9 @@ jobs:
           printf 'Corresponding source: https://github.com/jgraving/slot/archive/%s.tar.gz\n' "$(git rev-parse HEAD)" > update/SOURCE.txt
           cd update
           sha256sum System/slot > SHA256SUMS
-          zip -qry ../slot-start-close-System.zip .
+          zip -qry ../slot-sp-power-switch-System.zip .
       - uses: actions/upload-artifact@v7
         with:
-          name: slot-start-close-System
-          path: slot-start-close-System.zip
+          name: slot-sp-power-switch-System
+          path: slot-sp-power-switch-System.zip
           if-no-files-found: error

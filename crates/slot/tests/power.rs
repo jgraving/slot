@@ -172,6 +172,8 @@ fn the_menu_covers_the_screen_in_the_case_materials() {
 fn a_power_off_draws_a_shutdown_screen_over_everything() {
     let d = tmp_root_with_carts(&["Emerald"]);
     let mut a = app_playing_in(d.path(), "Emerald");
+    let faces = [slot_gfx::TexId::from_raw(100), slot_gfx::TexId::from_raw(101)];
+    a.set_power_switch_faces(faces);
     a.apply(Action::PowerHold);
     a.apply(Action::GbaDown(Btn::Down));
     a.apply(Action::GbaDown(Btn::A));
@@ -186,11 +188,13 @@ fn a_power_off_draws_a_shutdown_screen_over_everything() {
         }
         other => panic!("the shutdown drew {other:?} rather than a panel of black"),
     }
-    assert!(out.len() > 1, "the power switch is visible");
-    assert!(
-        out.iter().all(|draw| matches!(draw, Draw::Rect { .. })),
-        "no game or menu textures survive the shutdown screen"
-    );
+    assert_eq!(out.len(), 3, "black ground plus the two switch layers");
+    for (draw, expected) in out[1..].iter().zip(faces) {
+        assert!(
+            matches!(draw, Draw::Tex { tex, alpha, .. } if *tex == expected && *alpha == 1.0),
+            "only the switch artwork survives the shutdown screen"
+        );
+    }
 }
 
 #[test]

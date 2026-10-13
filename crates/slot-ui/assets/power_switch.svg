@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="400" viewBox="0 0 1000 400" role="img" aria-labelledby="title desc">
+<title id="title">Game Boy Advance SP power switch — Flame Red housing</title>
+<desc id="desc">Editable vector reconstruction from the side-on photograph in iFixit's Nintendo Game Boy Advance SP Power Switch Cover Replacement guide. Proportions estimated from the photograph, not engineering measurements. Horizontal orientation: OFF left, ON right. Move the slider group 94 units right for ON. All artwork is vector; no fonts, raster images or external dependencies.</desc>
+<metadata>Reference: https://documents.cdn.ifixit.com/pdf/ifixit/guide_12889_en.pdf (cover photograph). Original reconstruction, 2026-10-13.</metadata>
+<defs>
+ <linearGradient id="shell" x1="0.0%" y1="0.0%" x2="0.0%" y2="100.0%"><stop offset="0.0%" stop-color="#7d211a"/><stop offset="8.0%" stop-color="#b83a25"/><stop offset="19.0%" stop-color="#d36340"/><stop offset="27.0%" stop-color="#b93e28"/><stop offset="70.0%" stop-color="#a53224"/><stop offset="88.0%" stop-color="#bd4930"/><stop offset="96.0%" stop-color="#d5744c"/><stop offset="100.0%" stop-color="#84261e"/></linearGradient>
+ <linearGradient id="rim" x1="0.0%" y1="0.0%" x2="10.0%" y2="100.0%"><stop offset="0.0%" stop-color="#75251d"/><stop offset="38.0%" stop-color="#9a2f22"/><stop offset="84.0%" stop-color="#d16c49"/><stop offset="100.0%" stop-color="#e38c60"/></linearGradient>
+ <linearGradient id="inset" x1="0.0%" y1="0.0%" x2="0.0%" y2="100.0%"><stop offset="0.0%" stop-color="#8b291f"/><stop offset="30.0%" stop-color="#a63727"/><stop offset="100.0%" stop-color="#ad3928"/></linearGradient>
+ <linearGradient id="well" x1="0.0%" y1="0.0%" x2="0.0%" y2="100.0%"><stop offset="0.0%" stop-color="#101413"/><stop offset="35.0%" stop-color="#202725"/><stop offset="100.0%" stop-color="#343b37"/></linearGradient>
+ <linearGradient id="cap" x1="0.0%" y1="0.0%" x2="8.0%" y2="100.0%"><stop offset="0.0%" stop-color="#555b55"/><stop offset="8.0%" stop-color="#3f4741"/><stop offset="65.0%" stop-color="#353c37"/><stop offset="100.0%" stop-color="#292f2b"/></linearGradient>
+ <linearGradient id="grip" x1="0.0%" y1="0.0%" x2="20.0%" y2="100.0%"><stop offset="0.0%" stop-color="#656a60"/><stop offset="10.0%" stop-color="#50584e"/><stop offset="48.0%" stop-color="#4a5148"/><stop offset="90.0%" stop-color="#3c443b"/><stop offset="100.0%" stop-color="#62685a"/></linearGradient>
+ <path id="labels" d="M351 280h13q4 0 4 4v24q0 4-4 4h-13q-4 0-4-4v-24q0-4 4-4zm30 32v-32h20m-20 14h16m13 18v-32h20m-20 14h16 M571 280h13q4 0 4 4v24q0 4-4 4h-13q-4 0-4-4v-24q0-4 4-4zm29 32v-32l20 32v-32"/>
+</defs>
+<!-- A small section of the real shell gives the recess and parting line context. -->
+<g id="housing">
+ <rect x="16" y="32" width="968" height="336" rx="54" fill="url(#shell)"/>
+ <path d="M62 56h876" fill="none" stroke="#e3895b" stroke-opacity=".25" stroke-width="3"/>
+ <rect x="240" y="82" width="520" height="268" rx="28" fill="url(#rim)"/>
+ <rect x="246" y="88" width="508" height="256" rx="23" fill="none" stroke="#e08559" stroke-opacity=".58" stroke-width="2"/>
+ <rect x="250" y="92" width="500" height="248" rx="20" fill="url(#inset)" stroke="#81271f" stroke-width="3"/>
+ <path d="M16 140h270m418 0h280" fill="none" stroke="#581d18" stroke-width="4"/>
+ <path d="M17 144h268m420 0h278" fill="none" stroke="#dd6a45" stroke-opacity=".65" stroke-width="2"/>
+</g>
+<g id="switch-well">
+ <rect x="282" y="137" width="426" height="111" rx="6" fill="#d4734c"/>
+ <rect x="284" y="138" width="422" height="107" rx="5" fill="#552019"/>
+ <rect x="286" y="140" width="418" height="102" rx="3" fill="url(#well)" stroke="#1c1e1b" stroke-width="2"/>
+ <path d="M289 243h412" stroke="#ef9471" stroke-opacity=".66" stroke-width="2"/>
+</g>
+
+
+<!-- Molded lettering is paths, so appearance does not depend on installed fonts. -->
+<g id="molded-markings" fill="none" stroke-linejoin="round" stroke-linecap="round">
+ <use href="#labels" transform="translate(1.3 1.8)" stroke="#e07850" stroke-opacity=".65" stroke-width="4.2"/>
+ <use href="#labels" stroke="#70241d" stroke-opacity=".75" stroke-width="3.5"/>
+ <use href="#labels" transform="translate(.1 .7)" stroke="#ad422d" stroke-width="1.6"/>
+ <g stroke-width="2.6"><circle cx="445.5" cy="295" r="12" stroke="#e07850" transform="translate(1 1.5)"/><circle cx="539.5" cy="295" r="12" stroke="#e07850" transform="translate(1 1.5)"/><circle cx="445.5" cy="295" r="12" stroke="#7f281f"/><circle cx="539.5" cy="295" r="12" stroke="#7f281f"/></g>
+</g>
+</svg>

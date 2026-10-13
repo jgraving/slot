@@ -58,6 +58,7 @@ pub struct Frontend {
     bluetooth_tex: Option<TexId>,
     bluetooth_lines: Vec<String>,
     bluetooth_indicator_tex: Option<TexId>,
+    power_switch: Option<(slot_ui::PowerSwitchColour, [TexId; 2])>,
 }
 
 #[derive(Default)]
@@ -142,6 +143,7 @@ impl Frontend {
             bluetooth_tex: None,
             bluetooth_lines: Vec::new(),
             bluetooth_indicator_tex: None,
+            power_switch: None,
         }
     }
 
@@ -171,6 +173,8 @@ impl Frontend {
     pub fn upload_boot_faces(&mut self, compositor: &mut Compositor) {
         Self::upload_paper(compositor);
         crate::boot_time::mark("paper");
+        // Ready before input begins, even if the other UI faces are still building.
+        self.sync_power_switch(compositor);
         if self.rebuild.is_none() {
             self.cart_faces.sync(self.session.app_mut(), compositor);
         }
@@ -331,7 +335,27 @@ impl Frontend {
         compositor.end_frame(window);
     }
 
+    fn sync_power_switch(&mut self, compositor: &mut Compositor) {
+        let colour = self.session.app().shell_colour();
+        if self.power_switch.is_some_and(|(shown, _)| shown == colour) {
+            return;
+        }
+        let faces = slot_ui::power_switch_faces(colour);
+        let textures = if let Some((_, textures)) = self.power_switch {
+            // Reuse the existing textures when changing colour, avoiding GPU leaks.
+            for (tex, face) in textures.into_iter().zip(&faces) {
+                compositor.update_texture(tex, face.w, face.h, &face.rgba);
+            }
+            textures
+        } else {
+            faces.map(|face| compositor.create_texture(face.w, face.h, &face.rgba))
+        };
+        self.session.app_mut().set_power_switch_faces(textures);
+        self.power_switch = Some((colour, textures));
+    }
+
     pub fn compose(&mut self, compositor: &mut Compositor) {
+        self.sync_power_switch(compositor);
         compositor.set_blue_light(self.session.app().blue_light());
         compositor.set_picture(self.session.app().picture_rect());
         compositor.set_screen_effect(match self.session.app().screen_shader() {

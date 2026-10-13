@@ -283,6 +283,7 @@ pub struct App {
     refused_from: Option<f32>,
     alert_face: Option<TexId>,
     shutdown_faces: Vec<(TexId, u32, u32)>,
+    power_switch_faces: Option<[TexId; 2]>,
     power_menu: Option<usize>,
     power_menu_faces: Vec<(TexId, u32, u32)>,
     core_picker: Option<CorePicker>,
@@ -445,6 +446,7 @@ impl App {
             refused_from: None,
             alert_face: None,
             shutdown_faces: Vec::new(),
+            power_switch_faces: None,
             power_menu: None,
             power_menu_faces: Vec::new(),
             core_picker: None,
@@ -985,6 +987,7 @@ impl App {
         match row {
             QuickRow::FastForward => QuickValue::speed(self.state.ff_speed),
             QuickRow::Night => Some(QuickValue::flag(self.comfort.night)),
+            QuickRow::ShellColour => Some(self.comfort.shell_colour.value()),
             QuickRow::LidClose => Some(
                 [
                     QuickValue::LightSleep,
@@ -1750,11 +1753,18 @@ impl App {
             | QuickRow::GbPalettes
             | QuickRow::Rumble
             | QuickRow::LidClose
+            | QuickRow::ShellColour
             | QuickRow::SleepTimeout => {}
         }
     }
 
     fn change_setting(&mut self, row: QuickRow, right: bool) {
+        if row == QuickRow::ShellColour {
+            self.comfort.shell_colour = self.comfort.shell_colour.step(right);
+            self.comfort_changed();
+            self.save_comfort();
+            return;
+        }
         if matches!(row, QuickRow::LidClose | QuickRow::SleepTimeout) {
             let (value, count) = if row == QuickRow::LidClose {
                 (&mut self.comfort.lid_close, 3)
@@ -1819,6 +1829,7 @@ impl App {
             | QuickRow::Night
             | QuickRow::Power
             | QuickRow::LidClose
+            | QuickRow::ShellColour
             | QuickRow::SleepTimeout => return,
         }
         self.persist();
@@ -2495,7 +2506,14 @@ impl App {
                 SHUTDOWN_SHOW_MS
             };
             let remaining = self.act_at.saturating_sub(self.now()) as f32;
-            slot_ui::draw_power_switch(1.0 - remaining / duration as f32, self.restarting, out);
+            if let Some(faces) = self.power_switch_faces {
+                slot_ui::draw_power_switch(
+                    1.0 - remaining / duration as f32,
+                    self.restarting,
+                    faces,
+                    out,
+                );
+            }
             return;
         }
         if let Some((at, frame)) = &self.sleep_visual {
@@ -2689,6 +2707,14 @@ impl App {
 
     pub fn set_alert_face(&mut self, face: TexId) {
         self.alert_face = Some(face);
+    }
+
+    pub fn shell_colour(&self) -> slot_ui::PowerSwitchColour {
+        self.comfort.shell_colour
+    }
+
+    pub fn set_power_switch_faces(&mut self, faces: [TexId; 2]) {
+        self.power_switch_faces = Some(faces);
     }
 
     pub fn set_shutdown_faces(&mut self, faces: Vec<(TexId, u32, u32)>) {

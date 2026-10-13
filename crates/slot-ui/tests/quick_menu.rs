@@ -125,6 +125,7 @@ fn the_rows_run_in_the_order_the_user_chose() {
         &QuickRow::MAIN[..],
         &QuickRow::SCREEN[..],
         &QuickRow::GAME[..],
+        &QuickRow::POWER[..],
     ] {
         for &row in page {
             assert_eq!(row.page(), page, "{row:?}");
@@ -153,7 +154,12 @@ fn the_values_read_as_the_menu_prints_them() {
             "3 Minutes",
             "15 Minutes",
             "30 Minutes",
-            "Never"
+            "Never",
+            "Flame Red",
+            "Platinum",
+            "Graphite",
+            "Pearl Blue",
+            "Pearl Pink"
         ]
     );
     assert_eq!(QuickValue::flag(true), QuickValue::On);
