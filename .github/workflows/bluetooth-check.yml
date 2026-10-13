@@ -22,3 +22,38 @@ jobs:
       - run: cargo test -p slot-gfx --no-default-features --features device --test grade
       - run: cargo test -p slot-ui
       - run: python3 card/test-bluetooth.py
+
+  device-package:
+    name: RG SP test package
+    if: github.event_name == 'pull_request' && github.head_ref == 'favorites-y-star'
+    runs-on: ubuntu-24.04-arm
+    container: rust:1-bullseye
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Build the handheld frontend
+        run: cargo build --locked --profile device --target-dir target-device -p slot --no-default-features --features device
+      - name: Package the System update
+        run: |
+          set -eu
+          sed -i '/bullseye-security/d' /etc/apt/sources.list
+          apt-get -o Acquire::Check-Valid-Until=false update
+          apt-get install -y --no-install-recommends zip file
+          file target-device/device/slot | grep -q aarch64
+          mkdir -p update/System
+          cp -a card/System/. update/System/
+          cp target-device/device/slot update/System/slot
+          chmod 755 update/System/slot
+          cp LICENSE update/LICENSE
+          git rev-parse HEAD > update/BUILD-COMMIT.txt
+          printf '%s\n' 'Power off and back up your current System/slot.' 'Merge the contents of System into the existing System folder on SD2.' 'Replace matching files only; retain mgba_libretro.so, gpsp_libretro.so and other installed files.' 'Games, labels, settings and saves do not need changing.' > update/INSTALL.txt
+          printf 'Corresponding source: https://github.com/jgraving/slot/archive/%s.tar.gz\n' "$(git rev-parse HEAD)" > update/SOURCE.txt
+          cd update
+          sha256sum System/slot > SHA256SUMS
+          zip -qry ../slot-y-favorite-star-System.zip .
+      - uses: actions/upload-artifact@v7
+        with:
+          name: slot-y-favorite-star-System
+          path: slot-y-favorite-star-System.zip
+          if-no-files-found: error

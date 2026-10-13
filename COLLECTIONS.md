@@ -4,8 +4,9 @@ Based on this fork's main branch, including Bluetooth audio and the warmer night
 Inspired by https://github.com/BrandonKowalski/slot/issues/57.
 
 - L1/R1 cycles Recents → Favorites → GBA → GB → GBC, skipping empty shelves.
-- SELECT toggles the selected cartridge's favorite status on any shelf. A short
-  confirmation appears; a small star marks favorites over their existing labels.
+- Y toggles the selected cartridge's favorite status on any shelf. A short
+  confirmation appears; a small gold star sits centered above each favorite cartridge.
+  The controls and placement are inspired by [slot.advance](https://github.com/suprsomething/slot.advance).
 - Favorites are alphabetical and can mix all three systems. Up/Down still jumps letters.
 - Recents contains up to 25 successfully loaded games, newest first, without duplicates.
   Up/Down letter jumping is disabled on this shelf.

@@ -21,6 +21,53 @@ fn shelf_with(n: usize) -> Shelf {
     )
 }
 
+#[test]
+fn favorite_stars_stay_above_their_cartridges_during_scroll_and_recede() {
+    let mut s = shelf_with(3);
+    s.carts[1].platform = Platform::Gb;
+    s.carts[2].platform = Platform::Gbc;
+    s.set_favorites(
+        s.carts
+            .iter()
+            .map(|c| (c.platform, c.stem.clone()))
+            .collect(),
+    );
+    s.set_faces((0..3).map(TexId::from_raw).collect());
+    s.right();
+    for _ in 0..5 {
+        s.update(1.0 / 60.0);
+    }
+    for recede in [0.0, 0.5, 1.0] {
+        let mut out = Vec::new();
+        s.draw_row(None, 7.0, recede, 0.6, &mut out);
+        let mut cart = None;
+        for draw in &out {
+            match *draw {
+                Draw::Tex { x, y, w, alpha, .. } => cart = Some((x, y, w, alpha)),
+                Draw::Rect {
+                    x, y, w, h, colour, ..
+                } => {
+                    let (cx, cy, cw, alpha) = cart.expect("star follows its cartridge");
+                    assert!(y + h < cy, "star overlaps the cartridge");
+                    assert!((x + w / 2.0 - cx - cw / 2.0).abs() <= 8.0);
+                    assert_eq!(colour, [1.0, 0.88, 0.38, alpha]);
+                }
+                _ => panic!("unexpected shelf draw"),
+            }
+        }
+        if recede == 1.0 {
+            assert!(out.is_empty(), "stars vanish with the shelf");
+        } else {
+            assert!(out.iter().any(|d| matches!(d, Draw::Rect { .. })));
+        }
+    }
+    let mut out = Vec::new();
+    s.draw_row(Some("Game 1"), 0.0, 0.0, 1.0, &mut out);
+    assert!(!out
+        .iter()
+        .any(|d| matches!(d, Draw::Tex { tex, .. } if *tex == TexId::from_raw(1))));
+}
+
 fn placed(s: &Shelf) -> Vec<(f32, f32)> {
     let mut out = Vec::new();
     s.draw_row(None, 0.0, 0.0, 1.0, &mut out);
