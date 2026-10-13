@@ -226,3 +226,10 @@ fn run(program: &str, args: &[&str]) -> bool {
         .status()
         .is_ok_and(|s| s.success())
 }
+
+/// Use the same wordmark as the static boot screen, with a bundled fallback.
+pub fn startup_mark(card: &Path) -> Bmp {
+    chosen(card).as_deref().and_then(decode).unwrap_or_else(|| {
+        decode(include_bytes!("../../../card/System/bootlogo.bmp")).expect("bundled boot wordmark")
+    })
+}

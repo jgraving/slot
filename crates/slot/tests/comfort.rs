@@ -201,3 +201,63 @@ fn disconnect_keeps_the_core_running_at_zero_volume() {
         std::thread::sleep(Duration::from_millis(1));
     }
 }
+
+#[test]
+fn shell_colour_cycles_in_power_options_and_survives_reboot() {
+    use slot_ui::{PowerSwitchColour, QuickValue};
+    let d = common::tmp_root_with_carts(&["Alpha", "Beta"]);
+    common::clocked(d.path());
+    let mut a = App::boot(d.path());
+    assert_eq!(a.shell_colour(), PowerSwitchColour::FlameRed);
+    a.apply(Action::QuickMenu);
+    for _ in 0..QuickRow::Power.position() {
+        tap(&mut a, Btn::Down);
+    }
+    assert_eq!(a.quick_menu(), Some(QuickRow::Power));
+    tap(&mut a, Btn::A);
+    tap(&mut a, Btn::Down);
+    tap(&mut a, Btn::Down);
+    assert_eq!(a.quick_menu(), Some(QuickRow::ShellColour));
+    // Left wraps around to the last colour; Right wraps back to Flame Red.
+    tap(&mut a, Btn::Left);
+    assert_eq!(
+        a.quick_value(QuickRow::ShellColour),
+        Some(QuickValue::PearlPink)
+    );
+    tap(&mut a, Btn::Right);
+    assert_eq!(a.shell_colour(), PowerSwitchColour::FlameRed);
+    for expected in [
+        PowerSwitchColour::Platinum,
+        PowerSwitchColour::Graphite,
+        PowerSwitchColour::PearlBlue,
+    ] {
+        tap(&mut a, Btn::Right);
+        assert_eq!(a.shell_colour(), expected);
+    }
+    tap(&mut a, Btn::B);
+    assert_eq!(a.quick_menu(), Some(QuickRow::Power));
+    a.settle_saves();
+    let b = App::boot(d.path());
+    assert_eq!(b.shell_colour(), PowerSwitchColour::PearlBlue);
+}
+
+#[test]
+fn old_or_unknown_shell_colour_settings_use_the_original_artwork() {
+    use slot_ui::PowerSwitchColour;
+    let d = common::tmp_root_with_carts(&["Alpha"]);
+    let state = SlotState::default();
+    for text in ["sounds=1\n", "shell_colour=unknown\n", "shell_colour=999\n"] {
+        std::fs::write(d.path().join("Config/comfort.txt"), text).unwrap();
+        let c = Comfort::read(d.path(), &state).unwrap();
+        assert_eq!(c.shell_colour, PowerSwitchColour::FlameRed);
+    }
+    for colour in PowerSwitchColour::ALL {
+        let mut c = Comfort::new(&state);
+        c.shell_colour = colour;
+        c.save(d.path()).unwrap();
+        assert_eq!(
+            Comfort::read(d.path(), &state).unwrap().shell_colour,
+            colour
+        );
+    }
+}

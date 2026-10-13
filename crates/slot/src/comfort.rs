@@ -21,6 +21,7 @@ pub struct Comfort {
     pub sounds: bool,
     pub lid_close: u8,
     pub sleep_timeout: u8,
+    pub shell_colour: slot_ui::PowerSwitchColour,
     pub shelf: usize,
     pub positions: BTreeMap<usize, String>,
     pub headsets: BTreeMap<String, Headset>,
@@ -41,6 +42,7 @@ impl Comfort {
             sounds: true,
             lid_close: 0,
             sleep_timeout: 0,
+            shell_colour: slot_ui::PowerSwitchColour::default(),
             shelf: 0,
             positions: BTreeMap::new(),
             headsets: BTreeMap::new(),
@@ -65,6 +67,7 @@ impl Comfort {
                 })
             };
             match key {
+                "shell_colour" => c.shell_colour = slot_ui::PowerSwitchColour::from_key(value),
                 "night" => c.night = value == "1",
                 "quiet" => c.quiet = value == "1",
                 "sounds" => c.sounds = value == "1",
@@ -116,12 +119,13 @@ impl Comfort {
     }
     pub fn save(&self, root: &Path) -> io::Result<()> {
         let mut text = format!(
-            "night={}\nquiet={}\nsounds={}\nlid_close={}\nsleep_timeout={}\nday={},{}\nbedtime={},{}\nshelf={}\n",
+            "night={}\nquiet={}\nsounds={}\nlid_close={}\nsleep_timeout={}\nshell_colour={}\nday={},{}\nbedtime={},{}\nshelf={}\n",
             u8::from(self.night),
             u8::from(self.quiet),
             u8::from(self.sounds),
             self.lid_close,
             self.sleep_timeout,
+            self.shell_colour.key(),
             self.day.brightness,
             self.day.warmth,
             self.bedtime.brightness,

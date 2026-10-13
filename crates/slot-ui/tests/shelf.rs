@@ -33,6 +33,8 @@ fn favorite_stars_stay_above_their_cartridges_during_scroll_and_recede() {
             .collect(),
     );
     s.set_faces((0..3).map(TexId::from_raw).collect());
+    let star = TexId::from_raw(100);
+    s.set_favorite_face(star);
     s.right();
     for _ in 0..5 {
         s.update(1.0 / 60.0);
@@ -40,25 +42,32 @@ fn favorite_stars_stay_above_their_cartridges_during_scroll_and_recede() {
     for recede in [0.0, 0.5, 1.0] {
         let mut out = Vec::new();
         s.draw_row(None, 7.0, recede, 0.6, &mut out);
-        let mut cart = None;
+        let mut cart: Option<(f32, f32, f32, f32)> = None;
         for draw in &out {
             match *draw {
-                Draw::Tex { x, y, w, alpha, .. } => cart = Some((x, y, w, alpha)),
-                Draw::Rect {
-                    x, y, w, h, colour, ..
-                } => {
-                    let (cx, cy, cw, alpha) = cart.expect("star follows its cartridge");
+                Draw::Tex {
+                    x,
+                    y,
+                    w,
+                    h,
+                    tex,
+                    alpha,
+                } if tex == star => {
+                    let (cx, cy, cw, cart_alpha) = cart.expect("star follows its cartridge");
                     assert!(y + h < cy, "star overlaps the cartridge");
-                    assert!((x + w / 2.0 - cx - cw / 2.0).abs() <= 8.0);
-                    assert_eq!(colour, [1.0, 0.88, 0.38, alpha]);
+                    assert!((x + w / 2.0 - cx - cw / 2.0).abs() < 0.001);
+                    assert_eq!(alpha, cart_alpha);
                 }
+                Draw::Tex { x, y, w, alpha, .. } => cart = Some((x, y, w, alpha)),
                 _ => panic!("unexpected shelf draw"),
             }
         }
         if recede == 1.0 {
             assert!(out.is_empty(), "stars vanish with the shelf");
         } else {
-            assert!(out.iter().any(|d| matches!(d, Draw::Rect { .. })));
+            assert!(out
+                .iter()
+                .any(|d| matches!(d, Draw::Tex { tex, .. } if *tex == star)));
         }
     }
     let mut out = Vec::new();

@@ -58,6 +58,7 @@ pub struct Frontend {
     bluetooth_tex: Option<TexId>,
     bluetooth_lines: Vec<String>,
     bluetooth_indicator_tex: Option<TexId>,
+    power_switch: Option<(slot_ui::PowerSwitchColour, [TexId; 2])>,
 }
 
 #[derive(Default)]
@@ -142,6 +143,7 @@ impl Frontend {
             bluetooth_tex: None,
             bluetooth_lines: Vec::new(),
             bluetooth_indicator_tex: None,
+            power_switch: None,
         }
     }
 
@@ -171,6 +173,8 @@ impl Frontend {
     pub fn upload_boot_faces(&mut self, compositor: &mut Compositor) {
         Self::upload_paper(compositor);
         crate::boot_time::mark("paper");
+        // Ready before input begins, even if the other UI faces are still building.
+        self.sync_power_switch(compositor);
         if self.rebuild.is_none() {
             self.cart_faces.sync(self.session.app_mut(), compositor);
         }
@@ -239,6 +243,7 @@ impl Frontend {
         let blank = cart(faces.blank_chip);
         let shadow = cart(faces.chip_shadow);
         let mut up = |f: UndoFace| (compositor.create_texture(f.w, f.h, &f.rgba), f.w, f.h);
+        let favorite = up(faces.favorite).0;
         let lines = faces.shutdown.into_iter().map(&mut up).collect();
         let menu = faces.power_menu.into_iter().map(&mut up).collect();
         let labels = faces.quick_labels.into_iter().map(&mut up).collect();
@@ -273,6 +278,7 @@ impl Frontend {
         let steps = faces.link_steps.into_iter().map(&mut up).collect();
         let fails = faces.link_fails.into_iter().map(&mut up).collect();
         let app = self.session.app_mut();
+        app.set_favorite_face(favorite);
         app.set_link_badge_faces(link_badges);
         app.set_shutdown_faces(lines);
         app.set_power_menu_faces(menu);
@@ -331,7 +337,36 @@ impl Frontend {
         compositor.end_frame(window);
     }
 
+    pub fn set_power_switch_textures(
+        &mut self,
+        colour: slot_ui::PowerSwitchColour,
+        textures: [TexId; 2],
+    ) {
+        self.session.app_mut().set_power_switch_faces(textures);
+        self.power_switch = Some((colour, textures));
+    }
+
+    fn sync_power_switch(&mut self, compositor: &mut Compositor) {
+        let colour = self.session.app().shell_colour();
+        if self.power_switch.is_some_and(|(shown, _)| shown == colour) {
+            return;
+        }
+        let faces = slot_ui::power_switch_faces(colour);
+        let textures = if let Some((_, textures)) = self.power_switch {
+            // Reuse the existing textures when changing colour, avoiding GPU leaks.
+            for (tex, face) in textures.into_iter().zip(&faces) {
+                compositor.update_texture(tex, face.w, face.h, &face.rgba);
+            }
+            textures
+        } else {
+            faces.map(|face| compositor.create_texture(face.w, face.h, &face.rgba))
+        };
+        self.session.app_mut().set_power_switch_faces(textures);
+        self.power_switch = Some((colour, textures));
+    }
+
     pub fn compose(&mut self, compositor: &mut Compositor) {
+        self.sync_power_switch(compositor);
         compositor.set_blue_light(self.session.app().blue_light());
         compositor.set_picture(self.session.app().picture_rect());
         compositor.set_screen_effect(match self.session.app().screen_shader() {
@@ -571,6 +606,7 @@ fn legend_faces(compositor: &mut Compositor, legend: &[(&str, &str)]) -> Vec<Tex
 
 struct UiFaces {
     link_badges: Vec<CartFace>,
+    favorite: UndoFace,
     shutdown: Vec<UndoFace>,
     power_menu: Vec<UndoFace>,
     quick_labels: Vec<UndoFace>,
@@ -593,6 +629,7 @@ struct UiFaces {
 impl UiFaces {
     fn build() -> Self {
         UiFaces {
+            favorite: slot_ui::favorite_face(),
             link_badges: LinkBadge::FACES
                 .iter()
                 .map(|b| {
@@ -607,7 +644,6 @@ impl UiFaces {
                 .iter()
                 .map(|c| {
                     menu_face(match c {
-                        PowerChoice::Restart => "Restarting",
                         PowerChoice::PowerOff => "Powering Down",
                         PowerChoice::Sleep => "Sleep",
                     })

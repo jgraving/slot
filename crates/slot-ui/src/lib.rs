@@ -60,14 +60,17 @@ pub use plate::{
     HINT_EDGE, HINT_GAP, HINT_H, LEGEND_GAP, TITLE_H, TITLE_W,
 };
 pub use polaroids::{photo_face, PhotoFace, Polaroids, DOT, LEGEND, PHOTO_H, PHOTO_W};
-pub use power_menu::{draw_power_switch, draw_sleep, menu_face, PowerChoice, MENU_PAD};
+pub use power_menu::{
+    draw_power_on, draw_power_switch, draw_sleep, menu_face, power_switch_faces, PowerChoice,
+    PowerSwitchColour, MENU_PAD,
+};
 pub use quick_menu::{
     quick_caret_face, quick_label_face, quick_legend_faces, quick_value_face, QuickMenu,
     QuickMenuFaces, QuickRow, QuickValue, QUICK_EDGE, QUICK_PITCH, QUICK_SPLIT, QUICK_TOP,
 };
 pub use rebuild::{rebuild_count_face, rebuild_title_face, RebuildScreen};
 pub use refusal::Refusal;
-pub use shelf::{foot_y, rest_y, set_shelf_slack, Shelf};
+pub use shelf::{favorite_face, foot_y, rest_y, set_shelf_slack, Shelf};
 pub use shell::{
     gb_table_shells, gba_shell_for, lookup_order_is_exact_then_family_then_default, shell_for,
     shell_presets, table_keys, Finish, Shell, DEFAULT_SHELL, DMG_SHELL, DUAL_MODE_SHELL,

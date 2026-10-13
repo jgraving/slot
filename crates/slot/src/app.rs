@@ -66,6 +66,7 @@ const PLAY_HOLD_MS: Millis = 500;
 const SHUTDOWN_SHOW_MS: Millis = 700;
 const RESTART_SHOW_MS: Millis = 1100;
 const SLEEP_SHOW_MS: Millis = 320;
+const SHUTDOWN_SWITCH_MS: Millis = SHUTDOWN_SHOW_MS - SLEEP_SHOW_MS;
 
 const POWER_MENU_PITCH: f32 = 44.0;
 const POWER_MENU_BAR_INSET: f32 = 4.0;
@@ -283,6 +284,7 @@ pub struct App {
     refused_from: Option<f32>,
     alert_face: Option<TexId>,
     shutdown_faces: Vec<(TexId, u32, u32)>,
+    power_switch_faces: Option<[TexId; 2]>,
     power_menu: Option<usize>,
     power_menu_faces: Vec<(TexId, u32, u32)>,
     core_picker: Option<CorePicker>,
@@ -445,6 +447,7 @@ impl App {
             refused_from: None,
             alert_face: None,
             shutdown_faces: Vec::new(),
+            power_switch_faces: None,
             power_menu: None,
             power_menu_faces: Vec::new(),
             core_picker: None,
@@ -985,6 +988,7 @@ impl App {
         match row {
             QuickRow::FastForward => QuickValue::speed(self.state.ff_speed),
             QuickRow::Night => Some(QuickValue::flag(self.comfort.night)),
+            QuickRow::ShellColour => Some(self.comfort.shell_colour.value()),
             QuickRow::LidClose => Some(
                 [
                     QuickValue::LightSleep,
@@ -1032,6 +1036,12 @@ impl App {
 
     pub fn set_clock_faces(&mut self, line: TexId, hint: TexId) {
         self.clock_faces = Some((line, hint));
+    }
+
+    pub fn set_favorite_face(&mut self, face: TexId) {
+        for (_, shelf) in &mut self.shelves {
+            shelf.set_favorite_face(face);
+        }
     }
 
     pub fn set_cart_shadow(&mut self, face: TexId) {
@@ -1543,6 +1553,7 @@ impl App {
     pub fn poweroff(&mut self) {
         self.settle_saves();
         if let Some(power) = &mut self.power {
+            power.set_backlight(0);
             power.poweroff();
         }
     }
@@ -1750,11 +1761,18 @@ impl App {
             | QuickRow::GbPalettes
             | QuickRow::Rumble
             | QuickRow::LidClose
+            | QuickRow::ShellColour
             | QuickRow::SleepTimeout => {}
         }
     }
 
     fn change_setting(&mut self, row: QuickRow, right: bool) {
+        if row == QuickRow::ShellColour {
+            self.comfort.shell_colour = self.comfort.shell_colour.step(right);
+            self.comfort_changed();
+            self.save_comfort();
+            return;
+        }
         if matches!(row, QuickRow::LidClose | QuickRow::SleepTimeout) {
             let (value, count) = if row == QuickRow::LidClose {
                 (&mut self.comfort.lid_close, 3)
@@ -1819,6 +1837,7 @@ impl App {
             | QuickRow::Night
             | QuickRow::Power
             | QuickRow::LidClose
+            | QuickRow::ShellColour
             | QuickRow::SleepTimeout => return,
         }
         self.persist();
@@ -2495,7 +2514,27 @@ impl App {
                 SHUTDOWN_SHOW_MS
             };
             let remaining = self.act_at.saturating_sub(self.now()) as f32;
-            slot_ui::draw_power_switch(1.0 - remaining / duration as f32, self.restarting, out);
+            let elapsed = duration as f32 - remaining;
+            if let Some(faces) = self.power_switch_faces {
+                // Hold the switch at OFF while the sleep effect closes over it.
+                let switch_elapsed = if self.restarting {
+                    elapsed
+                } else {
+                    elapsed.min(SHUTDOWN_SWITCH_MS as f32)
+                };
+                slot_ui::draw_power_switch(
+                    switch_elapsed / duration as f32,
+                    self.restarting,
+                    faces,
+                    out,
+                );
+            }
+            if !self.restarting && elapsed >= SHUTDOWN_SWITCH_MS as f32 {
+                slot_ui::draw_sleep(
+                    (elapsed - SHUTDOWN_SWITCH_MS as f32) / SLEEP_SHOW_MS as f32,
+                    out,
+                );
+            }
             return;
         }
         if let Some((at, frame)) = &self.sleep_visual {
@@ -2689,6 +2728,14 @@ impl App {
 
     pub fn set_alert_face(&mut self, face: TexId) {
         self.alert_face = Some(face);
+    }
+
+    pub fn shell_colour(&self) -> slot_ui::PowerSwitchColour {
+        self.comfort.shell_colour
+    }
+
+    pub fn set_power_switch_faces(&mut self, faces: [TexId; 2]) {
+        self.power_switch_faces = Some(faces);
     }
 
     pub fn set_shutdown_faces(&mut self, faces: Vec<(TexId, u32, u32)>) {
@@ -3227,12 +3274,6 @@ impl App {
                 self.power_menu = None;
                 self.close_game_menu();
                 match PowerChoice::ALL[index] {
-                    PowerChoice::Restart => {
-                        self.restarting = true;
-                        self.act_at = self.now() + RESTART_SHOW_MS;
-                        self.sfx = Some(Sfx::RestartSwitch);
-                        self.set_led(LedState::Off);
-                    }
                     PowerChoice::PowerOff => self.begin_power_off(),
                     PowerChoice::Sleep => {
                         let mut frame = Vec::new();
@@ -3279,7 +3320,7 @@ impl App {
             Action::GbaDown(Btn::Left) | Action::ShelfLeft => Press::Left,
             Action::GbaDown(Btn::Right) | Action::ShelfRight => Press::Right,
             Action::GbaDown(Btn::A) => Press::Keep,
-            Action::GbaDown(Btn::B) => Press::Back,
+            Action::GbaDown(Btn::B | Btn::Start) => Press::Back,
             _ => return,
         };
         let now = self.now();
@@ -3611,6 +3652,9 @@ impl App {
             self.sfx = Some(Sfx::PowerSwitch);
         }
         self.act_at = self.now() + SHUTDOWN_SHOW_MS;
+        if let Some(power) = &mut self.power {
+            power.prepare_poweroff();
+        }
         self.set_led(LedState::Off);
     }
 

@@ -28,17 +28,27 @@ Power → Lid Close offers Light Sleep (default), Deep Sleep, and Power Off.
 Power → Sleep Timer shuts down after 3 Minutes (default), 15 Minutes, or 30 Minutes.
 Never disables automatic shutdown. The timer applies to both kinds of sleep.
 
-Holding Power retains Restart and Power Off, with Sleep added below. Sleep uses
+Holding Power offers Power Off and Sleep. Restart is removed after a device reboot
+hang report; OS reboot behavior has not been verified on the installed firmware. Sleep uses
 deep sleep when Lid Close is set to Deep Sleep; otherwise it uses light sleep.
-Power Off shows a short-travel SP-style switch with a broad grey grip, three raised
-ribs, and moulded OFF/ON markings. The click is four times the cartridge click's
-amplitude and remains controlled by output volume. Restart switches off, pauses,
-then switches on again, with a click at each detent. Sleep from the power menu
+Power Off shows the photo-referenced Flame Red GBA SP switch with a recessed shell
+surround, charcoal slider, raised grip, and moulded OFF/ON markings. The click is four times the cartridge click's
+amplitude and remains controlled by output volume. Shutdown shows the switch for
+380 ms, then uses Sleep's 320 ms fading-line effect: 700 ms total, with no added
+animation delay. Disk syncing starts in the background during the animation; the
+final save settlement and sync remain before signalling init. The backlight turns
+off at the end of the effect. Sleep from the power menu
 closes the screen into a fading line over 320 ms before turning off the backlight
 and suspending. Closing the physical lid still sleeps immediately.
 Automatic shutdown while sleeping stays silent.
 
-Switch visual reference: https://gbasp.ru/japangreen.html (Pearl Green side view).
+Switch visual reference: https://documents.cdn.ifixit.com/pdf/ifixit/guide_12889_en.pdf
+(cover photo). The original vector reconstruction is split into `power_switch.svg`
+and `power_switch_slider.svg` in `crates/slot-ui/assets`. Both are embedded and
+rasterised once at startup; the animation moves the slider texture without parsing
+SVGs or uploading frames during shutdown. The grip mark aligns with the OFF and ON
+dots at the two detents. The switch keeps the approved 5:2 aspect ratio, centred at
+600 by 240 pixels in the frontend's 720 by 480 canvas.
 
 Deep sleep uses BaseOS Super Standby. **Press Power to wake; opening the lid alone
 does not wake it.** Timed sleep arms the RTC alarm, wakes at the deadline, and shuts
@@ -50,3 +60,19 @@ BaseOS reference: https://github.com/pvaibhav/BaseOS/blob/main/docs/05-runtime-p
 Device testing is still needed: check Power wake, speaker/headphone audio after
 wake, and a full three-minute deep-sleep shutdown on your handheld. Software tests
 simulate the sleep deadline; they cannot verify the device's RTC wake support.
+
+Options → Power → Shell Color cycles with Left/Right through Flame Red (the
+original/default artwork), Platinum, Graphite, Pearl Blue, and Pearl Pink. The
+four RG SP finish names and visual colour references come from Anbernic's current
+RG SP product page, https://anbernic.com/products/rg-sp (checked 2026-10-13), not the
+older RG35XXSP or RG34XXSP. These are photo-matched approximations, not manufacturer
+paint specifications. The preference is saved as `shell_colour` in
+`Config/comfort.txt`; missing or unknown values retain Flame Red. Changing finish
+reuses the existing textures and recolours only the surround; the slider remains
+charcoal. Power Off uses the selected finish.
+
+At startup, the live renderer shows the chosen boot wordmark with a small OFF-to-ON
+switch below it, using the saved shell colour. Card scanning and audio startup run
+on a worker while the main thread draws. There is no minimum splash delay: a fast
+boot may show only the final ON position. The firmware's earlier bitmap remains
+static. The favorites star is upright.

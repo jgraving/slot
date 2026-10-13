@@ -862,20 +862,22 @@ fn choosing_a_core_writes_it_and_closes() {
 }
 
 #[test]
-fn b_closes_the_picker_without_writing() {
-    let (d, mut app) = on_shelf(&["Emerald", "Zzz"]);
-    fake_picker_faces(&mut app);
-    app.apply(Action::GbaDown(Btn::Start));
-    app.apply(Action::GbaDown(Btn::Right));
-    app.apply(Action::GbaDown(Btn::B));
-    let_it_close(&mut app);
+fn b_or_start_closes_the_picker_without_writing() {
+    for button in [Btn::B, Btn::Start] {
+        let (d, mut app) = on_shelf(&["Emerald", "Zzz"]);
+        fake_picker_faces(&mut app);
+        app.apply(Action::GbaDown(Btn::Start));
+        app.apply(Action::GbaDown(Btn::Right));
+        app.apply(Action::GbaDown(button));
+        let_it_close(&mut app);
 
-    assert_eq!(app.core_picker(), None);
-    assert_eq!(
-        slot_store::core_for(d.path(), "Emerald"),
-        Core::Mgba,
-        "backing out of the picker still changed the cart"
-    );
+        assert_eq!(app.core_picker(), None);
+        assert_eq!(
+            slot_store::core_for(d.path(), "Emerald"),
+            Core::Mgba,
+            "backing out of the picker still changed the cart"
+        );
+    }
 }
 
 #[test]

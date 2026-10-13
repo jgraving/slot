@@ -3,7 +3,7 @@ use std::time::{Duration, Instant};
 
 use slot::frontend::Frontend;
 use slot::input::DeviceInput;
-use slot_gfx::{Compositor, FbdevSurface, Surface};
+use slot_gfx::{Compositor, Draw, FbdevSurface, Surface};
 use slot_power::{trace_first_frame, DevicePlatform};
 
 const CARD: &str = "/mnt/sdcard";
@@ -110,12 +110,90 @@ pub fn run() {
     eprintln!("slot: {}", platform.report());
     platform.trace_boot();
     slot::boot_time::mark("platform");
-    let sink = match audio.map(|h| h.join()) {
-        Ok(Ok(sink)) => sink,
-        _ => slot::audio::opened_sink(),
+    // Keep GL on this thread while scanning cards and opening audio in parallel.
+    let boot = std::thread::Builder::new()
+        .name("slot-startup".into())
+        .spawn(move || {
+            let sink = match audio.map(|h| h.join()) {
+                Ok(Ok(sink)) => sink,
+                _ => slot::audio::opened_sink(),
+            };
+            slot::boot_time::mark("audio");
+            Frontend::boot_with(Box::new(platform), sink)
+        });
+    let boot = match boot {
+        Ok(boot) => boot,
+        Err(e) => {
+            eprintln!("slot: startup: {e}");
+            return;
+        }
     };
-    slot::boot_time::mark("audio");
-    let mut frontend = Frontend::boot_with(Box::new(platform), sink);
+    let state = slot_store::read_slot_state(&root);
+    let colour = slot::comfort::Comfort::read(&root, &state)
+        .unwrap_or_else(|_| slot::comfort::Comfort::new(&state))
+        .shell_colour;
+    let switch =
+        slot_ui::power_switch_faces(colour).map(|f| compositor.create_texture(f.w, f.h, &f.rgba));
+    let mark = slot::bootlogo::startup_mark(&root);
+    let background = mark.rgb[0].map(|c| c as f32 / 255.0);
+    let rgba: Vec<u8> = mark
+        .rgb
+        .iter()
+        .flat_map(|p| [p[0], p[1], p[2], 255])
+        .collect();
+    let logo = compositor.create_texture(mark.width as u32, mark.height as u32, &rgba);
+    let began = Instant::now();
+    loop {
+        let ready = boot.is_finished();
+        let progress = if ready {
+            1.0
+        } else {
+            began.elapsed().as_secs_f32() / 0.35
+        };
+        let scale = (400.0 / mark.width as f32)
+            .min(100.0 / mark.height as f32)
+            .min(1.0);
+        let (w, h) = (mark.width as f32 * scale, mark.height as f32 * scale);
+        let mut draws = vec![
+            Draw::Rect {
+                x: 0.0,
+                y: 0.0,
+                w: 720.0,
+                h: 480.0,
+                colour: [background[0], background[1], background[2], 1.0],
+            },
+            Draw::Tex {
+                x: (720.0 - w) * 0.5,
+                y: (480.0 - h) * 0.5,
+                w,
+                h,
+                tex: logo,
+                alpha: 1.0,
+            },
+        ];
+        slot_ui::draw_power_on(progress, switch, &mut draws);
+        compositor.fit(window);
+        compositor.begin_frame();
+        compositor.draw_list(&draws);
+        compositor.end_frame(window);
+        if let Err(e) = surface.swap() {
+            eprintln!("slot: startup screen: {e}");
+            return;
+        }
+        // No minimum splash duration: continue as soon as startup is ready.
+        if ready {
+            break;
+        }
+        std::thread::sleep(Duration::from_millis(8));
+    }
+    let mut frontend = match boot.join() {
+        Ok(frontend) => frontend,
+        Err(_) => {
+            eprintln!("slot: startup worker panicked");
+            return;
+        }
+    };
+    frontend.set_power_switch_textures(colour, switch);
     slot::boot_time::mark("frontend");
     frontend.upload_boot_faces(&mut compositor);
     slot::boot_time::mark("faces");
@@ -139,6 +217,9 @@ pub fn run() {
             frontend.restart();
         }
         if frontend.powering_off() {
+            // Present the fully closed screen before sync/init can block us.
+            frontend.render(&mut compositor, window);
+            let _ = surface.swap();
             frontend.poweroff();
             return;
         }

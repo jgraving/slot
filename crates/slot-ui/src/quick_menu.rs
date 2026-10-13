@@ -25,10 +25,11 @@ pub enum QuickRow {
     Power,
     LidClose,
     SleepTimeout,
+    ShellColour,
 }
 
 impl QuickRow {
-    pub const ALL: [QuickRow; 19] = [
+    pub const ALL: [QuickRow; 20] = [
         QuickRow::FastForward,
         QuickRow::FastForwardSound,
         QuickRow::Screen,
@@ -48,6 +49,7 @@ impl QuickRow {
         QuickRow::Power,
         QuickRow::LidClose,
         QuickRow::SleepTimeout,
+        QuickRow::ShellColour,
     ];
 
     pub const MAIN: [QuickRow; 6] = [
@@ -58,7 +60,11 @@ impl QuickRow {
         QuickRow::DateTime,
         QuickRow::About,
     ];
-    pub const POWER: [QuickRow; 2] = [QuickRow::LidClose, QuickRow::SleepTimeout];
+    pub const POWER: [QuickRow; 3] = [
+        QuickRow::LidClose,
+        QuickRow::SleepTimeout,
+        QuickRow::ShellColour,
+    ];
 
     pub const SCREEN: [QuickRow; 5] = [
         QuickRow::GbaShader,
@@ -83,7 +89,7 @@ impl QuickRow {
 
     pub fn page(self) -> &'static [QuickRow] {
         match self {
-            QuickRow::LidClose | QuickRow::SleepTimeout => &QuickRow::POWER,
+            QuickRow::LidClose | QuickRow::SleepTimeout | QuickRow::ShellColour => &QuickRow::POWER,
             QuickRow::GbaShader
             | QuickRow::GbShader
             | QuickRow::ColourCorrection
@@ -142,6 +148,7 @@ impl QuickRow {
             QuickRow::Power => "Power",
             QuickRow::LidClose => "Lid Close",
             QuickRow::SleepTimeout => "Sleep Timer",
+            QuickRow::ShellColour => "Shell Color",
         }
     }
 
@@ -187,10 +194,15 @@ pub enum QuickValue {
     Minutes15,
     Minutes30,
     Never,
+    FlameRed,
+    Platinum,
+    Graphite,
+    PearlBlue,
+    PearlPink,
 }
 
 impl QuickValue {
-    pub const ALL: [QuickValue; 17] = [
+    pub const ALL: [QuickValue; 22] = [
         QuickValue::Speed2,
         QuickValue::Speed3,
         QuickValue::Speed4,
@@ -208,6 +220,11 @@ impl QuickValue {
         QuickValue::Minutes15,
         QuickValue::Minutes30,
         QuickValue::Never,
+        QuickValue::FlameRed,
+        QuickValue::Platinum,
+        QuickValue::Graphite,
+        QuickValue::PearlBlue,
+        QuickValue::PearlPink,
     ];
 
     pub fn index(self) -> usize {
@@ -233,6 +250,11 @@ impl QuickValue {
             QuickValue::Minutes15 => "15 Minutes",
             QuickValue::Minutes30 => "30 Minutes",
             QuickValue::Never => "Never",
+            QuickValue::FlameRed => "Flame Red",
+            QuickValue::Platinum => "Platinum",
+            QuickValue::Graphite => "Graphite",
+            QuickValue::PearlBlue => "Pearl Blue",
+            QuickValue::PearlPink => "Pearl Pink",
         }
     }
 
