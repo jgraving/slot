@@ -36,3 +36,7 @@ cartridges. The archive contains no Config, Games, Labels or Saves folders.
 To roll back, restore the previous System/slot executable. The two membership files
 can remain; older slot versions ignore them. Test this branch on the handheld before
 merging it into main.
+
+Favorite markers use a softly edged, slightly tilted gold-foil star above the
+cartridge. The embedded SVG is rasterised once and shared by all shelves, scaling
+and fading with each cartridge. Y still toggles favorites; saved lists are unchanged.

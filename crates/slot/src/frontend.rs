@@ -243,6 +243,7 @@ impl Frontend {
         let blank = cart(faces.blank_chip);
         let shadow = cart(faces.chip_shadow);
         let mut up = |f: UndoFace| (compositor.create_texture(f.w, f.h, &f.rgba), f.w, f.h);
+        let favorite = up(faces.favorite).0;
         let lines = faces.shutdown.into_iter().map(&mut up).collect();
         let menu = faces.power_menu.into_iter().map(&mut up).collect();
         let labels = faces.quick_labels.into_iter().map(&mut up).collect();
@@ -277,6 +278,7 @@ impl Frontend {
         let steps = faces.link_steps.into_iter().map(&mut up).collect();
         let fails = faces.link_fails.into_iter().map(&mut up).collect();
         let app = self.session.app_mut();
+        app.set_favorite_face(favorite);
         app.set_link_badge_faces(link_badges);
         app.set_shutdown_faces(lines);
         app.set_power_menu_faces(menu);
@@ -595,6 +597,7 @@ fn legend_faces(compositor: &mut Compositor, legend: &[(&str, &str)]) -> Vec<Tex
 
 struct UiFaces {
     link_badges: Vec<CartFace>,
+    favorite: UndoFace,
     shutdown: Vec<UndoFace>,
     power_menu: Vec<UndoFace>,
     quick_labels: Vec<UndoFace>,
@@ -617,6 +620,7 @@ struct UiFaces {
 impl UiFaces {
     fn build() -> Self {
         UiFaces {
+            favorite: slot_ui::favorite_face(),
             link_badges: LinkBadge::FACES
                 .iter()
                 .map(|b| {

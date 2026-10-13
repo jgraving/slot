@@ -51,6 +51,7 @@ pub struct Shelf {
     pub scroll: f32,
     faces: Vec<Option<TexId>>,
     favorites: HashSet<(Platform, String)>,
+    favorite_face: Option<TexId>,
     shadow: Option<TexId>,
     gb_shadow: Option<TexId>,
     gbc_shadow: Option<TexId>,
@@ -66,6 +67,7 @@ impl Shelf {
             shells: carts.iter().map(gb_shell_of).collect(),
             faces: vec![None; carts.len()],
             favorites: HashSet::new(),
+            favorite_face: None,
             carts,
             index: 0,
             scroll: 0.0,
@@ -76,6 +78,10 @@ impl Shelf {
             vel: 0.0,
             held: None,
         }
+    }
+
+    pub fn set_favorite_face(&mut self, face: TexId) {
+        self.favorite_face = Some(face);
     }
 
     pub fn set_favorites(&mut self, favorites: HashSet<(Platform, String)>) {
@@ -420,54 +426,28 @@ impl Shelf {
                 }
             });
             if self.favorites.contains(&(cart.platform, cart.stem.clone())) {
-                draw_favorite(
-                    x + w / 2.0 - 8.0 * scale,
-                    y - 22.0 * scale,
-                    scale,
-                    alpha * dim,
-                    out,
-                );
+                if let Some(tex) = self.favorite_face {
+                    out.push(Draw::Tex {
+                        x: x + w / 2.0 - 14.0 * scale,
+                        y: y - 32.0 * scale,
+                        w: 28.0 * scale,
+                        h: 28.0 * scale,
+                        tex,
+                        alpha: alpha * dim,
+                    });
+                }
             }
         }
     }
 }
 
-// Crisp five-point star floating above the shell, never baked into label art.
-fn draw_favorite(x: f32, y: f32, scale: f32, alpha: f32, out: &mut Vec<Draw>) {
-    let rows = [
-        (7, 2),
-        (6, 4),
-        (6, 4),
-        (5, 6),
-        (0, 16),
-        (1, 14),
-        (2, 12),
-        (3, 10),
-        (4, 8),
-        (4, 8),
-        (3, 10),
-        (3, 4),
-        (2, 4),
-        (2, 3),
-    ];
-    for (row, (left, width)) in rows.into_iter().enumerate() {
-        let y = y + row as f32 * scale;
-        out.push(Draw::Rect {
-            x: x + left as f32 * scale,
-            y,
-            w: width as f32 * scale,
-            h: scale,
-            colour: [1.0, 0.88, 0.38, alpha],
-        });
-        if row >= 11 {
-            out.push(Draw::Rect {
-                x: x + (16 - left - width) as f32 * scale,
-                y,
-                w: width as f32 * scale,
-                h: scale,
-                colour: [1.0, 0.88, 0.38, alpha],
-            });
-        }
+/// A softly edged gold-foil sticker, rasterised once and shared by every shelf.
+pub fn favorite_face() -> crate::UndoFace {
+    crate::UndoFace {
+        rgba: crate::art::render_svg(include_str!("../assets/favorite_star.svg"), 96, 96)
+            .expect("embedded favorite star SVG"),
+        w: 96,
+        h: 96,
     }
 }
 

@@ -1038,6 +1038,12 @@ impl App {
         self.clock_faces = Some((line, hint));
     }
 
+    pub fn set_favorite_face(&mut self, face: TexId) {
+        for (_, shelf) in &mut self.shelves {
+            shelf.set_favorite_face(face);
+        }
+    }
+
     pub fn set_cart_shadow(&mut self, face: TexId) {
         for (_, shelf) in &mut self.shelves {
             shelf.set_shadow(face);
