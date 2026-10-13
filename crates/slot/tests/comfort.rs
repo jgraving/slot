@@ -205,14 +205,15 @@ fn disconnect_keeps_the_core_running_at_zero_volume() {
 #[test]
 fn shell_colour_cycles_in_power_options_and_survives_reboot() {
     use slot_ui::{PowerSwitchColour, QuickValue};
-    let d = common::tmp_root_with_carts(&["Alpha"]);
+    let d = common::tmp_root_with_carts(&["Alpha", "Beta"]);
     common::clocked(d.path());
     let mut a = App::boot(d.path());
     assert_eq!(a.shell_colour(), PowerSwitchColour::FlameRed);
     a.apply(Action::QuickMenu);
-    while a.quick_menu() != Some(QuickRow::Power) {
+    for _ in 0..QuickRow::Power.position() {
         tap(&mut a, Btn::Down);
     }
+    assert_eq!(a.quick_menu(), Some(QuickRow::Power));
     tap(&mut a, Btn::A);
     tap(&mut a, Btn::Down);
     tap(&mut a, Btn::Down);
