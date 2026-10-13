@@ -42,7 +42,7 @@ fn favorite_stars_stay_above_their_cartridges_during_scroll_and_recede() {
     for recede in [0.0, 0.5, 1.0] {
         let mut out = Vec::new();
         s.draw_row(None, 7.0, recede, 0.6, &mut out);
-        let mut cart = None;
+        let mut cart: Option<(f32, f32, f32, f32)> = None;
         for draw in &out {
             match *draw {
                 Draw::Tex {
