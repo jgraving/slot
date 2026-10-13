@@ -62,8 +62,7 @@ pub use plate::{
 pub use polaroids::{photo_face, PhotoFace, Polaroids, DOT, LEGEND, PHOTO_H, PHOTO_W};
 pub use power_menu::{
     draw_power_on, draw_power_switch, draw_sleep, menu_face, power_switch_faces, PowerChoice,
-    PowerSwitchColour,
-    MENU_PAD,
+    PowerSwitchColour, MENU_PAD,
 };
 pub use quick_menu::{
     quick_caret_face, quick_label_face, quick_legend_faces, quick_value_face, QuickMenu,

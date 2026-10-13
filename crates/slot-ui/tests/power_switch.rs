@@ -104,14 +104,18 @@ fn boot_switch_moves_from_off_to_on_below_the_logo_without_fading() {
     let mut marks = Vec::new();
     for progress in [0.0, 0.5, 1.0, 2.0] {
         let mut out = Vec::new();
-        slot_ui::draw_power_on(
-            progress,
-            [TexId::from_raw(0), TexId::from_raw(1)],
-            &mut out,
-        );
-        assert!(matches!(out[0], Draw::Tex {
-            x: 210.0, y: 300.0, w: 300.0, h: 120.0, alpha: 1.0, ..
-        }));
+        slot_ui::draw_power_on(progress, [TexId::from_raw(0), TexId::from_raw(1)], &mut out);
+        assert!(matches!(
+            out[0],
+            Draw::Tex {
+                x: 210.0,
+                y: 300.0,
+                w: 300.0,
+                h: 120.0,
+                alpha: 1.0,
+                ..
+            }
+        ));
         assert!(matches!(out[1], Draw::Tex { alpha: 1.0, .. }));
         marks.push(grip_mark(&out));
     }

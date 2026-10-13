@@ -132,11 +132,15 @@ pub fn run() {
     let colour = slot::comfort::Comfort::read(&root, &state)
         .unwrap_or_else(|_| slot::comfort::Comfort::new(&state))
         .shell_colour;
-    let switch = slot_ui::power_switch_faces(colour)
-        .map(|f| compositor.create_texture(f.w, f.h, &f.rgba));
+    let switch =
+        slot_ui::power_switch_faces(colour).map(|f| compositor.create_texture(f.w, f.h, &f.rgba));
     let mark = slot::bootlogo::startup_mark(&root);
     let background = mark.rgb[0].map(|c| c as f32 / 255.0);
-    let rgba: Vec<u8> = mark.rgb.iter().flat_map(|p| [p[0], p[1], p[2], 255]).collect();
+    let rgba: Vec<u8> = mark
+        .rgb
+        .iter()
+        .flat_map(|p| [p[0], p[1], p[2], 255])
+        .collect();
     let logo = compositor.create_texture(mark.width as u32, mark.height as u32, &rgba);
     let began = Instant::now();
     loop {
