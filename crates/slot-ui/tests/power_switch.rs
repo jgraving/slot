@@ -98,3 +98,25 @@ fn each_finish_changes_only_the_shell_colour_and_keeps_its_transparency() {
         colours.push(sample);
     }
 }
+
+#[test]
+fn boot_switch_moves_from_off_to_on_below_the_logo_without_fading() {
+    let mut marks = Vec::new();
+    for progress in [0.0, 0.5, 1.0, 2.0] {
+        let mut out = Vec::new();
+        slot_ui::draw_power_on(
+            progress,
+            [TexId::from_raw(0), TexId::from_raw(1)],
+            &mut out,
+        );
+        assert!(matches!(out[0], Draw::Tex {
+            x: 210.0, y: 300.0, w: 300.0, h: 120.0, alpha: 1.0, ..
+        }));
+        assert!(matches!(out[1], Draw::Tex { alpha: 1.0, .. }));
+        marks.push(grip_mark(&out));
+    }
+    assert!((marks[0] - (210.0 + 445.5 * 0.3)).abs() < 0.001);
+    assert!(marks[1] > marks[0] && marks[1] < marks[2]);
+    assert!((marks[2] - (210.0 + 539.5 * 0.3)).abs() < 0.001);
+    assert_eq!(marks[2], marks[3]);
+}

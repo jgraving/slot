@@ -387,3 +387,22 @@ fn a_resumed_cart_starts_seated() {
     let a = App::boot(d.path());
     assert_eq!(a.seat(), 1.0, "the resumed cart is still sliding in");
 }
+
+#[test]
+fn animated_startup_uses_the_selected_wordmark_and_has_a_bundled_fallback() {
+    let d = tempfile::tempdir().unwrap();
+    let fallback = slot::bootlogo::startup_mark(d.path());
+    assert_eq!((fallback.width, fallback.height), (196, 75));
+    std::fs::create_dir_all(d.path().join("Config")).unwrap();
+    let mark = slot::bootlogo::Bmp {
+        width: 2,
+        height: 1,
+        rgb: vec![[1, 2, 3], [4, 5, 6]],
+    };
+    std::fs::write(
+        d.path().join(slot::bootlogo::USER_LOGO),
+        slot::bootlogo::encode(&mark),
+    )
+    .unwrap();
+    assert_eq!(slot::bootlogo::startup_mark(d.path()).rgb, mark.rgb);
+}

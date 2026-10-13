@@ -441,7 +441,7 @@ impl Shelf {
     }
 }
 
-/// A softly edged gold-foil sticker, rasterised once and shared by every shelf.
+/// An upright, softly edged gold-foil sticker, rasterised once and shared by every shelf.
 pub fn favorite_face() -> crate::UndoFace {
     crate::UndoFace {
         rgba: crate::art::render_svg(include_str!("../assets/favorite_star.svg"), 96, 96)
