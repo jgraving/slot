@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 
 use slot_store::{atomic_write, read_slot_state, write_slot_state, Core, Platform, StateRing};
 
-pub trait Snapshot: Send {
+pub trait Snapshot {
     fn state(&self) -> Option<Vec<u8>>;
     fn save_ram(&self) -> Option<Vec<u8>>;
     fn thumb(&self) -> Option<Vec<u8>>;

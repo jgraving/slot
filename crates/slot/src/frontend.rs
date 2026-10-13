@@ -337,15 +337,6 @@ impl Frontend {
         compositor.end_frame(window);
     }
 
-    pub fn set_power_switch_textures(
-        &mut self,
-        colour: slot_ui::PowerSwitchColour,
-        textures: [TexId; 2],
-    ) {
-        self.session.app_mut().set_power_switch_faces(textures);
-        self.power_switch = Some((colour, textures));
-    }
-
     fn sync_power_switch(&mut self, compositor: &mut Compositor) {
         let colour = self.session.app().shell_colour();
         if self.power_switch.is_some_and(|(shown, _)| shown == colour) {
