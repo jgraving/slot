@@ -532,7 +532,10 @@ fn shutdown_ends_with_the_sleep_effect_without_extending_the_delay() {
         slot_gfx::TexId::from_raw(100),
         slot_gfx::TexId::from_raw(101),
     ]);
-    assert_eq!(PowerChoice::ALL, [PowerChoice::PowerOff, PowerChoice::Sleep]);
+    assert_eq!(
+        PowerChoice::ALL,
+        [PowerChoice::PowerOff, PowerChoice::Sleep]
+    );
     a.apply(Action::PowerHold);
     a.apply(Action::GbaDown(Btn::A));
     let start = a.now();

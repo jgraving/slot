@@ -28,7 +28,8 @@ impl Platform for SleepPlatform {
     }
     fn set_led(&mut self, _: LedState) {}
     fn prepare_poweroff(&mut self) {
-        self.prepares.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        self.prepares
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
     }
     fn poweroff(&mut self) -> ! {
         panic!("unexpected poweroff")
