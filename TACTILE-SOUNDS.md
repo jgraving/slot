@@ -71,8 +71,6 @@ paint specifications. The preference is saved as `shell_colour` in
 reuses the existing textures and recolours only the surround; the slider remains
 charcoal. Power Off uses the selected finish.
 
-At startup, the live renderer shows the chosen boot wordmark with a small OFF-to-ON
-switch below it, using the saved shell colour. Card scanning and audio startup run
-on a worker while the main thread draws. There is no minimum splash delay: a fast
-boot may show only the final ON position. The firmware's earlier bitmap remains
-static. The favorites star is upright.
+Startup retains the static slot wordmark and proceeds directly to the UI. The late
+boot switch overlay was removed after hardware testing showed only a brief flash.
+The favorites star is upright. Shutdown still uses the animated power switch.

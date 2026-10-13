@@ -195,25 +195,6 @@ pub fn draw_power_switch(
     });
 }
 
-/// A half-size OFF-to-ON switch below the centred boot wordmark.
-pub fn draw_power_on(progress: f32, faces: [crate::TexId; 2], out: &mut Vec<crate::Draw>) {
-    let from = out.len();
-    draw_power_switch(
-        (0.58 + 0.28 * progress.clamp(0.0, 1.0)) / 1.1,
-        true,
-        faces,
-        out,
-    );
-    for draw in &mut out[from..] {
-        if let crate::Draw::Tex { x, y, w, h, .. } = draw {
-            *x = 210.0 + (*x - 60.0) * 0.5;
-            *y = 300.0 + (*y - 120.0) * 0.5;
-            *w *= 0.5;
-            *h *= 0.5;
-        }
-    }
-}
-
 /// Close the screen into a thin phosphor line, then let the line fade.
 pub fn draw_sleep(progress: f32, out: &mut Vec<crate::Draw>) {
     let p = progress.clamp(0.0, 1.0);
