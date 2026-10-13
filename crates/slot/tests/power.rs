@@ -172,7 +172,10 @@ fn the_menu_covers_the_screen_in_the_case_materials() {
 fn a_power_off_draws_a_shutdown_screen_over_everything() {
     let d = tmp_root_with_carts(&["Emerald"]);
     let mut a = app_playing_in(d.path(), "Emerald");
-    let faces = [slot_gfx::TexId::from_raw(100), slot_gfx::TexId::from_raw(101)];
+    let faces = [
+        slot_gfx::TexId::from_raw(100),
+        slot_gfx::TexId::from_raw(101),
+    ];
     a.set_power_switch_faces(faces);
     a.apply(Action::PowerHold);
     a.apply(Action::GbaDown(Btn::Down));

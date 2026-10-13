@@ -39,7 +39,10 @@ fn both_layers_fade_to_black_together_without_changing_the_shell_geometry() {
     for (seconds, restart) in [(0.35, false), (0.65, false), (0.7, false), (1.1, true)] {
         let draws = frame(seconds, restart);
         assert_eq!(draws.len(), 2);
-        let Draw::Tex { x, y, w, h, alpha, .. } = draws[0] else {
+        let Draw::Tex {
+            x, y, w, h, alpha, ..
+        } = draws[0]
+        else {
             panic!("missing shell");
         };
         assert_eq!((x, y, w, h), (60.0, 120.0, 600.0, 240.0));
@@ -62,7 +65,10 @@ fn embedded_vectors_rasterise_as_red_shell_and_transparent_charcoal_slider() {
     for face in [&shell, &slider] {
         assert_eq!(face.rgba.len(), (face.w * face.h * 4) as usize);
         assert!(face.rgba.chunks_exact(4).any(|p| p[3] == 255));
-        assert_eq!(face.rgba[3], 0, "transparent corners must remain transparent");
+        assert_eq!(
+            face.rgba[3], 0,
+            "transparent corners must remain transparent"
+        );
     }
     let red = &shell.rgba[((200 * shell.w + 100) * 4) as usize..][..4];
     assert!(red[0] > red[1] * 2 && red[3] == 255);
@@ -78,10 +84,17 @@ fn each_finish_changes_only_the_shell_colour_and_keeps_its_transparency() {
         let [shell, grip] = power_switch_faces(colour);
         assert_eq!(slider.rgba, grip.rgba, "the physical grip stays charcoal");
         assert_eq!((shell.w, shell.h), (red.w, red.h));
-        assert!(shell.rgba.chunks_exact(4).zip(red.rgba.chunks_exact(4)).all(|(a,b)| a[3] == b[3]));
+        assert!(shell
+            .rgba
+            .chunks_exact(4)
+            .zip(red.rgba.chunks_exact(4))
+            .all(|(a, b)| a[3] == b[3]));
         let offset = ((200 * shell.w + 100) * 4) as usize;
         let sample = shell.rgba[offset..offset + 3].to_vec();
-        assert!(!colours.contains(&sample), "each finish must be visibly different");
+        assert!(
+            !colours.contains(&sample),
+            "each finish must be visibly different"
+        );
         colours.push(sample);
     }
 }

@@ -219,10 +219,17 @@ fn shell_colour_cycles_in_power_options_and_survives_reboot() {
     assert_eq!(a.quick_menu(), Some(QuickRow::ShellColour));
     // Left wraps around to the last colour; Right wraps back to Flame Red.
     tap(&mut a, Btn::Left);
-    assert_eq!(a.quick_value(QuickRow::ShellColour), Some(QuickValue::PearlPink));
+    assert_eq!(
+        a.quick_value(QuickRow::ShellColour),
+        Some(QuickValue::PearlPink)
+    );
     tap(&mut a, Btn::Right);
     assert_eq!(a.shell_colour(), PowerSwitchColour::FlameRed);
-    for expected in [PowerSwitchColour::Platinum, PowerSwitchColour::Graphite, PowerSwitchColour::PearlBlue] {
+    for expected in [
+        PowerSwitchColour::Platinum,
+        PowerSwitchColour::Graphite,
+        PowerSwitchColour::PearlBlue,
+    ] {
         tap(&mut a, Btn::Right);
         assert_eq!(a.shell_colour(), expected);
     }
@@ -247,6 +254,9 @@ fn old_or_unknown_shell_colour_settings_use_the_original_artwork() {
         let mut c = Comfort::new(&state);
         c.shell_colour = colour;
         c.save(d.path()).unwrap();
-        assert_eq!(Comfort::read(d.path(), &state).unwrap().shell_colour, colour);
+        assert_eq!(
+            Comfort::read(d.path(), &state).unwrap().shell_colour,
+            colour
+        );
     }
 }

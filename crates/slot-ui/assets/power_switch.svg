@@ -9,7 +9,7 @@
  <linearGradient id="well" x1="0.0%" y1="0.0%" x2="0.0%" y2="100.0%"><stop offset="0.0%" stop-color="#101413"/><stop offset="35.0%" stop-color="#202725"/><stop offset="100.0%" stop-color="#343b37"/></linearGradient>
  <linearGradient id="cap" x1="0.0%" y1="0.0%" x2="8.0%" y2="100.0%"><stop offset="0.0%" stop-color="#555b55"/><stop offset="8.0%" stop-color="#3f4741"/><stop offset="65.0%" stop-color="#353c37"/><stop offset="100.0%" stop-color="#292f2b"/></linearGradient>
  <linearGradient id="grip" x1="0.0%" y1="0.0%" x2="20.0%" y2="100.0%"><stop offset="0.0%" stop-color="#656a60"/><stop offset="10.0%" stop-color="#50584e"/><stop offset="48.0%" stop-color="#4a5148"/><stop offset="90.0%" stop-color="#3c443b"/><stop offset="100.0%" stop-color="#62685a"/></linearGradient>
- <path id="labels" d="M351 280h13q4 0 4 4v24q0 4-4 4h-13q-4 0-4-4v-24q0-4 4-4zm30 32v-32h20m-20 14h16m13 18v-32h20m-20 14h16 M571 280h13q4 0 4 4v24q0 4-4 4h-13q-4 0-4-4v-24q0-4 4-4zm29 32v-32l20 32v-32"/>
+ <g id="labels"><path transform="translate(-12 0)" d="M351 280h13q4 0 4 4v24q0 4-4 4h-13q-4 0-4-4v-24q0-4 4-4zm30 32v-32h20m-20 14h16m13 18v-32h20m-20 14h16"/><path d="M571 280h13q4 0 4 4v24q0 4-4 4h-13q-4 0-4-4v-24q0-4 4-4zm29 32v-32l20 32v-32"/></g>
 </defs>
 <!-- A small section of the real shell gives the recess and parting line context. -->
 <g id="housing">
