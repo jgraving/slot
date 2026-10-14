@@ -1,4 +1,6 @@
 //! Strict verification and isolated staging. This module never installs or executes updates.
+pub mod releases;
+
 use ring::digest::{digest, SHA256};
 use serde::{Deserialize, Serialize};
 use std::{
@@ -253,7 +255,9 @@ mod tests {
     use super::*;
     use zip::write::SimpleFileOptions;
     const COMMIT: &str = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
-    fn fixture(edit: impl FnOnce(&mut Manifest, &mut Vec<(String, Vec<u8>)>)) -> Vec<u8> {
+    pub(super) fn fixture(
+        edit: impl FnOnce(&mut Manifest, &mut Vec<(String, Vec<u8>)>),
+    ) -> Vec<u8> {
         let mut elf = vec![0; 64];
         elf[..6].copy_from_slice(b"\x7fELF\x02\x01");
         elf[18..20].copy_from_slice(b"\xb7\x00");
