@@ -642,7 +642,7 @@ pub fn screen_face(lines: &[String]) -> UndoFace {
         let label_w = label_w - (inset - 32);
         if device {
             let icon = if network {
-                network_indicator_face()
+                slot_ui::network_indicator_face()
             } else {
                 indicator_face()
             };
@@ -1031,14 +1031,5 @@ mod indicator_tests {
         }
         assert!(connection_present("Name: WF-C510\n\tConnected: yes\n"));
         assert!(!connection_present("Connected: no\nAlias: Connected: yes"));
-    }
-}
-
-fn network_indicator_face() -> UndoFace {
-    let svg = r##"<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20"><path d="M2 7Q10 0 18 7M5 10Q10 5 15 10M8 13Q10 11 12 13" fill="none" stroke="#f6f4ef" stroke-width="1.8" stroke-linecap="round"/><circle cx="10" cy="16" r="1.3" fill="#f6f4ef"/></svg>"##;
-    UndoFace {
-        rgba: slot_ui::art::render_svg(svg, 20, 20).unwrap_or_else(|| vec![0; 20 * 20 * 4]),
-        w: 20,
-        h: 20,
     }
 }
