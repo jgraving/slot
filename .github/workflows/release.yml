@@ -1,18 +1,80 @@
-name: release
-
+name: System builds
 on:
   push:
+    branches: [main]
     tags: ['v*']
+  pull_request:
   workflow_dispatch:
-
 permissions:
   contents: read
-
+concurrency:
+  group: system-build-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
-  build:
-    name: card tree
+  checks:
+    uses: ./.github/workflows/bluetooth-check.yml
+
+  system:
+    name: RG SP System package
+    needs: checks
+    timeout-minutes: 20
     runs-on: ubuntu-24.04-arm
-    container: rust:1-bullseye
+    container: rust:1.96-bullseye
+    outputs:
+      version: ${{ steps.identity.outputs.version }}
+      channel: ${{ steps.identity.outputs.channel }}
+      commit: ${{ steps.identity.outputs.commit }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Build frontend
+        run: cargo build --locked --profile device --target-dir target-device -p slot --no-default-features --features device
+      - name: Install packaging tools
+        run: |
+          sed -i '/bullseye-security/d' /etc/apt/sources.list
+          apt-get -o Acquire::Check-Valid-Until=false update
+          apt-get install -y --no-install-recommends python3
+      - name: Identify build
+        id: identity
+        env:
+          EVENT: ${{ github.event_name }}
+          REF: ${{ github.ref }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          set -eu
+          commit="$(git rev-parse HEAD)"
+          channel=preview
+          version="preview-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          if [ "$EVENT" = push ] && [ "$REF" = refs/heads/main ]; then
+            channel=development
+            version="dev-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          elif [ "$EVENT" = push ] && [ "${REF#refs/tags/}" != "$REF" ]; then
+            printf '%s' "$REF_NAME" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'
+            channel=stable
+            version="$REF_NAME"
+          fi
+          echo "commit=$commit" >> "$GITHUB_OUTPUT"
+          echo "channel=$channel" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - name: Package System overlay
+        env:
+          COMMIT: ${{ steps.identity.outputs.commit }}
+          CHANNEL: ${{ steps.identity.outputs.channel }}
+          VERSION: ${{ steps.identity.outputs.version }}
+        run: python3 tools/package-system.py --binary target-device/device/slot --commit "$COMMIT" --channel "$CHANNEL" --version "$VERSION"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: slot-System-${{ steps.identity.outputs.version }}
+          path: dist-system/*
+          retention-days: 7
+          if-no-files-found: error
+  full-card:
+    name: Fresh-card stable package
+    needs: checks
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-24.04-arm
+    container: rust:1.96-bullseye
     outputs:
       zip: ${{ steps.package.outputs.zip }}
     steps:
@@ -23,7 +85,7 @@ jobs:
           set -eu
           sed -i '/bullseye-security/d' /etc/apt/sources.list
           apt-get -o Acquire::Check-Valid-Until=false update
-          apt-get install -y --no-install-recommends zip cmake
+          apt-get install -y --no-install-recommends zip cmake file
           curl -fsSL https://taskfile.dev/install.sh | sh -s -- -b /usr/local/bin
 
       - name: Build the tree
@@ -61,31 +123,46 @@ jobs:
       - uses: actions/upload-artifact@v7
         with:
           name: ${{ steps.package.outputs.zip }}
+          retention-days: 7
           path: ${{ steps.package.outputs.zip }}
           if-no-files-found: error
 
   publish:
-    name: release
-    needs: build
-    if: startsWith(github.ref, 'refs/tags/')
+    name: Publish downloadable update
+    needs: [checks, system, full-card]
+    if: >-
+      always() && needs.checks.result == 'success' && needs.system.result == 'success' &&
+      github.event_name == 'push' && github.repository == 'jgraving/slot' &&
+      (github.ref == 'refs/heads/main' || (startsWith(github.ref, 'refs/tags/v') && needs.full-card.result == 'success'))
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
       - uses: actions/download-artifact@v8
         with:
-          name: ${{ needs.build.outputs.zip }}
-
-      - name: Create the release
+          name: slot-System-${{ needs.system.outputs.version }}
+          path: assets
+      - uses: actions/download-artifact@v8
+        if: needs.system.outputs.channel == 'stable'
+        with:
+          name: ${{ needs.full-card.outputs.zip }}
+          path: assets
+      - name: Publish complete release
         env:
           GH_TOKEN: ${{ github.token }}
-          ZIP: ${{ needs.build.outputs.zip }}
+          VERSION: ${{ needs.system.outputs.version }}
+          CHANNEL: ${{ needs.system.outputs.channel }}
+          COMMIT: ${{ needs.system.outputs.commit }}
         run: |
           set -eu
-          cat > notes.md <<NOTES
-          Unzip and copy the contents of \`slot-${GITHUB_REF_NAME}/\` onto SD2.
-
-          Emulation by mGBA (MPL-2.0) and gpSP (GPL-2.0). Their licences, patches and gpSP's source are in \`System/licenses/\`.
-          NOTES
-          gh release create "$GITHUB_REF_NAME" "$ZIP" --repo "$GITHUB_REPOSITORY" \
-            --title "$GITHUB_REF_NAME" --notes-file notes.md
+          printf '%s\n' "Channel: $CHANNEL. Source commit: $COMMIT." '' \
+            'For an existing installation, download slot-System.zip and merge System into System on SD2 while powered off. Keep your emulator cores.' \
+            'Games, labels, settings and saves are unchanged. Back up your existing System folder first.' \
+            'The h700 ZIP on stable releases is the full fresh-card package.' > notes.md
+          # Draft first: an OTA client must never discover a partially uploaded release.
+          if [ "$CHANNEL" = development ]; then
+            gh release create "$VERSION" assets/* --repo "$GITHUB_REPOSITORY" --target "$COMMIT" --title "Development $VERSION" --notes-file notes.md --draft --prerelease --latest=false
+          else
+            gh release create "$VERSION" assets/* --repo "$GITHUB_REPOSITORY" --verify-tag --title "$VERSION" --notes-file notes.md --draft
+          fi
+          gh release edit "$VERSION" --repo "$GITHUB_REPOSITORY" --draft=false
