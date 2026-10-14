@@ -520,6 +520,18 @@ impl Frontend {
             crate::latency::taken();
         }
         self.cart_faces.sync(self.session.app_mut(), compositor);
+        if self.session.app().favorite_prompt.is_some() {
+            let lines = self.session.app().favorite_prompt_lines();
+            if lines != self.kid_lines || self.session.app().favorite_prompt_face.is_none() {
+                let tex = upload(
+                    compositor,
+                    &mut self.kid_tex,
+                    crate::bluetooth::screen_face(&lines),
+                );
+                self.session.app_mut().favorite_prompt_face = Some(tex);
+                self.kid_lines = lines;
+            }
+        }
         if let Some(menu) = &mut self.session.app_mut().kid_menu {
             let lines = menu.lines();
             if lines != self.kid_lines || menu.face.is_none() {

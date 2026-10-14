@@ -179,7 +179,17 @@ fn y_toggles_last_favorite_skips_empty_shelf_and_persists() {
     tap(&mut app, Btn::L1);
     assert_eq!(app.shelf_platform_name(), Some("Favorites"));
     tap(&mut app, Btn::Y);
+    assert!(app.selected_is_favorite());
+    tap(&mut app, Btn::A); // Keep is the safe default.
+    assert!(app.selected_is_favorite());
+    tap(&mut app, Btn::Y);
+    tap(&mut app, Btn::Down);
+    tap(&mut app, Btn::A);
     assert!(!app.selected_is_favorite());
+    assert_eq!(app.shelf_platform_name(), Some("Favorites"));
+    for _ in 0..120 {
+        app.update(1.0 / 60.0);
+    }
     assert_eq!(app.shelf_platform_name(), Some("Game Boy Advance"));
     assert!(Collections::read(d.path()).unwrap().favorites.is_empty());
 }
