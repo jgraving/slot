@@ -83,13 +83,6 @@ impl QuickRow {
         QuickRow::EjectSave,
     ];
 
-    /// Keep the focused option visible without shrinking the menu text.
-    pub fn visible_page(self) -> &'static [QuickRow] {
-        let page = self.page();
-        let first = self.position().saturating_sub(QUICK_VISIBLE_ROWS - 1);
-        &page[first..(first + QUICK_VISIBLE_ROWS).min(page.len())]
-    }
-
     pub fn index(self) -> usize {
         self as usize
     }
@@ -285,8 +278,7 @@ impl QuickValue {
 }
 
 pub const QUICK_PITCH: f32 = 52.0;
-const QUICK_VISIBLE_ROWS: usize = 6;
-pub const QUICK_TOP: f32 = (OUT_H as f32 - QUICK_PITCH * QUICK_VISIBLE_ROWS as f32) / 2.0;
+pub const QUICK_TOP: f32 = (OUT_H as f32 - QUICK_PITCH * QuickRow::MAIN.len() as f32) / 2.0;
 pub const QUICK_EDGE: f32 = 32.0;
 const BAR_INSET: f32 = 4.0;
 const TYPE_DROP: f32 = 4.0;
@@ -391,36 +383,17 @@ impl QuickMenu<'_> {
         });
         out.push(Draw::Rect {
             x: 0.0,
-            y: row_top(self.row, self.row) + BAR_INSET,
+            y: row_top(self.row) + BAR_INSET,
             w: OUT_W as f32,
             h: QUICK_PITCH - 2.0 * BAR_INSET,
             colour: edge(),
         });
-        let page = self.row.page();
-        if page.len() > QUICK_VISIBLE_ROWS {
-            let height = QUICK_PITCH * QUICK_VISIBLE_ROWS as f32 - 8.0;
-            let thumb = height * QUICK_VISIBLE_ROWS as f32 / page.len() as f32;
-            let first = self.row.position().saturating_sub(QUICK_VISIBLE_ROWS - 1);
-            let offset = (height - thumb) * first as f32 / (page.len() - QUICK_VISIBLE_ROWS) as f32;
-            for (y, h, colour) in [
-                (QUICK_TOP + 4.0, height, [0.20, 0.20, 0.24, 1.0]),
-                (QUICK_TOP + 4.0 + offset, thumb, [0.60, 0.60, 0.64, 1.0]),
-            ] {
-                out.push(Draw::Rect {
-                    x: OUT_W as f32 - 12.0,
-                    y,
-                    w: 3.0,
-                    h,
-                    colour,
-                });
-            }
-        }
         let Some(faces) = self.faces else {
             return;
         };
         let (right, pad) = (OUT_W as f32 - QUICK_EDGE, MENU_PAD as f32);
-        for &row in self.row.visible_page() {
-            let y = row_top(row, self.row) + TYPE_DROP;
+        for &row in self.row.page() {
+            let y = row_top(row) + TYPE_DROP;
             let lit = row == self.row;
             if let Some(&(tex, w, h)) = faces.labels.get(row.index()) {
                 push(out, tex, QUICK_EDGE - pad, y, w, h);
@@ -453,10 +426,9 @@ impl QuickMenu<'_> {
     }
 }
 
-fn row_top(row: QuickRow, selected: QuickRow) -> f32 {
-    let visible = selected.visible_page();
-    let top = (OUT_H as f32 - QUICK_PITCH * visible.len() as f32) / 2.0;
-    top + QUICK_PITCH * (row.position() - visible[0].position()) as f32
+fn row_top(row: QuickRow) -> f32 {
+    let top = (OUT_H as f32 - QUICK_PITCH * row.page().len() as f32) / 2.0;
+    top + QUICK_PITCH * row.position() as f32
 }
 
 fn push(out: &mut Vec<Draw>, tex: TexId, x: f32, y: f32, w: u32, h: u32) {
