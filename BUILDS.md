@@ -5,7 +5,7 @@ Open the PR's **System builds** run and download the artifact. Unzip that downlo
 then unzip `slot-System.zip`. With the device powered off, merge its `System`
 folder into SD2's existing `System` folder. Keep emulator cores and other existing
 files. Back up your existing System folder first. No ROM, save or label changes
-are needed. Preview artifacts expire after 30 days and require GitHub sign-in.
+are needed. Preview artifacts expire after 7 days and require GitHub sign-in.
 
 After this workflow is merged, each push to main publishes a separate Development
 prerelease at https://github.com/jgraving/slot/releases. Each keeps its own tag,

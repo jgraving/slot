@@ -9,7 +9,7 @@ permissions:
   contents: read
 concurrency:
   group: system-build-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   checks:
     uses: ./.github/workflows/bluetooth-check.yml
@@ -67,7 +67,7 @@ jobs:
         with:
           name: slot-System-${{ steps.identity.outputs.version }}
           path: dist-system/*
-          retention-days: 30
+          retention-days: 7
           if-no-files-found: error
   full-card:
     name: Fresh-card stable package
@@ -123,6 +123,7 @@ jobs:
       - uses: actions/upload-artifact@v7
         with:
           name: ${{ steps.package.outputs.zip }}
+          retention-days: 7
           path: ${{ steps.package.outputs.zip }}
           if-no-files-found: error
 
