@@ -289,7 +289,7 @@ impl Manager {
                 .into(),
             ],
             Page::Scan => std::iter::once("Scan again".into())
-                .chain(self.networks.iter().map(|n| format!("DEVICE {}", n.ssid)))
+                .chain(self.networks.iter().map(|n| format!("NETWORK {}", n.ssid)))
                 .collect(),
             Page::SaveChoice => vec![
                 "Connect for this session".into(),
