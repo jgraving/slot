@@ -850,6 +850,7 @@ impl App {
                 .extend(self.shelves[at].1.replace_carts(carts));
         }
         for (_, shelf) in &mut self.shelves {
+            shelf.set_kids(self.kids.approved.iter().cloned().collect());
             shelf.set_favorites(
                 self.collections
                     .favorites
@@ -920,6 +921,7 @@ impl App {
         }
         self.kids = next;
         self.refresh_collections();
+        self.shelf_mut().flip();
     }
 
     fn toggle_favorite(&mut self) {
@@ -940,6 +942,7 @@ impl App {
         self.collections = next;
         self.play_held = None;
         self.refresh_collections();
+        self.shelf_mut().flip();
         self.hud.toast(
             if added {
                 Toast::FavoriteAdded
@@ -1221,6 +1224,12 @@ impl App {
 
     pub fn set_clock_faces(&mut self, line: TexId, hint: TexId) {
         self.clock_faces = Some((line, hint));
+    }
+
+    pub fn set_back_faces(&mut self, backs: [TexId; 3], kid: TexId) {
+        for (_, shelf) in &mut self.shelves {
+            shelf.set_back_faces(backs, kid);
+        }
     }
 
     pub fn set_favorite_face(&mut self, face: TexId) {
@@ -1821,6 +1830,9 @@ impl App {
             _ => {}
         }
         if matches!(self.phase, Phase::Doze { .. }) {
+            return;
+        }
+        if self.on_shelf() && self.shelf().animating() {
             return;
         }
         if self.kid_menu.is_some() {

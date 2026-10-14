@@ -173,6 +173,9 @@ fn y_toggles_last_favorite_skips_empty_shelf_and_persists() {
     assert!(!app.selected_is_favorite());
     tap(&mut app, Btn::Y);
     assert!(app.selected_is_favorite());
+    for _ in 0..90 {
+        app.update(1.0 / 60.0);
+    }
     tap(&mut app, Btn::L1);
     assert_eq!(app.shelf_platform_name(), Some("Favorites"));
     tap(&mut app, Btn::Y);

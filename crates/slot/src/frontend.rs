@@ -350,6 +350,8 @@ impl Frontend {
         let shadow = cart(faces.chip_shadow);
         let mut up = |f: UndoFace| (compositor.create_texture(f.w, f.h, &f.rgba), f.w, f.h);
         let favorite = up(faces.favorite).0;
+        let kid = up(faces.kid).0;
+        let backs = faces.backs.map(|face| up(face).0);
         let lines = faces.shutdown.into_iter().map(&mut up).collect();
         let menu = faces.power_menu.into_iter().map(&mut up).collect();
         let labels = faces.quick_labels.into_iter().map(&mut up).collect();
@@ -392,6 +394,7 @@ impl Frontend {
         }
         let app = self.session.app_mut();
         app.set_favorite_face(favorite);
+        app.set_back_faces(backs, kid);
         app.set_link_badge_faces(link_badges);
         app.set_shutdown_faces(lines);
         app.set_power_menu_faces(menu);
@@ -760,6 +763,8 @@ fn legend_faces(compositor: &mut Compositor, legend: &[(&str, &str)]) -> Vec<Tex
 struct UiFaces {
     link_badges: Vec<CartFace>,
     favorite: UndoFace,
+    kid: UndoFace,
+    backs: [UndoFace; 3],
     shutdown: Vec<UndoFace>,
     power_menu: Vec<UndoFace>,
     quick_labels: Vec<UndoFace>,
@@ -784,6 +789,13 @@ impl UiFaces {
     fn build() -> Self {
         UiFaces {
             favorite: slot_ui::favorite_face(),
+            kid: slot_ui::kid_face(),
+            backs: [
+                slot_store::Platform::Gba,
+                slot_store::Platform::Gb,
+                slot_store::Platform::Gbc,
+            ]
+            .map(slot_ui::cartridge_back_face),
             link_badges: LinkBadge::FACES
                 .iter()
                 .map(|b| {

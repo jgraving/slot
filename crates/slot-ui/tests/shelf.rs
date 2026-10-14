@@ -22,59 +22,43 @@ fn shelf_with(n: usize) -> Shelf {
 }
 
 #[test]
-fn favorite_stars_stay_above_their_cartridges_during_scroll_and_recede() {
-    let mut s = shelf_with(3);
-    s.carts[1].platform = Platform::Gb;
-    s.carts[2].platform = Platform::Gbc;
-    s.set_favorites(
-        s.carts
-            .iter()
-            .map(|c| (c.platform, c.stem.clone()))
-            .collect(),
-    );
-    s.set_faces((0..3).map(TexId::from_raw).collect());
+fn marks_live_on_the_back_and_flip_returns_to_the_front() {
+    let mut s = shelf_with(1);
     let star = TexId::from_raw(100);
+    let kid = TexId::from_raw(101);
+    let back = TexId::from_raw(102);
+    s.set_faces(vec![TexId::from_raw(1)]);
     s.set_favorite_face(star);
-    s.right();
-    for _ in 0..5 {
+    s.set_back_faces([back; 3], kid);
+    let keys = std::collections::HashSet::from([(Platform::Gba, "Game 0".into())]);
+    s.set_favorites(keys.clone());
+    s.set_kids(keys);
+    let draw = |s: &Shelf| {
+        let mut out = Vec::new();
+        s.draw_row(None, 0.0, 0.0, 1.0, &mut out);
+        out
+    };
+    let has = |out: &[Draw], face| {
+        out.iter()
+            .any(|d| matches!(d,Draw::Tex{tex,..} if *tex==face))
+    };
+    assert!(!has(&draw(&s), star));
+    assert!(!has(&draw(&s), kid));
+    s.flip();
+    for _ in 0..30 {
         s.update(1.0 / 60.0);
     }
-    for recede in [0.0, 0.5, 1.0] {
-        let mut out = Vec::new();
-        s.draw_row(None, 7.0, recede, 0.6, &mut out);
-        let mut cart: Option<(f32, f32, f32, f32)> = None;
-        for draw in &out {
-            match *draw {
-                Draw::Tex {
-                    x,
-                    y,
-                    w,
-                    h,
-                    tex,
-                    alpha,
-                } if tex == star => {
-                    let (cx, cy, cw, cart_alpha) = cart.expect("star follows its cartridge");
-                    assert!(y + h < cy, "star overlaps the cartridge");
-                    assert!((x + w / 2.0 - cx - cw / 2.0).abs() < 0.001);
-                    assert_eq!(alpha, cart_alpha);
-                }
-                Draw::Tex { x, y, w, alpha, .. } => cart = Some((x, y, w, alpha)),
-                _ => panic!("unexpected shelf draw"),
-            }
-        }
-        if recede == 1.0 {
-            assert!(out.is_empty(), "stars vanish with the shelf");
-        } else {
-            assert!(out
-                .iter()
-                .any(|d| matches!(d, Draw::Tex { tex, .. } if *tex == star)));
-        }
+    let out = draw(&s);
+    assert!(has(&out, back));
+    assert!(has(&out, star));
+    assert!(has(&out, kid));
+    assert!(!has(&out, TexId::from_raw(1)));
+    for _ in 0..60 {
+        s.update(1.0 / 60.0);
     }
-    let mut out = Vec::new();
-    s.draw_row(Some("Game 1"), 0.0, 0.0, 1.0, &mut out);
-    assert!(!out
-        .iter()
-        .any(|d| matches!(d, Draw::Tex { tex, .. } if *tex == TexId::from_raw(1))));
+    assert!(!s.animating());
+    assert!(!has(&draw(&s), star));
+    assert!(has(&draw(&s), TexId::from_raw(1)));
 }
 
 fn placed(s: &Shelf) -> Vec<(f32, f32)> {
