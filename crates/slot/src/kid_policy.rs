@@ -236,6 +236,9 @@ impl Policy {
         if !self.active {
             return Ok(true);
         }
+        if self.clock_blocked {
+            return Ok(false);
+        }
         if wall < 1_577_836_800 || wall + 2 < self.last_wall {
             self.clock_blocked = true;
             self.save(root)?;

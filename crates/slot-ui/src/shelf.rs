@@ -60,6 +60,7 @@ pub struct Shelf {
     kid_face: Option<TexId>,
     back_faces: Option<[TexId; 3]>,
     flip: Option<f32>,
+    departure: Option<f32>,
     shadow: Option<TexId>,
     gb_shadow: Option<TexId>,
     gbc_shadow: Option<TexId>,
@@ -84,6 +85,7 @@ impl Shelf {
             kid_face: None,
             back_faces: None,
             flip: None,
+            departure: None,
             favorite_face: None,
             interiors: vec![None; carts.len()],
             carts,
@@ -113,9 +115,18 @@ impl Shelf {
         self.flip = Some(0.0);
     }
     pub fn animating(&self) -> bool {
-        self.flip.is_some()
+        self.flip.is_some() || self.departure.is_some()
     }
 
+    pub fn depart(&mut self) {
+        self.departure = Some(-1.2);
+    }
+    pub fn departure_finished(&self) -> bool {
+        self.departure.is_some_and(|t| t >= 0.45)
+    }
+    pub fn finish_departure(&mut self) {
+        self.departure = None;
+    }
     pub fn set_favorite_face(&mut self, face: TexId) {
         self.favorite_face = Some(face);
     }
@@ -446,6 +457,9 @@ impl Shelf {
     }
 
     pub fn update(&mut self, dt: f32) {
+        if let Some(t) = &mut self.departure {
+            *t += dt;
+        }
         if let Some(t) = self.flip {
             self.flip = (t + dt < 1.2).then_some(t + dt);
         }
@@ -490,7 +504,13 @@ impl Shelf {
                 continue;
             }
             let x = x + shake;
-            let y = foot_y(ch as f32) - h;
+            let y = foot_y(ch as f32)
+                - h
+                - if i == self.index && slot == 0 {
+                    (self.departure.unwrap_or(0.0).max(0.0) / 0.45).powi(2) * (OUT_H as f32 + h)
+                } else {
+                    0.0
+                };
             let angle = if i == self.index && slot == 0 {
                 self.flip
                     .map(|t| {

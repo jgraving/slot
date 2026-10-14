@@ -96,7 +96,14 @@ impl Menu {
                     }
                 ));
             }
-            lines.push("B Back   Left/Right Change   A Select".into());
+            lines.push(
+                if self.selected < 2 {
+                    "B Back   Left/Right Change"
+                } else {
+                    "B Back   A Select"
+                }
+                .into(),
+            );
             return lines;
         }
         let status = if self.page == Page::Unlock && self.gate.remaining(Instant::now()) > 0 {

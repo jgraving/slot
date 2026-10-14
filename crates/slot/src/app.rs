@@ -268,6 +268,8 @@ pub struct App {
     pub bluetooth: Option<crate::bluetooth::Manager>,
     pub kids: crate::kid_policy::Policy,
     pub kid_menu: Option<crate::kid_menu::Menu>,
+    pub favorite_prompt: Option<bool>,
+    pub favorite_prompt_face: Option<TexId>,
     kid_error: bool,
     pub bluetooth_indicator: Option<TexId>,
     phase: Phase,
@@ -517,6 +519,8 @@ impl App {
             bluetooth: None,
             kids: crate::kid_policy::Policy::default(),
             kid_menu: None,
+            favorite_prompt: None,
+            favorite_prompt_face: None,
             kid_error: false,
             bluetooth_indicator: None,
             quick_menu_faces: None,
@@ -920,8 +924,36 @@ impl App {
             return;
         }
         self.kids = next;
-        self.refresh_collections();
+        if self.shelf_at == KIDS_SHELF {
+            let marks = self
+                .kids
+                .approved
+                .iter()
+                .cloned()
+                .collect::<std::collections::HashSet<_>>();
+            for (_, shelf) in &mut self.shelves {
+                shelf.set_kids(marks.clone());
+            }
+            self.shelf_mut().depart();
+        } else {
+            self.refresh_collections();
+        }
         self.shelf_mut().flip();
+    }
+
+    pub fn favorite_prompt_lines(&self) -> Vec<String> {
+        let remove = self.favorite_prompt.unwrap_or(false);
+        vec![
+            "Remove favorite?".into(),
+            self.selected_stem().unwrap_or("").into(),
+            "COMPACT".into(),
+            format!("{} Keep favorite", if !remove { "SELECTED" } else { "ROW" }),
+            format!(
+                "{} Remove favorite",
+                if remove { "SELECTED" } else { "ROW" }
+            ),
+            "B Back   A Select".into(),
+        ]
     }
 
     fn toggle_favorite(&mut self) {
@@ -941,7 +973,20 @@ impl App {
         }
         self.collections = next;
         self.play_held = None;
-        self.refresh_collections();
+        if !added && self.shelf_at == FAVORITES_SHELF {
+            let marks = self
+                .collections
+                .favorites
+                .iter()
+                .map(|k| (k.platform, k.stem.clone()))
+                .collect::<std::collections::HashSet<_>>();
+            for (_, shelf) in &mut self.shelves {
+                shelf.set_favorites(marks.clone());
+            }
+            self.shelf_mut().depart();
+        } else {
+            self.refresh_collections();
+        }
         self.shelf_mut().flip();
         self.hud.toast(
             if added {
@@ -1832,6 +1877,25 @@ impl App {
         if matches!(self.phase, Phase::Doze { .. }) {
             return;
         }
+        if let Some(remove) = self.favorite_prompt {
+            match action {
+                Action::GbaDown(Btn::Up | Btn::Down) => {
+                    self.favorite_prompt = Some(!remove);
+                    self.favorite_prompt_face = None;
+                }
+                Action::GbaDown(Btn::A) => {
+                    self.favorite_prompt = None;
+                    if remove {
+                        self.toggle_favorite();
+                    }
+                }
+                Action::GbaDown(Btn::B | Btn::Start) | Action::QuickMenu => {
+                    self.favorite_prompt = None
+                }
+                _ => {}
+            }
+            return;
+        }
         if self.on_shelf() && self.shelf().animating() {
             return;
         }
@@ -1929,7 +1993,16 @@ impl App {
                     self.open_core_picker()
                 }
                 _ if self.core_picker.is_some() => self.core_picker_input(action),
-                Action::GbaDown(Btn::Y) => self.toggle_favorite(),
+                Action::GbaDown(Btn::Y) => {
+                    if self.selected_is_favorite() {
+                        self.favorite_prompt = Some(false);
+                        self.favorite_prompt_face = None;
+                        self.shelf_mut().release_hold();
+                        self.play_held = None;
+                    } else {
+                        self.toggle_favorite();
+                    }
+                }
                 Action::GbaDown(Btn::X) => self.toggle_kid_approved(),
                 Action::GbaDown(Btn::Up) => self.jump_letter(-1),
                 Action::GbaDown(Btn::Down) => self.jump_letter(1),
@@ -2617,6 +2690,10 @@ impl App {
     }
 
     fn timers(&mut self) {
+        if self.shelf().departure_finished() {
+            self.shelf_mut().finish_departure();
+            self.refresh_collections();
+        }
         self.enforce_kid_time();
         self.remember_browsing();
         if self
@@ -2913,6 +2990,19 @@ impl App {
                 self.now().saturating_sub(*at) as f32 / SLEEP_SHOW_MS as f32,
                 out,
             );
+            return;
+        }
+        if self.favorite_prompt.is_some() && !matches!(self.phase, Phase::Doze { .. }) {
+            if let Some(tex) = self.favorite_prompt_face {
+                out.push(Draw::Tex {
+                    x: 0.0,
+                    y: 0.0,
+                    w: OUT_W as f32,
+                    h: OUT_H as f32,
+                    tex,
+                    alpha: 1.0,
+                });
+            }
             return;
         }
         if let Some(menu) = self
@@ -3648,6 +3738,7 @@ impl App {
     }
 
     fn doze(&mut self) {
+        self.favorite_prompt = None;
         self.kid_menu = None;
         self.remember_browsing();
         self.save_comfort();
