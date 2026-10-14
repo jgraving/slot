@@ -143,6 +143,7 @@ impl Manager {
         self.new_code.zeroize();
         self.text.zeroize();
         self.page = if self.gate.locked() {
+            self.status.clear();
             Page::UnlockCode
         } else {
             Page::Home
@@ -154,6 +155,7 @@ impl Manager {
         self.face = None;
         self.visible = true;
         self.page = if self.gate.locked() {
+            self.status.clear();
             Page::UnlockCode
         } else {
             Page::Home
@@ -173,7 +175,7 @@ impl Manager {
             for y in 0..icons.h {
                 for x in 0..icons.w {
                     let src = ((y * icons.w + x) * 4) as usize;
-                    let dst = (((y + 220) * face.w + x + left) * 4) as usize;
+                    let dst = (((y + 208) * face.w + x + left) * 4) as usize;
                     let alpha = icons.rgba[src + 3] as u32;
                     for c in 0..3 {
                         face.rgba[dst + c] = ((icons.rgba[src + c] as u32 * alpha
@@ -428,14 +430,8 @@ impl Manager {
             return;
         }
         if button == Btn::Start {
-            if self.code.is_empty() {
-                self.visible = false;
-                self.gate.relock();
-                self.new_code.zeroize();
-                return;
-            }
             if self.code.len() != 4 {
-                self.status = "Enter four buttons, then START".into();
+                self.status = "Enter all four buttons".into();
                 return;
             }
             match self.page {
@@ -459,11 +455,11 @@ impl Manager {
                 Page::SetCode => {
                     self.new_code = Zeroizing::new(self.code.to_vec());
                     self.page = Page::ConfirmCode;
-                    self.status = "Repeat the same four buttons".into();
+                    self.status.clear();
                 }
                 Page::ConfirmCode => {
                     if *self.code != *self.new_code {
-                        self.status = "Codes did not match; repeat your first code".into();
+                        self.status = "Codes did not match. Try again.".into();
                     } else if self.gate.set(&self.code).is_ok() {
                         self.page = Page::Home;
                         self.status = "Button lock enabled".into();
@@ -499,16 +495,16 @@ impl Manager {
         ) {
             return vec![
                 match self.page {
-                    Page::SetCode => "Set button lock",
-                    Page::ConfirmCode => "Confirm button lock",
-                    _ => "Wi-Fi controls locked",
+                    Page::SetCode => "Press four buttons",
+                    Page::ConfirmCode => "Repeat your code",
+                    _ => "Enter your code",
                 }
                 .into(),
                 self.status.clone(),
-                format!("{} / 4 · A B X Y or arrows", self.code.len()),
+                String::new(),
                 "ROW ".into(),
                 "ROW ".into(),
-                "ROW SELECT Delete · START Done".into(),
+                "ROW ".into(),
                 "CODE HINTS".into(),
             ];
         }
@@ -747,6 +743,55 @@ mod lock_tests {
     fn code(m: &mut Manager) {
         for b in [Btn::A, Btn::B, Btn::X, Btn::Y, Btn::Start] {
             tap(m, b);
+        }
+    }
+    #[test]
+    fn code_screen_has_one_prompt_four_slots_and_a_consistent_footer() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut m = Manager::new(dir.path().to_owned());
+        m.pending = None;
+        m.ready = true;
+        m.status.clear();
+        m.gate = crate::network_lock::Gate::new(dir.path().join("button-lock"));
+        m.page = Page::SetCode;
+        let empty = m.screen_face();
+        assert_eq!(m.lines()[0], "Press four buttons");
+        assert!(m.lines()[2].is_empty());
+        tap(&mut m, Btn::Start);
+        assert!(m.visible);
+        assert!(matches!(m.page, Page::SetCode));
+        m.status.clear();
+        tap(&mut m, Btn::A);
+        let entered = m.screen_face();
+        let start = (208 * empty.w * 4) as usize;
+        let end = (272 * empty.w * 4) as usize;
+        assert_ne!(&empty.rgba[start..end], &entered.rgba[start..end]);
+        let footer = (427 * empty.w * 4) as usize;
+        assert_eq!(&empty.rgba[footer..], &entered.rgba[footer..]);
+        tap(&mut m, Btn::Select);
+        assert!(m.code.is_empty());
+        code(&mut m);
+        assert_eq!(m.lines()[0], "Repeat your code");
+        assert!(m.status.is_empty());
+        let confirm = m.screen_face();
+        assert_eq!(&empty.rgba[footer..], &confirm.rgba[footer..]);
+        if let Ok(path) = std::env::var("SLOT_NETWORK_PREVIEW_DIR") {
+            std::fs::create_dir_all(&path).unwrap();
+            for (name, face) in [
+                ("code-empty", empty),
+                ("code-entered", entered),
+                ("code-confirm", confirm),
+            ] {
+                let file = std::fs::File::create(format!("{path}/{name}.png")).unwrap();
+                let mut encoder = png::Encoder::new(file, face.w, face.h);
+                encoder.set_color(png::ColorType::Rgba);
+                encoder.set_depth(png::BitDepth::Eight);
+                encoder
+                    .write_header()
+                    .unwrap()
+                    .write_image_data(&face.rgba)
+                    .unwrap();
+            }
         }
     }
     #[test]

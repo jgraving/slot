@@ -104,10 +104,12 @@ fn wifi_has_no_redundant_heading_and_scrolls_networks_with_an_indicator() {
     assert!(manager.lines()[0].is_empty());
     assert!(manager.lines()[1].is_empty());
     assert_eq!(manager.lines()[2], "COMPACT");
+    save_preview("network-home", &manager.screen_face());
     tap(&mut manager, Btn::A);
     wait(&mut manager);
     assert!(manager.status.is_empty());
     let first = manager.screen_face();
+    save_preview("network-scan", &first);
     for _ in 0..10 {
         tap(&mut manager, Btn::Down);
     }
@@ -121,9 +123,25 @@ fn wifi_has_no_redundant_heading_and_scrolls_networks_with_an_indicator() {
     );
     assert!(lines.iter().any(|l| l == "SELECTED DEVICE Home9"));
     let last = manager.screen_face();
+    save_preview("network-scrolled", &last);
     let pixel = |face: &slot_ui::UndoFace| {
         let at = (90 * face.w as usize + face.w as usize - 11) * 4;
         face.rgba[at..at + 4].to_vec()
     };
     assert_ne!(pixel(&first), pixel(&last));
+}
+
+fn save_preview(name: &str, face: &slot_ui::UndoFace) {
+    if let Ok(path) = std::env::var("SLOT_NETWORK_PREVIEW_DIR") {
+        std::fs::create_dir_all(&path).unwrap();
+        let file = std::fs::File::create(format!("{path}/{name}.png")).unwrap();
+        let mut encoder = png::Encoder::new(file, face.w, face.h);
+        encoder.set_color(png::ColorType::Rgba);
+        encoder.set_depth(png::BitDepth::Eight);
+        encoder
+            .write_header()
+            .unwrap()
+            .write_image_data(&face.rgba)
+            .unwrap();
+    }
 }

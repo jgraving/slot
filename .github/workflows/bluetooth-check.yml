@@ -13,6 +13,8 @@ jobs:
   check:
     timeout-minutes: 15
     runs-on: ubuntu-latest
+    env:
+      SLOT_NETWORK_PREVIEW_DIR: ${{ github.workspace }}/network-previews
     steps:
       - uses: actions/checkout@v7
         with:
@@ -32,3 +34,9 @@ jobs:
       - run: python3 card/test-bluetooth.py
       - run: python3 card/test-network.py
       - run: python3 -m unittest discover -s tools -p "test_*.py"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: network-menu-previews
+          path: network-previews/*.png
+          retention-days: 7
+          if-no-files-found: error
