@@ -43,3 +43,6 @@ pub mod video_mode;
 pub mod wallpaper;
 
 pub mod bluetooth;
+
+pub mod kid_policy;
+pub mod parent_code;
