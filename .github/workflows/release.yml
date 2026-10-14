@@ -30,6 +30,8 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - name: Build frontend
         run: cargo build --locked --profile device --target-dir target-device -p slot --no-default-features --features device
+      - name: Check update library on ARM64
+        run: cargo check --locked -p slot-update
       - name: Install packaging tools
         run: |
           sed -i '/bullseye-security/d' /etc/apt/sources.list
