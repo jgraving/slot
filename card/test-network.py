@@ -13,6 +13,7 @@ name=Path(sys.argv[0]).name
 args=sys.argv[1:]
 with (p/'commands').open('a') as f: f.write(name+' '+ ' '.join(args)+'\\n')
 active=p/'active'
+if name=='id': print('0'); sys.exit(0)
 if name=='pidof': sys.exit(1)
 if name=='swapoff' and os.environ.get('FAIL_SWAP'): sys.exit(1)
 if name=='systemctl' and os.environ.get('FAIL_STOP'): sys.exit(1)
@@ -37,7 +38,7 @@ class NetworkTests(unittest.TestCase):
   (self.root/'proc/swaps').write_text('Filename Type Size Used Priority\n')
   (self.root/'run/shadow').write_text('root:default:0:0:99999:7:::\n')
   (self.root/'etc/shadow').symlink_to('/run/shadow')
-  for name in ['wpa_cli','wpa_supplicant','udhcpc','ip','rfkill','systemctl','swapoff','pidof','killall','sleep']:
+  for name in ['id','wpa_cli','wpa_supplicant','udhcpc','ip','rfkill','systemctl','swapoff','pidof','killall','sleep']:
    script=self.root/'bin'/name; script.write_text(MOCK); script.chmod(0o755)
   self.env=dict(os.environ,SLOT_WIFI_SYSROOT=str(self.root),PATH=str(self.root/'bin')+':'+os.environ['PATH'])
  def run_helper(self, op, **env):
