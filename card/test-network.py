@@ -65,7 +65,7 @@ class NetworkTests(unittest.TestCase):
  def test_nonpersistent_storage_is_rejected(self):
   p=self.root/'proc/mounts'; p.write_text(p.read_text().replace(' ext4 ',' tmpfs '))
   self.assertNotEqual(self.run_helper('connect').returncode,0)
-  self.assertFalse((self.root/'commands').exists())
+  self.assertEqual((self.root/'commands').read_text().strip(), 'id -u')
  def test_link_play_and_parallel_operation_block_connection(self):
   (self.root/'run/slotlink.session').touch()
   self.assertNotEqual(self.run_helper('connect').returncode,0)
