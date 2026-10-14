@@ -558,7 +558,8 @@ fn the_bar_runs_edge_to_edge_behind_the_selected_row() {
                 _ => None,
             })
             .collect();
-        let top = QUICK_TOP + QUICK_PITCH * row.position() as f32;
+        let top = QUICK_TOP
+            + QUICK_PITCH * (row.position() - row.visible_page()[0].position()) as f32;
         assert_eq!(
             bars,
             vec![[0.0, top + 4.0, OUT_W as f32, QUICK_PITCH - 8.0]],
@@ -656,4 +657,27 @@ fn connected_bluetooth_indicator_sits_in_the_carousel_footer_and_can_hide() {
     assert!(!draws
         .iter()
         .any(|d| matches!(d, Draw::Tex { tex, .. } if *tex == indicator)));
+}
+
+#[test]
+fn every_option_can_be_focused_without_drawing_past_the_visible_window() {
+    let (_d, mut app, _) = on_carousel();
+    fake_faces(&mut app);
+    app.apply(Action::QuickMenu);
+    for selected in QuickRow::MAIN {
+        let out = frame(&app);
+        assert!(drawn(&out, 100 + selected.index()));
+        let labels: Vec<_> = QuickRow::MAIN
+            .iter()
+            .filter_map(|row| placed(&out, 100 + row.index()))
+            .collect();
+        assert_eq!(labels.len(), 6);
+        for [_, y, _, h] in labels {
+            assert!(y >= 0.0 && y + h < slot_ui::QUICK_SPLIT);
+        }
+        assert_eq!(placed(&out, 400).unwrap()[1], 427.0);
+        press(&mut app, Btn::Down);
+    }
+    assert_eq!(app.quick_menu(), Some(QuickRow::Screen));
+    assert!(drawn(&frame(&app), 100 + QuickRow::Screen.index()));
 }

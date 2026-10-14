@@ -84,7 +84,7 @@ fn the_quick_menu_renders_full_screen() {
         bar_on = selected;
         let px = composed(&mut f, &mut c, name);
 
-        let top = row_top(selected) as usize;
+        let top = visible_row_top(selected, selected) as usize;
         for x in [1, OUT_W as usize - 2] {
             assert_eq!(at(&px, x, top + 26), bar, "{name}: no bar at x {x}");
         }
@@ -103,8 +103,8 @@ fn the_quick_menu_renders_full_screen() {
             "{name}: not on the ground"
         );
 
-        for row in QuickRow::MAIN {
-            let top = row_top(row) as usize;
+        for &row in selected.visible_page() {
+            let top = visible_row_top(row, selected) as usize;
             let label = inked(&px, 0..360, top);
             let first = *label.first().expect("a row with no label");
             assert!(
@@ -113,7 +113,12 @@ fn the_quick_menu_renders_full_screen() {
             );
             if matches!(
                 row,
-                QuickRow::About | QuickRow::Screen | QuickRow::Game | QuickRow::Bluetooth
+                QuickRow::About
+                    | QuickRow::Screen
+                    | QuickRow::Game
+                    | QuickRow::Bluetooth
+                    | QuickRow::Network
+                    | QuickRow::Power
             ) {
                 continue;
             }
@@ -227,4 +232,10 @@ fn the_screen_page_sets_gb_palettes_in_line_with_the_rows_above() {
 fn row_top(row: QuickRow) -> f32 {
     (OUT_H as f32 - QUICK_PITCH * row.page().len() as f32) / 2.0
         + QUICK_PITCH * row.position() as f32
+}
+
+fn visible_row_top(row: QuickRow, selected: QuickRow) -> f32 {
+    let visible = selected.visible_page();
+    (OUT_H as f32 - QUICK_PITCH * visible.len() as f32) / 2.0
+        + QUICK_PITCH * (row.position() - visible[0].position()) as f32
 }

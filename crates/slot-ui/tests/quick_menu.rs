@@ -222,3 +222,18 @@ fn the_two_carets_point_different_ways() {
         "a caret glyph is missing from the symbols font"
     );
 }
+
+#[test]
+fn scrolling_keeps_every_option_visible_and_clear_of_the_footer() {
+    for selected in QuickRow::ALL {
+        let visible = selected.visible_page();
+        assert!(visible.len() <= 6);
+        assert!(visible.contains(&selected));
+        let top = (480.0 - 52.0 * visible.len() as f32) / 2.0;
+        let last_bottom = top + 52.0 * (visible.len() - 1) as f32 + 44.0;
+        assert!(last_bottom < slot_ui::QUICK_SPLIT);
+    }
+    assert_eq!(QuickRow::Screen.visible_page()[0], QuickRow::Screen);
+    assert_eq!(QuickRow::About.visible_page().last(), Some(&QuickRow::About));
+    assert!(!QuickRow::About.visible_page().contains(&QuickRow::Screen));
+}
