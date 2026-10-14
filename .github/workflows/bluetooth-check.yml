@@ -23,12 +23,11 @@ jobs:
           components: rustfmt, clippy
       - run: cargo fmt --all -- --check
       - run: cargo clippy -p slot --no-default-features --features device -- -D warnings
-      - run: cargo test -p slot --no-default-features --features device --lib --test network_lock --test network --test wifi_vault --test bluetooth --test quick_menu --test audio --test collections --test cart_faces --test app --test boot --test single --test comfort --test headphones --test volume --test sfx --test tactile --test sleep --test power
-      - run: cargo clippy -p slot-update --all-targets -- -D warnings
-      - run: cargo test -p slot-update
+      - run: cargo test -p slot --no-default-features --features device --lib --test bluetooth --test quick_menu --test audio --test collections --test cart_faces --test app --test boot --test single --test comfort --test headphones --test volume --test sfx --test tactile --test sleep --test power
       - run: cargo test -p slot-power
       - run: cargo test -p slot-gfx --no-default-features --features device --test grade
       - run: cargo test -p slot-ui
       - run: python3 card/test-bluetooth.py
-      - run: python3 card/test-network.py
       - run: python3 -m unittest discover -s tools -p "test_*.py"
+      - run: sh card/test-slotlink.sh
+      - run: python3 card/test-offline.py

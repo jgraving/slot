@@ -30,8 +30,6 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - name: Build frontend
         run: cargo build --locked --profile device --target-dir target-device -p slot --no-default-features --features device
-      - name: Check update library on ARM64
-        run: cargo check --locked -p slot-update
       - name: Install packaging tools
         run: |
           sed -i '/bullseye-security/d' /etc/apt/sources.list
@@ -161,7 +159,7 @@ jobs:
             'For an existing installation, download slot-System.zip and merge System into System on SD2 while powered off. Keep your emulator cores.' \
             'Games, labels, settings and saves are unchanged. Back up your existing System folder first.' \
             'The h700 ZIP on stable releases is the full fresh-card package.' > notes.md
-          # Draft first: an OTA client must never discover a partially uploaded release.
+          # Publish only complete downloadable packages.
           if [ "$CHANNEL" = development ]; then
             gh release create "$VERSION" assets/* --repo "$GITHUB_REPOSITORY" --target "$COMMIT" --title "Development $VERSION" --notes-file notes.md --draft --prerelease --latest=false
           else
