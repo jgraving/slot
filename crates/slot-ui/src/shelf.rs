@@ -56,6 +56,10 @@ pub struct Shelf {
     favorites: HashSet<(Platform, String)>,
     favorite_face: Option<TexId>,
     interiors: Vec<Option<TexId>>,
+    kids: HashSet<(Platform, String)>,
+    kid_face: Option<TexId>,
+    back_faces: Option<[TexId; 3]>,
+    flip: Option<f32>,
     shadow: Option<TexId>,
     gb_shadow: Option<TexId>,
     gbc_shadow: Option<TexId>,
@@ -76,6 +80,10 @@ impl Shelf {
             clears: carts.iter().map(is_clear).collect(),
             faces: vec![None; carts.len()],
             favorites: HashSet::new(),
+            kids: HashSet::new(),
+            kid_face: None,
+            back_faces: None,
+            flip: None,
             favorite_face: None,
             interiors: vec![None; carts.len()],
             carts,
@@ -91,6 +99,21 @@ impl Shelf {
             vel: 0.0,
             held: None,
         }
+    }
+
+    pub fn set_back_faces(&mut self, backs: [TexId; 3], kid: TexId) {
+        self.back_faces = Some(backs);
+        self.kid_face = Some(kid);
+    }
+    pub fn set_kids(&mut self, kids: HashSet<(Platform, String)>) {
+        self.kids = kids;
+    }
+    pub fn flip(&mut self) {
+        self.release_hold();
+        self.flip = Some(0.0);
+    }
+    pub fn animating(&self) -> bool {
+        self.flip.is_some()
     }
 
     pub fn set_favorite_face(&mut self, face: TexId) {
@@ -423,6 +446,9 @@ impl Shelf {
     }
 
     pub fn update(&mut self, dt: f32) {
+        if let Some(t) = self.flip {
+            self.flip = (t + dt < 1.2).then_some(t + dt);
+        }
         let accel = -2.0 * OMEGA * self.vel - OMEGA * OMEGA * (self.scroll - self.scroll_target());
         self.vel += accel * dt;
         self.scroll += self.vel * dt;
@@ -465,6 +491,68 @@ impl Shelf {
             }
             let x = x + shake;
             let y = foot_y(ch as f32) - h;
+            let angle = if i == self.index && slot == 0 {
+                self.flip
+                    .map(|t| {
+                        if t < 0.25 {
+                            t / 0.25
+                        } else if t < 0.95 {
+                            1.0
+                        } else {
+                            (1.2 - t) / 0.25
+                        }
+                    })
+                    .unwrap_or(0.0)
+                    * std::f32::consts::PI
+            } else {
+                0.0
+            };
+            let squeeze = angle.cos().abs().max(0.015);
+            let centre = x + w / 2.0;
+            let x = centre - w * squeeze / 2.0;
+            let w = w * squeeze;
+            if angle.cos() < 0.0 {
+                if let Some(backs) = self.back_faces {
+                    let at = match cart.platform {
+                        Platform::Gba => 0,
+                        Platform::Gb => 1,
+                        Platform::Gbc => 2,
+                    };
+                    out.push(Draw::Tex {
+                        x,
+                        y,
+                        w,
+                        h,
+                        tex: backs[at],
+                        alpha: alpha * dim,
+                    });
+                } else {
+                    out.push(Draw::Rect {
+                        x,
+                        y,
+                        w,
+                        h,
+                        colour: [0.25, 0.25, 0.28, alpha * dim],
+                    });
+                }
+                let key = (cart.platform, cart.stem.clone());
+                for (marked, face, side) in [
+                    (self.favorites.contains(&key), self.favorite_face, -1.0),
+                    (self.kids.contains(&key), self.kid_face, 1.0),
+                ] {
+                    if let Some(tex) = face.filter(|_| marked) {
+                        out.push(Draw::Tex {
+                            x: centre + (side * 24.0 - 18.0) * scale * squeeze,
+                            y: y + h * 0.55,
+                            w: 36.0 * scale * squeeze,
+                            h: 36.0 * scale,
+                            tex,
+                            alpha: alpha * dim,
+                        });
+                    }
+                }
+                continue;
+            }
             if alpha < 1.0 {
                 let backing = match self.shells.get(i).copied().flatten() {
                     None => self.shadow,
@@ -548,18 +636,6 @@ impl Shelf {
                     }
                 }
             });
-            if self.favorites.contains(&(cart.platform, cart.stem.clone())) {
-                if let Some(tex) = self.favorite_face {
-                    out.push(Draw::Tex {
-                        x: x + w / 2.0 - 14.0 * scale,
-                        y: y - 32.0 * scale,
-                        w: 28.0 * scale,
-                        h: 28.0 * scale,
-                        tex,
-                        alpha: alpha * dim,
-                    });
-                }
-            }
         }
     }
 }
@@ -580,4 +656,35 @@ fn shrink(offset: f32) -> f32 {
 
 fn recede_alpha(face_alpha: f32) -> f32 {
     (face_alpha / SIDE_ALPHA).clamp(0.0, 1.0)
+}
+
+pub fn kid_face() -> crate::UndoFace {
+    let svg = r##"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><circle cx="32" cy="32" r="27" fill="#91c79d" stroke="#25382a" stroke-width="3"/><circle cx="23" cy="27" r="3" fill="#25382a"/><circle cx="41" cy="27" r="3" fill="#25382a"/><path d="M20 37 Q32 51 44 37" fill="none" stroke="#25382a" stroke-width="4" stroke-linecap="round"/></svg>"##;
+    crate::UndoFace {
+        rgba: crate::art::render_svg(svg, 96, 96).expect("kid mark SVG"),
+        w: 96,
+        h: 96,
+    }
+}
+pub fn cartridge_back_face(platform: Platform) -> crate::UndoFace {
+    let (w, h) = cart_box(platform);
+    let svg = format!(
+        r##"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {w} {h}"><rect x="4" y="4" width="{}" height="{}" rx="14" fill="#595a63" stroke="#292a31" stroke-width="6"/><rect x="19" y="22" width="{}" height="{}" rx="7" fill="#51525a" stroke="#74757d" stroke-width="2"/><path d="M30 40 H{} M30 48 H{} M30 56 H{}" stroke="#373840" stroke-width="3"/><circle cx="{}" cy="{}" r="7" fill="#303139" stroke="#86878e" stroke-width="2"/><path d="M{} {} h8" stroke="#aaaab0" stroke-width="2"/></svg>"##,
+        w - 8,
+        h - 8,
+        w - 38,
+        h - 48,
+        w - 30,
+        w - 30,
+        w - 30,
+        w / 2,
+        h - 28,
+        w / 2 - 4,
+        h - 28
+    );
+    crate::UndoFace {
+        rgba: crate::art::render_svg(&svg, w, h).expect("cartridge back SVG"),
+        w,
+        h,
+    }
 }
