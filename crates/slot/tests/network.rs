@@ -121,7 +121,7 @@ fn wifi_has_no_redundant_heading_and_scrolls_networks_with_an_indicator() {
             .count(),
         6
     );
-    assert!(lines.iter().any(|l| l == "SELECTED DEVICE Home9"));
+    assert!(lines.iter().any(|l| l == "SELECTED NETWORK Home9"));
     let last = manager.screen_face();
     save_preview("network-scrolled", &last);
     let pixel = |face: &slot_ui::UndoFace| {
