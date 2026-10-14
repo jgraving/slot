@@ -406,8 +406,7 @@ impl QuickMenu<'_> {
             let height = QUICK_PITCH * QUICK_VISIBLE_ROWS as f32 - 8.0;
             let thumb = height * QUICK_VISIBLE_ROWS as f32 / page.len() as f32;
             let first = self.row.position().saturating_sub(QUICK_VISIBLE_ROWS - 1);
-            let offset =
-                (height - thumb) * first as f32 / (page.len() - QUICK_VISIBLE_ROWS) as f32;
+            let offset = (height - thumb) * first as f32 / (page.len() - QUICK_VISIBLE_ROWS) as f32;
             for (y, h, colour) in [
                 (QUICK_TOP + 4.0, height, [0.20, 0.20, 0.24, 1.0]),
                 (QUICK_TOP + 4.0 + offset, thumb, [0.60, 0.60, 0.64, 1.0]),

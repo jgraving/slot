@@ -234,6 +234,9 @@ fn scrolling_keeps_every_option_visible_and_clear_of_the_footer() {
         assert!(last_bottom < slot_ui::QUICK_SPLIT);
     }
     assert_eq!(QuickRow::Screen.visible_page()[0], QuickRow::Screen);
-    assert_eq!(QuickRow::About.visible_page().last(), Some(&QuickRow::About));
+    assert_eq!(
+        QuickRow::About.visible_page().last(),
+        Some(&QuickRow::About)
+    );
     assert!(!QuickRow::About.visible_page().contains(&QuickRow::Screen));
 }
