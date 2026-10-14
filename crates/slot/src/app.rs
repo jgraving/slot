@@ -266,6 +266,9 @@ pub enum Phase {
 
 pub struct App {
     pub bluetooth: Option<crate::bluetooth::Manager>,
+    pub kids: crate::kid_policy::Policy,
+    pub kid_menu: Option<crate::kid_menu::Menu>,
+    kid_error: bool,
     pub bluetooth_indicator: Option<TexId>,
     phase: Phase,
     shelves: Vec<(ShelfKind, Shelf)>,
@@ -385,6 +388,7 @@ enum ShelfKind {
     Platform(Platform),
     Recent,
     Favorites,
+    Kids,
 }
 impl ShelfKind {
     fn name(self) -> &'static str {
@@ -392,11 +396,13 @@ impl ShelfKind {
             Self::Platform(p) => p.name(),
             Self::Recent => "Recents",
             Self::Favorites => "Favorites",
+            Self::Kids => "Kids",
         }
     }
 }
 const RECENT_SHELF: usize = 3;
 const FAVORITES_SHELF: usize = 4;
+const KIDS_SHELF: usize = 5;
 const FACE_AHEAD: i32 = 8;
 const FACE_KEEP: i32 = 12;
 
@@ -420,6 +426,7 @@ fn shelves_of(carts: Vec<Cart>) -> Vec<(ShelfKind, Shelf)> {
         .chain([
             (ShelfKind::Recent, Shelf::new(Vec::new())),
             (ShelfKind::Favorites, Shelf::new(Vec::new())),
+            (ShelfKind::Kids, Shelf::new(Vec::new())),
         ])
         .collect()
 }
@@ -508,6 +515,9 @@ impl App {
             undo_face: None,
             clock_faces: None,
             bluetooth: None,
+            kids: crate::kid_policy::Policy::default(),
+            kid_menu: None,
+            kid_error: false,
             bluetooth_indicator: None,
             quick_menu_faces: None,
             quick_clock_faces: None,
@@ -574,6 +584,13 @@ impl App {
                 app.collections_writable = false;
             }
         }
+        match crate::kid_policy::Policy::read(root) {
+            Ok(policy) => app.kids = policy,
+            Err(_) => {
+                app.kids.active = true;
+                app.kid_error = true;
+            }
+        }
         if !root.join("Config/recent").exists() {
             app.collections.recent = app
                 .state
@@ -596,7 +613,13 @@ impl App {
             app.shelf_at = RECENT_SHELF;
         }
         app.restore_browsing();
-        if app.state.clock_set {
+        if app.kids.active {
+            app.shelf_at = KIDS_SHELF;
+            app.phase = Phase::Shelf;
+            app.state.cart = None;
+            app.state.cart_platform = None;
+            app.name_pending = true;
+        } else if app.state.clock_set {
             app.start();
         } else {
             app.phase = clock_screen(system_secs(), 0, false);
@@ -711,7 +734,7 @@ impl App {
     }
 
     pub fn audio_paused(&self) -> bool {
-        self.audio_paused
+        self.audio_paused || self.kid_menu.is_some()
     }
 
     pub fn set_quiet_disconnect(&mut self, enabled: bool) {
@@ -813,7 +836,16 @@ impl App {
         if !self.state.show_recents {
             recent.clear();
         }
-        for (at, carts) in [(RECENT_SHELF, recent), (FAVORITES_SHELF, favorites)] {
+        let approved = carts
+            .iter()
+            .filter(|c| self.kids.allows(c))
+            .cloned()
+            .collect();
+        for (at, carts) in [
+            (RECENT_SHELF, recent),
+            (FAVORITES_SHELF, favorites),
+            (KIDS_SHELF, approved),
+        ] {
             self.retired_faces
                 .extend(self.shelves[at].1.replace_carts(carts));
         }
@@ -827,6 +859,9 @@ impl App {
             );
         }
         self.face_revision = self.face_revision.wrapping_add(1);
+        if self.kids.active {
+            self.shelf_at = KIDS_SHELF;
+        }
         if self.shelf().carts.is_empty() {
             if let Some(to) = self.next_shelf(1) {
                 self.shelf_at = to;
@@ -836,6 +871,55 @@ impl App {
                 self.name_pending = true;
             }
         }
+    }
+
+    pub fn selected_is_kid_approved(&self) -> bool {
+        self.shelf()
+            .carts
+            .get(self.shelf().index)
+            .is_some_and(|c| self.kids.allows(c))
+    }
+    fn open_kid_controls(&mut self) {
+        if let Some(root) = self.root.clone() {
+            self.play_held = None;
+            self.shelf_mut().release_hold();
+            self.kid_menu = Some(crate::kid_menu::Menu::new(root, self.kids.clone()));
+        }
+    }
+    fn stop_for_parent(&mut self) {
+        self.close_polaroids();
+        if let Phase::Playing { cart } | Phase::Inserting { cart, .. } = &self.phase {
+            let cart = cart.clone();
+            self.end_link();
+            self.close_game_menu();
+            self.flush_resume();
+            self.flush_eject(&cart);
+        }
+        self.phase = Phase::Shelf;
+        self.play_held = None;
+        self.state.cart = None;
+        self.state.cart_platform = None;
+        self.persist();
+    }
+
+    fn toggle_kid_approved(&mut self) {
+        if self.kids.active {
+            return;
+        }
+        let Some(root) = &self.root else {
+            return;
+        };
+        let Some(cart) = self.shelf().carts.get(self.shelf().index) else {
+            return;
+        };
+        let mut next = self.kids.clone();
+        next.toggle(cart);
+        if next.save(root).is_err() {
+            self.hud.toast(Toast::CardUnwritable, self.now());
+            return;
+        }
+        self.kids = next;
+        self.refresh_collections();
     }
 
     fn toggle_favorite(&mut self) {
@@ -951,6 +1035,9 @@ impl App {
     }
 
     fn next_shelf(&self, by: i32) -> Option<usize> {
+        if self.kids.active {
+            return None;
+        }
         let n = self.shelves.len() as i32;
         (1..n)
             .map(|step| (self.shelf_at as i32 + by * step).rem_euclid(n) as usize)
@@ -1064,6 +1151,7 @@ impl App {
             | QuickRow::Screen
             | QuickRow::Game
             | QuickRow::Bluetooth
+            | QuickRow::Kids
             | QuickRow::Power
             | QuickRow::General
             | QuickRow::Wallpaper => None,
@@ -1242,7 +1330,7 @@ impl App {
     }
 
     pub fn single_cart(&self) -> bool {
-        self.carts().count() == 1
+        !self.kids.active && self.carts().count() == 1
     }
 
     pub fn set_faces(&mut self, faces: Vec<TexId>) {
@@ -1735,6 +1823,43 @@ impl App {
         if matches!(self.phase, Phase::Doze { .. }) {
             return;
         }
+        if self.kid_menu.is_some() {
+            let wall = self.wall_secs();
+            let menu = self.kid_menu.as_mut().unwrap();
+            menu.input(action, wall);
+            let changed = menu.changed.take();
+            let close = !menu.visible;
+            if let Some(policy) = changed {
+                self.stop_for_parent();
+                self.kids = policy;
+                self.kid_error = false;
+                self.refresh_collections();
+                self.phase = Phase::Shelf;
+                if self.kids.active {
+                    self.shelf_at = KIDS_SHELF;
+                }
+                self.name_pending = true;
+                self.play_held = None;
+            }
+            if close {
+                self.kid_menu = None;
+            }
+            return;
+        }
+        if self.kids.active {
+            match action {
+                Action::QuickMenu => {
+                    self.open_kid_controls();
+                    return;
+                }
+                Action::GbaDown(Btn::Start) if self.on_shelf() => {
+                    self.open_kid_controls();
+                    return;
+                }
+                Action::GbaDown(Btn::X | Btn::Y) if self.on_shelf() => return,
+                _ => {}
+            }
+        }
         if self.bluetooth.is_some() && self.adjust(action) {
             return;
         }
@@ -1793,6 +1918,7 @@ impl App {
                 }
                 _ if self.core_picker.is_some() => self.core_picker_input(action),
                 Action::GbaDown(Btn::Y) => self.toggle_favorite(),
+                Action::GbaDown(Btn::X) => self.toggle_kid_approved(),
                 Action::GbaDown(Btn::Up) => self.jump_letter(-1),
                 Action::GbaDown(Btn::Down) => self.jump_letter(1),
                 Action::ShelfLeft | Action::GbaDown(Btn::Left) => self.shelf_mut().hold_left(now),
@@ -1881,6 +2007,7 @@ impl App {
                 self.phase = clock_screen(self.utc_secs(), self.state.utc_offset_min, true);
             }
             QuickRow::About => self.phase = Phase::About,
+            QuickRow::Kids => self.open_kid_controls(),
             QuickRow::Bluetooth => {
                 self.sound_menu(false);
             }
@@ -1996,6 +2123,7 @@ impl App {
             | QuickRow::Screen
             | QuickRow::Game
             | QuickRow::Bluetooth
+            | QuickRow::Kids
             | QuickRow::Night
             | QuickRow::Power
             | QuickRow::LidClose
@@ -2240,7 +2368,7 @@ impl App {
 
     pub fn output_volume(&self) -> u8 {
         if self.muted()
-            || self.audio_paused
+            || self.audio_paused()
             || self.disconnect_muted
             || (self.comfort.quiet && self.bluetooth_route.is_some() && !self.bluetooth_connected)
         {
@@ -2718,6 +2846,23 @@ impl App {
                 self.now().saturating_sub(*at) as f32 / SLEEP_SHOW_MS as f32,
                 out,
             );
+            return;
+        }
+        if let Some(menu) = self
+            .kid_menu
+            .as_ref()
+            .filter(|_| !matches!(self.phase, Phase::Doze { .. }))
+        {
+            if let Some(tex) = menu.face {
+                out.push(Draw::Tex {
+                    x: 0.0,
+                    y: 0.0,
+                    w: OUT_W as f32,
+                    h: OUT_H as f32,
+                    tex,
+                    alpha: 1.0,
+                });
+            }
             return;
         }
         if let Some(bluetooth) = self
@@ -3277,6 +3422,17 @@ impl App {
     }
 
     fn insert(&mut self, clean: bool) {
+        if self.kids.active
+            && (self.kid_error
+                || !self
+                    .shelf()
+                    .carts
+                    .get(self.shelf().index)
+                    .is_some_and(|c| self.kids.allows(c)))
+        {
+            self.open_kid_controls();
+            return;
+        }
         self.remember_browsing();
         self.save_comfort();
         if !self.on_shelf() {
@@ -3421,6 +3577,7 @@ impl App {
     }
 
     fn doze(&mut self) {
+        self.kid_menu = None;
         self.remember_browsing();
         self.save_comfort();
         if self.link_active() {
