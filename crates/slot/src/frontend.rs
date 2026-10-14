@@ -402,7 +402,7 @@ impl Frontend {
         {
             let lines = network.lines();
             if lines != self.network_lines || network.face.is_none() {
-                let face = crate::bluetooth::screen_face(&lines);
+                let face = network.screen_face();
                 network.face = Some(upload(compositor, &mut self.network_tex, face));
                 self.network_lines = lines;
             }

@@ -67,10 +67,16 @@ enum Page {
     Entry(Entry),
     Forget,
     SaveChoice,
+    UnlockCode,
+    SetCode,
+    ConfirmCode,
 }
 
 pub struct Manager {
     root: PathBuf,
+    gate: crate::network_lock::Gate,
+    code: Zeroizing<Vec<u8>>,
+    new_code: Zeroizing<Vec<u8>>,
     page: Page,
     pub visible: bool,
     ready: bool,
@@ -108,6 +114,9 @@ enum Work {
 impl Manager {
     pub fn new(root: PathBuf) -> Self {
         let mut manager = Self {
+            gate: crate::network_lock::Gate::new("/data/slot-network/button-lock".into()),
+            code: Zeroizing::new(Vec::new()),
+            new_code: Zeroizing::new(Vec::new()),
             root,
             page: Page::Home,
             visible: true,
@@ -124,8 +133,58 @@ impl Manager {
             profile: None,
             pending: None,
         };
+        manager.open();
         manager.ask(Work::Prepare);
         manager
+    }
+    pub fn lock_controls(&mut self) {
+        self.gate.relock();
+        self.code.zeroize();
+        self.new_code.zeroize();
+        self.text.zeroize();
+        self.page = if self.gate.locked() {
+            Page::UnlockCode
+        } else {
+            Page::Home
+        };
+        self.selected = 0;
+        self.face = None;
+    }
+    pub fn open(&mut self) {
+        self.face = None;
+        self.visible = true;
+        self.page = if self.gate.locked() {
+            Page::UnlockCode
+        } else {
+            Page::Home
+        };
+        self.code.zeroize();
+        self.new_code.zeroize();
+        self.selected = 0;
+    }
+    pub fn screen_face(&self) -> slot_ui::UndoFace {
+        let mut face = crate::bluetooth::screen_face(&self.lines());
+        if matches!(
+            self.page,
+            Page::UnlockCode | Page::SetCode | Page::ConfirmCode
+        ) {
+            let icons = slot_ui::button_code_face(&self.code);
+            let left = (face.w - icons.w) / 2;
+            for y in 0..icons.h {
+                for x in 0..icons.w {
+                    let src = ((y * icons.w + x) * 4) as usize;
+                    let dst = (((y + 220) * face.w + x + left) * 4) as usize;
+                    let alpha = icons.rgba[src + 3] as u32;
+                    for c in 0..3 {
+                        face.rgba[dst + c] = ((icons.rgba[src + c] as u32 * alpha
+                            + face.rgba[dst + c] as u32 * (255 - alpha))
+                            / 255) as u8;
+                    }
+                    face.rgba[dst + 3] = 255;
+                }
+            }
+        }
+        face
     }
     pub fn busy(&self) -> bool {
         self.pending.is_some()
@@ -184,6 +243,9 @@ impl Manager {
                     self.page = Page::Home;
                     self.selected = 0;
                 }
+                if self.visible && self.gate.locked() {
+                    self.page = Page::UnlockCode;
+                }
             }
             Err(mpsc::TryRecvError::Disconnected) => {
                 self.pending = None;
@@ -199,6 +261,12 @@ impl Manager {
                 "Connect saved network".into(),
                 "Turn Wi-Fi off".into(),
                 "Forget saved network".into(),
+                if self.gate.enabled() {
+                    "Disable button lock"
+                } else {
+                    "Set button lock (off)"
+                }
+                .into(),
             ],
             Page::Scan => std::iter::once("Scan again".into())
                 .chain(self.networks.iter().map(|n| n.ssid.clone()))
@@ -208,17 +276,25 @@ impl Manager {
                 "Save encrypted credentials".into(),
             ],
             Page::Forget => vec!["Cancel".into(), "Delete encrypted credentials".into()],
-            Page::Entry(_) => Vec::new(),
+            Page::Entry(_) | Page::UnlockCode | Page::SetCode | Page::ConfirmCode => Vec::new(),
         }
     }
     pub fn input(&mut self, action: Action) {
         if self.pending.is_some() {
             return;
         }
+        if matches!(
+            self.page,
+            Page::UnlockCode | Page::SetCode | Page::ConfirmCode
+        ) {
+            self.code_input(action);
+            return;
+        }
         if matches!(action, Action::QuickMenu | Action::GbaDown(Btn::B)) {
             self.text.zeroize();
             if self.page == Page::Home {
                 self.visible = false;
+                self.gate.relock();
             } else {
                 self.page = Page::Home;
                 self.selected = 0;
@@ -269,6 +345,20 @@ impl Manager {
                     }
                     1 => self.ask(Work::Reconnect),
                     2 => self.ask(Work::Disconnect),
+                    4 => {
+                        if self.gate.enabled() {
+                            self.status = if self.gate.remove().is_ok() {
+                                "Button lock disabled"
+                            } else {
+                                "Could not disable lock"
+                            }
+                            .into();
+                        } else {
+                            self.page = Page::SetCode;
+                            self.code.zeroize();
+                            self.status.clear();
+                        }
+                    }
                     _ => {
                         self.page = Page::Forget;
                         self.selected = 0;
@@ -293,12 +383,115 @@ impl Manager {
                     self.page = Page::Home;
                     self.selected = 0;
                 }
-                Page::Entry(_) => {}
+                Page::Entry(_) | Page::UnlockCode | Page::SetCode | Page::ConfirmCode => {}
             },
             _ => {}
         }
     }
+    fn code_input(&mut self, action: Action) {
+        self.face = None;
+        if matches!(action, Action::QuickMenu) {
+            self.code.zeroize();
+            self.new_code.zeroize();
+            self.gate.relock();
+            self.visible = false;
+            return;
+        }
+        if !self.ready {
+            return;
+        }
+        let Action::GbaDown(button) = action else {
+            return;
+        };
+        if button == Btn::Select {
+            self.code.pop();
+            return;
+        }
+        if button == Btn::Start {
+            if self.code.is_empty() {
+                self.visible = false;
+                self.gate.relock();
+                self.new_code.zeroize();
+                return;
+            }
+            if self.code.len() != 4 {
+                self.status = "Enter four buttons, then START".into();
+                return;
+            }
+            match self.page {
+                Page::UnlockCode => {
+                    let now = std::time::Instant::now();
+                    match self.gate.verify(&self.code, now) {
+                        Ok(true) => {
+                            self.page = Page::Home;
+                            self.status = "Unlocked".into();
+                        }
+                        _ => {
+                            self.status = if self.gate.remaining(now) > 0 {
+                                "Wait 30 seconds before trying again"
+                            } else {
+                                "Code did not match"
+                            }
+                            .into();
+                        }
+                    }
+                }
+                Page::SetCode => {
+                    self.new_code = Zeroizing::new(self.code.to_vec());
+                    self.page = Page::ConfirmCode;
+                    self.status = "Repeat the same four buttons".into();
+                }
+                Page::ConfirmCode => {
+                    if *self.code != *self.new_code {
+                        self.status = "Codes did not match; repeat your first code".into();
+                    } else if self.gate.set(&self.code).is_ok() {
+                        self.page = Page::Home;
+                        self.status = "Button lock enabled".into();
+                        self.new_code.zeroize();
+                    } else {
+                        self.status = "Could not save button lock".into();
+                    }
+                }
+                _ => {}
+            }
+            self.code.zeroize();
+            return;
+        }
+        let value = match button {
+            Btn::A => 0,
+            Btn::B => 1,
+            Btn::X => 2,
+            Btn::Y => 3,
+            Btn::Up => 4,
+            Btn::Down => 5,
+            Btn::Left => 6,
+            Btn::Right => 7,
+            _ => return,
+        };
+        if self.code.len() < 4 {
+            self.code.push(value);
+        }
+    }
     pub fn lines(&self) -> Vec<String> {
+        if matches!(
+            self.page,
+            Page::UnlockCode | Page::SetCode | Page::ConfirmCode
+        ) {
+            return vec![
+                match self.page {
+                    Page::SetCode => "Set button lock",
+                    Page::ConfirmCode => "Confirm button lock",
+                    _ => "Wi-Fi controls locked",
+                }
+                .into(),
+                self.status.clone(),
+                format!("{} / 4 · A B X Y or arrows", self.code.len()),
+                "ROW ".into(),
+                "ROW ".into(),
+                "ROW SELECT Delete · START Done".into(),
+                "CODE HINTS".into(),
+            ];
+        }
         let title = match self.page {
             Page::Entry(Entry::Password) => "Wi-Fi password",
             Page::Forget => "Forget saved Wi-Fi?",
@@ -482,4 +675,44 @@ fn helper(
         return Err(io::Error::other("Network reply too large"));
     }
     Ok(String::from_utf8_lossy(&output.stdout).into_owned())
+}
+
+#[cfg(test)]
+mod lock_tests {
+    use super::*;
+    fn tap(m: &mut Manager, b: Btn) {
+        m.input(Action::GbaDown(b));
+    }
+    fn code(m: &mut Manager) {
+        for b in [Btn::A, Btn::B, Btn::X, Btn::Y, Btn::Start] {
+            tap(m, b);
+        }
+    }
+    #[test]
+    fn optional_code_requires_confirmation_and_relocks_on_close() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut m = Manager::new(dir.path().to_owned());
+        m.pending = None;
+        m.ready = true;
+        m.gate = crate::network_lock::Gate::new(dir.path().join("button-lock"));
+        m.open();
+        m.selected = 4;
+        tap(&mut m, Btn::A);
+        assert!(matches!(m.page, Page::SetCode));
+        code(&mut m);
+        assert!(matches!(m.page, Page::ConfirmCode));
+        assert!(!m.gate.enabled());
+        code(&mut m);
+        assert!(m.gate.enabled());
+        tap(&mut m, Btn::B);
+        assert!(!m.visible);
+        m.open();
+        assert!(matches!(m.page, Page::UnlockCode));
+        tap(&mut m, Btn::A);
+        assert_eq!(&*m.code, &[0]);
+        tap(&mut m, Btn::Select);
+        assert!(m.code.is_empty());
+        code(&mut m);
+        assert!(matches!(m.page, Page::Home));
+    }
 }

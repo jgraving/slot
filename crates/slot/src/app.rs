@@ -1755,7 +1755,7 @@ impl App {
             }
             QuickRow::Network => {
                 if let Some(network) = &mut self.network {
-                    network.visible = true;
+                    network.open();
                 } else if let Some(root) = &self.root {
                     self.network = Some(crate::network::Manager::new(root.clone()));
                 }
@@ -3223,6 +3223,9 @@ impl App {
     }
 
     fn doze(&mut self) {
+        if let Some(network) = &mut self.network {
+            network.lock_controls();
+        }
         self.remember_browsing();
         self.save_comfort();
         if self.link_active() {
