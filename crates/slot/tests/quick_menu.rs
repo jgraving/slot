@@ -558,8 +558,8 @@ fn the_bar_runs_edge_to_edge_behind_the_selected_row() {
                 _ => None,
             })
             .collect();
-        let top = QUICK_TOP
-            + QUICK_PITCH * (row.position() - row.visible_page()[0].position()) as f32;
+        let top =
+            QUICK_TOP + QUICK_PITCH * (row.position() - row.visible_page()[0].position()) as f32;
         assert_eq!(
             bars,
             vec![[0.0, top + 4.0, OUT_W as f32, QUICK_PITCH - 8.0]],
