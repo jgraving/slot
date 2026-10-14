@@ -38,3 +38,6 @@ pub mod video_mode;
 pub mod wallpaper;
 
 pub mod bluetooth;
+
+pub mod parent_code;
+pub mod kid_policy;
