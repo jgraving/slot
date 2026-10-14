@@ -566,6 +566,21 @@ pub fn screen_face(lines: &[String]) -> UndoFace {
             }
         }
         if i == lines.len() - 1 {
+            if line == "PARENT CODE HINTS" {
+                let hints = [
+                    slot_ui::hint_face("SELECT", "Delete"),
+                    slot_ui::hint_face("START", "Done"),
+                    slot_ui::hint_face("MENU", "Cancel"),
+                ];
+                let gap = slot_ui::LEGEND_GAP as u32;
+                let total = hints.iter().map(|h| h.w).sum::<u32>() + gap * 2;
+                let mut x = (OUT_W - total) / 2;
+                for hint in hints {
+                    blit(&mut rgba, &hint, x, 427);
+                    x += hint.w + gap;
+                }
+                continue;
+            }
             if line == "CODE HINTS" {
                 let hint = slot_ui::hint_face("MENU", "Cancel");
                 blit(&mut rgba, &hint, (OUT_W - hint.w) / 2, 427);
