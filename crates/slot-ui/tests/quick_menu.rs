@@ -76,17 +76,29 @@ fn the_fast_forward_row_offers_the_four_ceilings_the_card_can_hold() {
 }
 
 #[test]
+fn the_run_ahead_row_offers_off_and_one_frame() {
+    assert_eq!(
+        [0, 1].map(QuickValue::frames),
+        [Some(QuickValue::Off), Some(QuickValue::Frames1)]
+    );
+    for other in [2, 3, 255] {
+        assert_eq!(
+            QuickValue::frames(other),
+            None,
+            "{other} frames is not a value the row has"
+        );
+    }
+}
+
+#[test]
 fn the_rows_run_in_the_order_the_user_chose() {
     assert_eq!(
         QuickRow::MAIN.map(QuickRow::label),
-        [
-            "Screen",
-            "Sound",
-            "Gameplay",
-            "Power",
-            "Date & Time",
-            "About"
-        ]
+        ["Screen", "Sound", "Gameplay", "Power", "General", "About"]
+    );
+    assert_eq!(
+        QuickRow::GENERAL.map(QuickRow::label),
+        ["Wallpaper", "Date & Time", "Theme", "Recents"]
     );
     assert_eq!(
         QuickRow::SCREEN.map(QuickRow::label),
@@ -104,6 +116,7 @@ fn the_rows_run_in_the_order_the_user_chose() {
             "Fast Forward",
             "Fast Forward Sound",
             "Rewind",
+            "Run-Ahead",
             "Turbo Buttons",
             "Rumble",
             "Auto Save on Eject"
@@ -118,7 +131,8 @@ fn the_rows_run_in_the_order_the_user_chose() {
             QuickRow::About,
             QuickRow::Game,
             QuickRow::Bluetooth,
-            QuickRow::Power
+            QuickRow::Power,
+            QuickRow::General
         ]
     );
     for page in [
@@ -126,6 +140,7 @@ fn the_rows_run_in_the_order_the_user_chose() {
         &QuickRow::SCREEN[..],
         &QuickRow::GAME[..],
         &QuickRow::POWER[..],
+        &QuickRow::GENERAL[..],
     ] {
         for &row in page {
             assert_eq!(row.page(), page, "{row:?}");
@@ -159,7 +174,10 @@ fn the_values_read_as_the_menu_prints_them() {
             "Platinum",
             "Graphite",
             "Pearl Blue",
-            "Pearl Pink"
+            "Pearl Pink",
+            "1 Frame",
+            "Dark",
+            "Light",
         ]
     );
     assert_eq!(QuickValue::flag(true), QuickValue::On);

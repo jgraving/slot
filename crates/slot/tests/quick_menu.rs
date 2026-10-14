@@ -6,7 +6,7 @@ use common::{
 };
 use slot::app::{App, Phase};
 use slot_input::{Action, Btn};
-use slot_store::{read_slot_state, write_slot_state, Shader, SlotState};
+use slot_store::{read_slot_state, write_slot_state, Appearance, Shader, SlotState, WallpaperPick};
 use slot_ui::{
     edge, Draw, Icon, QuickMenuFaces, QuickRow, QuickValue, TexId, MENU_PAD, OUT_W, QUICK_EDGE,
     QUICK_PITCH, QUICK_TOP,
@@ -106,6 +106,58 @@ fn the_quick_menu_is_only_on_the_carousel() {
 }
 
 #[test]
+fn wallpaper_cycles_none_default_and_the_folder_and_saves() {
+    let (d, mut a, _) = on_carousel();
+    let dir = d.path().join("Wallpapers");
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("b.png"), b"png").unwrap();
+    std::fs::write(dir.join("a.png"), b"png").unwrap();
+    open_at(&mut a, QuickRow::Wallpaper);
+    assert_eq!(a.quick_menu(), Some(QuickRow::Wallpaper));
+    assert_eq!(
+        a.resolved_wallpaper(),
+        WallpaperPick::Default,
+        "a new card did not start on Default"
+    );
+    press(&mut a, Btn::Right);
+    assert_eq!(a.resolved_wallpaper(), WallpaperPick::Blur);
+    assert_eq!(a.resolved_wallpaper().label(), "DEFAULT BLUR");
+    press(&mut a, Btn::Right);
+    assert_eq!(a.resolved_wallpaper(), WallpaperPick::File("a.png".into()));
+    press(&mut a, Btn::Right);
+    assert_eq!(a.resolved_wallpaper(), WallpaperPick::File("b.png".into()));
+    press(&mut a, Btn::Right);
+    assert_eq!(a.resolved_wallpaper(), WallpaperPick::None);
+    assert_eq!(read_slot_state(d.path()).wallpaper, WallpaperPick::None);
+    press(&mut a, Btn::Right);
+    assert_eq!(a.resolved_wallpaper(), WallpaperPick::Default);
+    press(&mut a, Btn::Left);
+    assert_eq!(a.resolved_wallpaper(), WallpaperPick::None);
+    press(&mut a, Btn::A);
+    assert_eq!(
+        a.quick_menu(),
+        Some(QuickRow::Wallpaper),
+        "wallpaper opened a page"
+    );
+}
+
+#[test]
+fn theme_switches_between_dark_and_light_and_saves() {
+    let (d, mut a, _) = on_carousel();
+    open_at(&mut a, QuickRow::Theme);
+    assert_eq!(a.quick_menu(), Some(QuickRow::Theme));
+    assert_eq!(a.quick_value(QuickRow::Theme), Some(QuickValue::Dark));
+    press(&mut a, Btn::Right);
+    assert_eq!(a.quick_value(QuickRow::Theme), Some(QuickValue::Light));
+    assert_eq!(read_slot_state(d.path()).appearance, Appearance::Light);
+    press(&mut a, Btn::A);
+    assert_eq!(a.quick_menu(), Some(QuickRow::Theme), "theme opened a page");
+    press(&mut a, Btn::Left);
+    assert_eq!(a.quick_value(QuickRow::Theme), Some(QuickValue::Dark));
+    assert_eq!(read_slot_state(d.path()).appearance, Appearance::Dark);
+}
+
+#[test]
 fn up_and_down_move_the_bar_and_wrap_at_the_ends() {
     let (_d, mut a, _) = on_carousel();
     a.apply(Action::QuickMenu);
@@ -120,7 +172,7 @@ fn up_and_down_move_the_bar_and_wrap_at_the_ends() {
         QuickRow::Bluetooth,
         QuickRow::Game,
         QuickRow::Power,
-        QuickRow::DateTime,
+        QuickRow::General,
         QuickRow::About,
         QuickRow::Screen,
     ] {
@@ -155,6 +207,24 @@ fn fast_forward_steps_through_its_speeds_wraps_at_both_ends_and_saves_each_one()
 }
 
 #[test]
+fn run_ahead_steps_through_its_frames_wraps_at_both_ends_and_saves_each_one() {
+    let (d, mut a, _) = on_carousel();
+    open_at(&mut a, QuickRow::RunAhead);
+    assert_eq!(a.quick_value(QuickRow::RunAhead), Some(QuickValue::Off));
+    for (btn, want) in [
+        (Btn::Right, 1),
+        (Btn::Right, 0),
+        (Btn::Left, 1),
+        (Btn::Left, 0),
+    ] {
+        press(&mut a, btn);
+        assert_eq!(a.runahead(), want, "{btn:?}");
+        assert_eq!(read_slot_state(d.path()).runahead, want, "not on the card");
+        assert_eq!(a.quick_value(QuickRow::RunAhead), QuickValue::frames(want));
+    }
+}
+
+#[test]
 fn rumble_and_fast_forward_sound_flip_on_either_arrow_and_save() {
     let (d, mut a, _) = on_carousel();
     let card = |d: &TempDir| {
@@ -170,9 +240,9 @@ fn rumble_and_fast_forward_sound_flip_on_either_arrow_and_save() {
     );
     press(&mut a, Btn::Right);
     assert_eq!(card(&d), (false, true));
-    press(&mut a, Btn::Down);
-    press(&mut a, Btn::Down);
-    press(&mut a, Btn::Down);
+    for _ in QuickRow::FastForwardSound.position()..QuickRow::Rumble.position() {
+        press(&mut a, Btn::Down);
+    }
     press(&mut a, Btn::Right);
     assert_eq!(card(&d), (false, false));
     assert!(!a.rumble_enabled());
@@ -225,6 +295,7 @@ fn the_game_page_flips_eject_save_turbo_and_rewind_and_saves_each() {
     press(&mut a, Btn::Right);
     assert_eq!(card(&d), (true, true, false));
     assert!(!a.may_rewind(), "rewind still offered with it off");
+    press(&mut a, Btn::Down);
     press(&mut a, Btn::Down);
     press(&mut a, Btn::Left);
     assert_eq!(card(&d), (true, false, false));
@@ -317,12 +388,14 @@ fn colour_correction_leaves_the_settings_around_it_alone() {
 fn the_arrows_change_nothing_on_a_row_that_opens() {
     let (d, mut a, _) = on_carousel();
     let before = std::fs::read(d.path().join("Config/slot.state")).expect("read slot.state");
-    for row in [QuickRow::DateTime, QuickRow::About] {
+    for row in [QuickRow::General, QuickRow::DateTime, QuickRow::About] {
         open_at(&mut a, row);
         press(&mut a, Btn::Left);
         press(&mut a, Btn::Right);
         assert_eq!(a.quick_menu(), Some(row), "an arrow left {row:?}");
-        a.apply(Action::QuickMenu);
+        while a.quick_menu().is_some() {
+            press(&mut a, Btn::B);
+        }
     }
     assert_eq!(
         std::fs::read(d.path().join("Config/slot.state")).expect("read slot.state"),
@@ -530,10 +603,14 @@ fn the_arrows_stand_only_around_the_selected_rows_value() {
         "rumble's ON is not grey"
     );
     press(&mut a, Btn::B);
+    for _ in QuickRow::Game.position()..QuickRow::General.position() {
+        press(&mut a, Btn::Down);
+    }
+    press(&mut a, Btn::A);
     let out = frame(&a);
     assert!(drawn(&out, 500), "the date and time is not grey");
 
-    for _ in QuickRow::Game.position()..QuickRow::DateTime.position() {
+    for _ in 0..QuickRow::DateTime.position() {
         press(&mut a, Btn::Down);
     }
     let out = frame(&a);

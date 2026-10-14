@@ -41,7 +41,7 @@ impl Session {
     }
 
     pub fn boot_with(root: PathBuf, sink: Box<dyn AudioSink>) -> Self {
-        Session {
+        let mut session = Session {
             app: App::boot(&root),
             root,
             emu: None,
@@ -56,7 +56,14 @@ impl Session {
             reloading: false,
             driven: false,
             bluetooth_monitor: Default::default(),
+        };
+        // A game left running comes straight back. Its core loads on its own thread, so start it
+        // now and let the card read overlap the rest of the boot. Waiting for the first update
+        // left a cold boot (after a power off) idle on the slot for the whole load.
+        if session.inserting() {
+            session.sync_core();
         }
+        session
     }
 
     pub fn play_sfx(&mut self, sfx: Sfx) {
@@ -392,6 +399,7 @@ impl Session {
         if let Some(emu) = &self.emu {
             emu.set_fast_steps(u32::from(self.app.ff_speed()));
             emu.set_ff_sound(self.app.ff_sound());
+            emu.set_runahead(self.app.runahead_in_play());
             emu.set_speed(
                 if self.inserting()
                     || self.ejecting()

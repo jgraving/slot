@@ -6,6 +6,7 @@ use std::time::{Duration, Instant};
 
 use libloading::Library;
 
+use super::pacer::Pacer;
 use super::ring::Ring;
 use super::silence::Silence;
 use super::sink::{AudioError, AudioSink};
@@ -270,6 +271,7 @@ impl Playback {
         let span = Duration::from_secs_f64(PERIOD_FRAMES as f64 / self.rate as f64);
         let mut silence = Silence::new(RELEASE_AFTER);
         let mut route_check = Instant::now();
+        let mut pace = Pacer::new(span);
         while !stop.load(Ordering::Relaxed) {
             if crate::comfort::QUIET_AUDIO.load(Ordering::Relaxed)
                 && self.route.as_ref().is_some_and(|r| *r != self.actual)
@@ -309,12 +311,13 @@ impl Playback {
             }
             match self.pcm {
                 Some(pcm) => {
+                    pace.reset();
                     if !self.write(pcm, &buf) {
                         self.release();
                         std::thread::sleep(Duration::from_millis(200));
                     }
                 }
-                None => std::thread::sleep(span),
+                None => std::thread::sleep(pace.wait(Instant::now())),
             }
         }
     }

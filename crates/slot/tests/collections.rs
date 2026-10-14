@@ -38,6 +38,7 @@ fn root() -> tempfile::TempDir {
         d.path(),
         &SlotState {
             clock_set: true,
+            show_recents: true,
             ..Default::default()
         },
     )
@@ -154,6 +155,7 @@ fn recent_boot_and_letter_jump_and_seated_cart_priority() {
         d.path(),
         &SlotState {
             clock_set: true,
+            show_recents: true,
             cart: Some("Zelda".into()),
             cart_platform: Some(Platform::Gbc),
             ..Default::default()
