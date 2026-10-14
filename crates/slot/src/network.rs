@@ -496,7 +496,7 @@ impl Manager {
             Page::Entry(Entry::Password) => "Wi-Fi password",
             Page::Forget => "Forget saved Wi-Fi?",
             Page::SaveChoice => "Remember this network?",
-            _ => "Network",
+            _ => "Wi-Fi",
         };
         let message = if matches!(self.page, Page::Entry(_)) {
             format!("{}\n{}", "•".repeat(self.text.len().min(40)), self.status)
@@ -622,8 +622,7 @@ fn worker(root: PathBuf, work: Work, mut profile: Option<Profile>) -> Reply {
         }
     })();
     Reply {
-        message: result
-            .unwrap_or_else(|_| "Operation failed; check saved network, password or radio".into()),
+        message: result.unwrap_or_else(|error| safe_error(&error.to_string()).into()),
         networks,
         profile,
         need_vault,
@@ -639,6 +638,36 @@ fn connection_status(text: &str) -> String {
     format!("Connected · {ip}")
 }
 
+// Only our fixed messages may reach the UI. Never echo arbitrary tool output:
+// it could contain network identifiers or configuration details.
+fn safe_error(text: &str) -> &'static str {
+    const MESSAGES: &[&str] = &[
+        "Wi-Fi requires the BaseOS frontend",
+        "RAM runtime unavailable",
+        "Persistent private storage unavailable",
+        "Unsafe Wi-Fi directory",
+        "Wi-Fi is busy",
+        "Could not disable persistent swap",
+        "Swap still active",
+        "Unknown BaseOS login layout",
+        "Could not stop password SSH",
+        "Finish link play before using home Wi-Fi",
+        "Wi-Fi radio unavailable",
+        "Could not stop old Wi-Fi session",
+        "Could not start Wi-Fi",
+        "Connection failed; check network and password",
+        "Could not obtain an IP address",
+        "Invalid WPA2 credentials",
+        "Saved key is missing; forget the old network first",
+        "No saved network",
+        "Wrong device key or damaged vault",
+        "Unsafe device key",
+    ];
+    text.lines()
+        .find_map(|line| MESSAGES.iter().copied().find(|message| *message == line))
+        .unwrap_or("Wi-Fi operation failed; try again")
+}
+
 fn helper(
     root: &std::path::Path,
     verb: &str,
@@ -651,7 +680,7 @@ fn helper(
         .env("SLOT_ROOT", root)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
-        .stderr(Stdio::null())
+        .stderr(Stdio::piped())
         .spawn()?;
     if let Some(input) = input {
         let result = child
@@ -669,7 +698,9 @@ fn helper(
     }
     let output = child.wait_with_output()?;
     if !output.status.success() {
-        return Err(io::Error::other("Network helper failed"));
+        return Err(io::Error::other(safe_error(&String::from_utf8_lossy(
+            &output.stderr,
+        ))));
     }
     if output.stdout.len() > 64 * 1024 {
         return Err(io::Error::other("Network reply too large"));
@@ -714,5 +745,25 @@ mod lock_tests {
         assert!(m.code.is_empty());
         code(&mut m);
         assert!(matches!(m.page, Page::Home));
+    }
+}
+
+#[cfg(test)]
+mod error_tests {
+    use super::safe_error;
+    #[test]
+    fn diagnostic_messages_are_useful_without_echoing_tool_output() {
+        assert_eq!(
+            safe_error("Wi-Fi radio unavailable\n"),
+            "Wi-Fi radio unavailable"
+        );
+        assert_eq!(
+            safe_error("password=sentinel-secret"),
+            "Wi-Fi operation failed; try again"
+        );
+        assert_eq!(
+            safe_error("Could not start Wi-Fi: sentinel-secret"),
+            "Wi-Fi operation failed; try again"
+        );
     }
 }

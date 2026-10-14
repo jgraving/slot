@@ -227,7 +227,7 @@ impl Manager {
                         self.devices[*i].name
                     )
                 }));
-                rows.push("Pair device".into());
+                rows.push("Pair audio device".into());
                 rows.push(format!(
                     "TOGGLE {}",
                     if self.mute_on_disconnect { "On" } else { "Off" }
@@ -778,7 +778,7 @@ mod menu_tests {
             vec![
                 "ACTIVE Internal speaker",
                 "DEVICE WF-C510",
-                "Pair device",
+                "Pair audio device",
                 "TOGGLE Off",
                 "SOUNDS On"
             ]
