@@ -566,6 +566,11 @@ pub fn screen_face(lines: &[String]) -> UndoFace {
             }
         }
         if i == lines.len() - 1 {
+            if line == "CODE HINTS" {
+                let hint = slot_ui::hint_face("MENU", "Cancel");
+                blit(&mut rgba, &hint, (OUT_W - hint.w) / 2, 427);
+                continue;
+            }
             let mut hints = Vec::new();
             if line.contains("B Back") {
                 hints.push(slot_ui::hint_face("B", "Back"));

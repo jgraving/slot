@@ -50,3 +50,20 @@ Before merging the runtime PR, test a correct/incorrect password, reboot reconne
 Wi-Fi off across reboot, Forget, an absent router, suspend/resume, Bluetooth audio
 and multiplayer on the RG SP. Automated fake-OS tests do not establish radio or
 kernel compatibility. Copy updates by merging System files; retain emulator cores.
+
+## Optional button-code lock
+
+The third PR adds Set button lock to the Wi-Fi menu. It is off by default. Choose
+four presses from A/B/X/Y or the D-pad; SVG button icons show each entry. START
+submits, SELECT deletes and MENU cancels. Repeat the code to confirm. Once enabled,
+opening the Wi-Fi controls requires the code; closing them or sleeping relocks.
+The current unlocked menu offers Disable button lock. Five wrong attempts cause
+a 30-second delay. An invalid saved lock fails closed.
+
+The lock does not block games or saved automatic reconnect. It stores a salted
+PBKDF2 verifier rather than the button sequence, but the small code space is
+inherently weak against offline guessing. The delay is in-process, not a hardware
+anti-tamper counter. A person with root or SD access can reset/remove it. Recovery
+is to remove `/data/slot-network/button-lock` through trusted local OS access;
+there is no online password recovery or secret master code. OTA installation and
+scraper account changes must explicitly integrate this gate when implemented.
