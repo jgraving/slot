@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build the same bounded System overlay for manual installs and future OTA."""
+"""Build the same bounded System overlay for manual installs."""
 import argparse
 import hashlib
 import json

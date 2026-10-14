@@ -86,6 +86,3 @@ pub use sticker::{
     HOME, ORIGIN, STICKER_H, STICKER_W,
 };
 pub use toast::{toast_box, toast_face, toast_rect, Toast};
-
-mod button_code;
-pub use button_code::button_code_face;

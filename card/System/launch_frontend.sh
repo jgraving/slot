@@ -19,6 +19,14 @@ fi
 ulimit -c 0
 echo /dev/null > /proc/sys/kernel/core_pattern 2>/dev/null
 
+# Disable home networking and development services before opening Bluetooth.
+sh "$SYS/offline.sh" start >> "$SD/slot-session.log" 2>&1 || true
+pid="$(cat "$RUN/slot-offline.pid" 2>/dev/null)"
+if [ -z "$pid" ] || [ ! -d "/proc/$pid" ]; then
+    sh "$SYS/offline.sh" watch > /dev/null 2>&1 &
+    echo $! > "$RUN/slot-offline.pid"
+fi
+
 [ -f "$SD/slot.log" ] && mv -f "$SD/slot.log" "$SD/slot.log.1"
 sh "$SYS/bluetooth.sh" restore >> "$SD/bluetooth.log" 2>&1 &
 log "exec $SYS/slot"

@@ -141,6 +141,10 @@ cleanup() {
         log 'Automatic reconnect cancelled by a manual action'
     fi
     stop_session
+    if [ "$OWNED" = 1 ]; then
+        timeout 3 "$BT" pairable off >> "$SESSION_LOG" 2>&1 || true
+        timeout 3 "$BT" discoverable off >> "$SESSION_LOG" 2>&1 || true
+    fi
     if [ "$CANCELLED" = 1 ] && valid_mac "$TARGET"; then
         # Cancel only this reconnect's pending BlueZ request, not Bluetooth services.
         timeout 3 "$BT" disconnect "$TARGET" >> "$SESSION_LOG" 2>&1 || true
@@ -187,6 +191,7 @@ start() {
     done
     bt power on >/dev/null
     bt show | grep -q 'Powered: yes' || fail 'Bluetooth adapter did not power on'
+    bt discoverable off >/dev/null
     bt pairable on >/dev/null
     if ! pidof bluealsa >/dev/null 2>&1; then
         bluealsa -p a2dp-source --initial-volume=100 < /dev/null >> "$SESSION_LOG" 2>&1 &

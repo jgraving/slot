@@ -21,7 +21,6 @@ pub enum QuickRow {
     Rewind,
     GbPalettes,
     Bluetooth,
-    Network,
     Night,
     Power,
     LidClose,
@@ -30,7 +29,7 @@ pub enum QuickRow {
 }
 
 impl QuickRow {
-    pub const ALL: [QuickRow; 21] = [
+    pub const ALL: [QuickRow; 20] = [
         QuickRow::FastForward,
         QuickRow::FastForwardSound,
         QuickRow::Screen,
@@ -46,7 +45,6 @@ impl QuickRow {
         QuickRow::Rewind,
         QuickRow::GbPalettes,
         QuickRow::Bluetooth,
-        QuickRow::Network,
         QuickRow::Night,
         QuickRow::Power,
         QuickRow::LidClose,
@@ -54,10 +52,9 @@ impl QuickRow {
         QuickRow::ShellColour,
     ];
 
-    pub const MAIN: [QuickRow; 7] = [
+    pub const MAIN: [QuickRow; 6] = [
         QuickRow::Screen,
         QuickRow::Bluetooth,
-        QuickRow::Network,
         QuickRow::Game,
         QuickRow::Power,
         QuickRow::DateTime,
@@ -147,7 +144,6 @@ impl QuickRow {
             QuickRow::Rewind => "Rewind",
             QuickRow::GbPalettes => "GB Palettes",
             QuickRow::Bluetooth => "Sound",
-            QuickRow::Network => "Wi-Fi",
             QuickRow::Night => "Night Mode",
             QuickRow::Power => "Power",
             QuickRow::LidClose => "Lid Close",
@@ -164,7 +160,6 @@ impl QuickRow {
                 | QuickRow::Screen
                 | QuickRow::Game
                 | QuickRow::Bluetooth
-                | QuickRow::Network
                 | QuickRow::Power
         )
     }

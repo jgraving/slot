@@ -38,7 +38,3 @@ pub mod video_mode;
 pub mod wallpaper;
 
 pub mod bluetooth;
-
-pub mod network;
-pub mod network_lock;
-pub mod wifi_vault;
