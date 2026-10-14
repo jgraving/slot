@@ -55,6 +55,8 @@ pub struct Frontend {
     clocks: Clocks,
     about: AboutFace,
     quick_clock: QuickClock,
+    network_tex: Option<TexId>,
+    network_lines: Vec<String>,
     bluetooth_tex: Option<TexId>,
     bluetooth_lines: Vec<String>,
     bluetooth_indicator_tex: Option<TexId>,
@@ -140,6 +142,8 @@ impl Frontend {
             clocks: Clocks::default(),
             about: AboutFace::default(),
             quick_clock: QuickClock::default(),
+            network_tex: None,
+            network_lines: Vec::new(),
             bluetooth_tex: None,
             bluetooth_lines: Vec::new(),
             bluetooth_indicator_tex: None,
@@ -387,6 +391,20 @@ impl Frontend {
                 let face = crate::bluetooth::screen_face(&lines);
                 bluetooth.face = Some(upload(compositor, &mut self.bluetooth_tex, face));
                 self.bluetooth_lines = lines;
+            }
+        }
+        if let Some(network) = self
+            .session
+            .app_mut()
+            .network
+            .as_mut()
+            .filter(|n| n.visible)
+        {
+            let lines = network.lines();
+            if lines != self.network_lines || network.face.is_none() {
+                let face = crate::bluetooth::screen_face(&lines);
+                network.face = Some(upload(compositor, &mut self.network_tex, face));
+                self.network_lines = lines;
             }
         }
         let connected = self.session.app().bluetooth_active();

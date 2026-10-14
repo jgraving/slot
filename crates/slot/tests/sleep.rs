@@ -109,7 +109,7 @@ fn timed_wake_shuts_down_and_never_has_no_alarm() {
 fn power_page_persists_lid_choice_and_sleep_timer() {
     let (d, mut a, _) = setup(false, 0);
     a.apply(Action::QuickMenu);
-    for _ in 0..3 {
+    for _ in 0..QuickRow::Power.position() {
         a.apply(Action::GbaDown(Btn::Down));
     }
     assert_eq!(a.quick_menu(), Some(QuickRow::Power));

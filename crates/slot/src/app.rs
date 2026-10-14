@@ -264,6 +264,7 @@ pub enum Phase {
 
 pub struct App {
     pub bluetooth: Option<crate::bluetooth::Manager>,
+    pub network: Option<crate::network::Manager>,
     pub bluetooth_indicator: Option<TexId>,
     phase: Phase,
     shelves: Vec<(ShelfKind, Shelf)>,
@@ -498,6 +499,7 @@ impl App {
             undo_face: None,
             clock_faces: None,
             bluetooth: None,
+            network: None,
             bluetooth_indicator: None,
             quick_menu_faces: None,
             quick_clock_faces: None,
@@ -544,6 +546,7 @@ impl App {
         crate::boot_time::mark("scan");
         let mut app = App::new(carts);
         app.root = Some(root.to_path_buf());
+        app.network = crate::network::Manager::boot(root.to_path_buf());
         app.state = read_slot_state(root);
         match crate::comfort::Comfort::read(root, &app.state) {
             Ok(c) => app.comfort = c,
@@ -1018,6 +1021,7 @@ impl App {
             | QuickRow::Screen
             | QuickRow::Game
             | QuickRow::Bluetooth
+            | QuickRow::Network
             | QuickRow::Power => None,
         }
     }
@@ -1596,6 +1600,10 @@ impl App {
         if matches!(self.phase, Phase::Doze { .. }) {
             return;
         }
+        if let Some(network) = self.network.as_mut().filter(|n| n.visible) {
+            network.input(action);
+            return;
+        }
         if self.bluetooth.is_some() && self.adjust(action) {
             return;
         }
@@ -1745,6 +1753,13 @@ impl App {
             QuickRow::Bluetooth => {
                 self.sound_menu(false);
             }
+            QuickRow::Network => {
+                if let Some(network) = &mut self.network {
+                    network.visible = true;
+                } else if let Some(root) = &self.root {
+                    self.network = Some(crate::network::Manager::new(root.clone()));
+                }
+            }
             QuickRow::Screen | QuickRow::Game | QuickRow::Power => {
                 if let Some(row) = row.child() {
                     self.phase = Phase::QuickMenu { row };
@@ -1834,6 +1849,7 @@ impl App {
             | QuickRow::Screen
             | QuickRow::Game
             | QuickRow::Bluetooth
+            | QuickRow::Network
             | QuickRow::Night
             | QuickRow::Power
             | QuickRow::LidClose
@@ -2268,6 +2284,9 @@ impl App {
         {
             self.save_comfort();
         }
+        if let Some(network) = &mut self.network {
+            network.poll();
+        }
         let choice = if let Some(bluetooth) = &mut self.bluetooth {
             bluetooth.poll();
             bluetooth.route_choice.take()
@@ -2543,6 +2562,23 @@ impl App {
                 self.now().saturating_sub(*at) as f32 / SLEEP_SHOW_MS as f32,
                 out,
             );
+            return;
+        }
+        if let Some(network) = self
+            .network
+            .as_ref()
+            .filter(|n| n.visible && !matches!(self.phase, Phase::Doze { .. }))
+        {
+            if let Some(tex) = network.face {
+                out.push(Draw::Tex {
+                    x: 0.0,
+                    y: 0.0,
+                    w: OUT_W as f32,
+                    h: OUT_H as f32,
+                    tex,
+                    alpha: 1.0,
+                });
+            }
             return;
         }
         if let Some(bluetooth) = self

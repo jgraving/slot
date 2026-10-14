@@ -82,6 +82,7 @@ fn the_rows_run_in_the_order_the_user_chose() {
         [
             "Screen",
             "Sound",
+            "Wi-Fi",
             "Gameplay",
             "Power",
             "Date & Time",
@@ -118,6 +119,7 @@ fn the_rows_run_in_the_order_the_user_chose() {
             QuickRow::About,
             QuickRow::Game,
             QuickRow::Bluetooth,
+            QuickRow::Network,
             QuickRow::Power
         ]
     );
