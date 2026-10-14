@@ -194,6 +194,14 @@ link_warm() {
 	wait_dev wlan1 4
 }
 
+# Home Wi-Fi and link play share wlan0. Yield the interface before link setup.
+case "${1:-} ${2:-}" in
+"link host"|"link join")
+    if [ -d /run/slot-wifi ]; then
+        timeout 5 sh "${SLOT_ROOT:-/mnt/sdcard}/System/network.sh" disconnect >/dev/null 2>&1 || exit 1
+    fi
+    ;;
+esac
 case "${1:-} ${2:-}" in
 "link host") link_host ;;
 "link join") link_join ;;

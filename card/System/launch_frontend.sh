@@ -15,7 +15,9 @@ if [ -z "$pid" ] || [ ! -d "/proc/$pid" ]; then
 	echo $! > "$RUN/slot-led.pid"
 fi
 
-echo "|/bin/sh $SYS/coresave.sh %p %s %e %t" > /proc/sys/kernel/core_pattern 2>/dev/null
+# Credentials can exist in the frontend process: never dump its memory to SD.
+ulimit -c 0
+echo /dev/null > /proc/sys/kernel/core_pattern 2>/dev/null
 
 [ -f "$SD/slot.log" ] && mv -f "$SD/slot.log" "$SD/slot.log.1"
 sh "$SYS/bluetooth.sh" restore >> "$SD/bluetooth.log" 2>&1 &
