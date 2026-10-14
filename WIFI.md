@@ -1,7 +1,17 @@
-# Saved Wi-Fi: storage foundation
+# Wi-Fi setup
 
-This first PR adds credential storage only. The connection menu and optional
-button lock are separate changes; installing this commit does not enable Wi-Fi.
+Wi-Fi is included in the current System build and does not require OTA.
+Open the main options menu, choose **Wi-Fi** (below Sound), then **Find a network**.
+Choose your WPA2 network, enter the password and press START. After connecting,
+choose **Save encrypted credentials** to reconnect automatically on later boots.
+**Set button lock** is optional and off by default.
+
+Install the entire System overlay, replacing System/slot and adding System/network.sh;
+keep existing emulator cores. If the Wi-Fi row is missing, check that you replaced
+the executable on the active content card rather than creating System/System.
+The late boot power-switch animation is removed in this version.
+
+## Saved credentials
 
 A random 256-bit key in BaseOS's `/data/slot-network/vault.key` encrypts the saved
 profile with AES-256-GCM and a fresh random nonce on every write. Reopening does
@@ -14,17 +24,17 @@ This protects copies of the encrypted profile without its key, including ordinar
 content-card backups. It is NOT full-disk encryption or a hardware-backed secret:
 BaseOS `/data` is on the OS SD card. Anyone with root access or the full OS card
 can recover the key. Automatic reconnect without a user secret has that limit.
-A later four-button lock will restrict UI operations, not claim protection
+The optional four-button lock restricts UI operations, without protection
 against offline attacks on removable storage.
 
-Runtime integration must verify `/data` is persistent, prepare safe in-memory
-configuration and disable secret-bearing crash dumps before loading credentials.
+Runtime integration verifies `/data` is persistent, prepares safe in-memory
+configuration and disables secret-bearing crash dumps before loading credentials.
 WPA2-Personal/AES is the initial scope; WPA3-only and enterprise networks need
 separate implementations. Unknown vault versions and tampered data fail closed.
 
 ## Settings → Wi-Fi
 
-The second PR adds a WPA2/AES scan list, masked controller keyboard, session-only
+The menu offers a WPA2/AES scan list, masked controller keyboard, session-only
 connection, saved connection, Wi-Fi off and confirmed forgetting. D-pad moves,
 A enters a character, X deletes, L1/R1 change character pages, START submits,
 and B cancels. Open, WEP, WPA1, enterprise and WPA3-only networks are omitted.
@@ -46,14 +56,14 @@ thread and cannot delay the game carousel. Link play disconnects home Wi-Fi firs
 reconnect manually after link play. Closing the Wi-Fi menu leaves the connection
 active. System suspend/resume still requires hardware testing.
 
-Before merging the runtime PR, test a correct/incorrect password, reboot reconnect,
+For device validation, test a correct/incorrect password, reboot reconnect,
 Wi-Fi off across reboot, Forget, an absent router, suspend/resume, Bluetooth audio
 and multiplayer on the RG SP. Automated fake-OS tests do not establish radio or
 kernel compatibility. Copy updates by merging System files; retain emulator cores.
 
 ## Optional button-code lock
 
-The third PR adds Set button lock to the Wi-Fi menu. It is off by default. Choose
+Set button lock is available in the Wi-Fi menu. It is off by default. Choose
 four presses from A/B/X/Y or the D-pad; SVG button icons show each entry. START
 submits, SELECT deletes and MENU cancels. Repeat the code to confirm. Once enabled,
 opening the Wi-Fi controls requires the code; closing them or sleeping relocks.
