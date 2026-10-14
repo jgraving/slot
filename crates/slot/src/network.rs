@@ -124,7 +124,7 @@ impl Manager {
             restore_on_ready: false,
             face: None,
             selected: 0,
-            status: "WPA2 networks · encrypted saved credentials".into(),
+            status: String::new(),
             networks: Vec::new(),
             ssid: String::new(),
             text: Zeroizing::new(String::new()),
@@ -181,6 +181,26 @@ impl Manager {
                             / 255) as u8;
                     }
                     face.rgba[dst + 3] = 255;
+                }
+            }
+        }
+        if matches!(self.page, Page::Home | Page::Scan) {
+            let count = self.rows().len();
+            if count > 6 {
+                let height = 6 * 52 - 8;
+                let thumb = height * 6 / count;
+                let first = self.selected.saturating_sub(5);
+                let offset = (height - thumb) * first / (count - 6);
+                for (top, h, colour) in [
+                    (88, height, [51, 51, 61, 255]),
+                    (88 + offset, thumb, [153, 153, 163, 255]),
+                ] {
+                    for y in top..top + h {
+                        for x in face.w - 12..face.w - 9 {
+                            let at = (y * face.w as usize + x as usize) * 4;
+                            face.rgba[at..at + 4].copy_from_slice(&colour);
+                        }
+                    }
                 }
             }
         }
@@ -496,18 +516,21 @@ impl Manager {
             Page::Entry(Entry::Password) => "Wi-Fi password",
             Page::Forget => "Forget saved Wi-Fi?",
             Page::SaveChoice => "Remember this network?",
-            _ => "Wi-Fi",
+            _ => "",
         };
         let message = if matches!(self.page, Page::Entry(_)) {
             format!("{}\n{}", "•".repeat(self.text.len().min(40)), self.status)
         } else {
             self.status.clone()
         };
+        let compact = matches!(self.page, Page::Home | Page::Scan);
         let mut lines = vec![
             title.into(),
             message,
             if matches!(self.page, Page::Entry(_)) {
                 "X Delete · L1/R1 Page · START Done".into()
+            } else if compact {
+                "COMPACT".into()
             } else {
                 String::new()
             },
@@ -534,8 +557,9 @@ impl Manager {
                 lines.push(line);
             }
         } else {
-            let first = self.selected.saturating_sub(3);
-            for (i, row) in self.rows().iter().enumerate().skip(first).take(4) {
+            let count = if compact { 6 } else { 4 };
+            let first = self.selected.saturating_sub(count - 1);
+            for (i, row) in self.rows().iter().enumerate().skip(first).take(count) {
                 lines.push(format!(
                     "{}{}",
                     if i == self.selected {
@@ -564,11 +588,17 @@ fn worker(root: PathBuf, work: Work, mut profile: Option<Profile>) -> Reply {
         Work::Prepare => {
             helper(&root, "prepare", None)?;
             prepared = true;
-            Ok("Wi-Fi is optional · choose a network".into())
+            Ok(String::new())
         }
         Work::Scan => {
-            networks = Some(parse_scan(&helper(&root, "scan", None)?));
-            Ok("Select a WPA2 network".into())
+            let found = parse_scan(&helper(&root, "scan", None)?);
+            let message = if found.is_empty() {
+                "No WPA2 networks found"
+            } else {
+                ""
+            };
+            networks = Some(found);
+            Ok(message.into())
         }
         Work::Password(ssid, password) => {
             let p = Profile::from_password(ssid, password)?;

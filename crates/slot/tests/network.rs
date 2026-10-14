@@ -89,3 +89,41 @@ esac
         .any(|l| l.contains("secret-password")));
     assert!(manager.rows().contains(&"Connect saved network".into()));
 }
+
+#[test]
+fn wifi_has_no_redundant_heading_and_scrolls_networks_with_an_indicator() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::create_dir(dir.path().join("System")).unwrap();
+    std::fs::write(
+        dir.path().join("System/network.sh"),
+        "case \"$1\" in scan) i=0; while [ $i -lt 10 ]; do printf '00:11\\t2412\\t-40\\t[WPA2-PSK-CCMP][ESS]\\tHome%s\\n' \"$i\"; i=$((i+1)); done;; esac\n",
+    )
+    .unwrap();
+    let mut manager = Manager::new(dir.path().to_owned());
+    wait(&mut manager);
+    assert!(manager.lines()[0].is_empty());
+    assert!(manager.lines()[1].is_empty());
+    assert_eq!(manager.lines()[2], "COMPACT");
+    tap(&mut manager, Btn::A);
+    wait(&mut manager);
+    assert!(manager.status.is_empty());
+    let first = manager.screen_face();
+    for _ in 0..10 {
+        tap(&mut manager, Btn::Down);
+    }
+    let lines = manager.lines();
+    assert_eq!(
+        lines
+            .iter()
+            .filter(|l| l.starts_with("ROW ") || l.starts_with("SELECTED "))
+            .count(),
+        6
+    );
+    assert!(lines.iter().any(|l| l == "SELECTED Home9"));
+    let last = manager.screen_face();
+    let pixel = |face: &slot_ui::UndoFace| {
+        let at = (90 * face.w as usize + face.w as usize - 11) * 4;
+        face.rgba[at..at + 4].to_vec()
+    };
+    assert_ne!(pixel(&first), pixel(&last));
+}
