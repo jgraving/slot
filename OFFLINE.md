@@ -20,11 +20,9 @@ runtime guard catches late BaseOS radio initialization and stops services that
 restart. The policy does not modify the immutable BaseOS image; it cannot
 protect the interval before Slot starts, or another OS booted from the card.
 
-The first launch deletes Slot's old `/data/slot-network` credentials and key,
-and its RAM supplicant configuration. The retired `System/network.sh` is shipped
-as a disabled stub so an overlay install replaces old copies. Deleting files
-is not forensic secure erasure on flash; old backups and card images may still
-contain credentials. No games, saves, labels, or Bluetooth pairings are removed.
+The retired `System/network.sh` is shipped as a disabled stub so an overlay
+install replaces old copies. No credential migration or deletion runs at startup.
+Games, saves, labels, and Bluetooth pairings are unchanged.
 
 BaseOS USB ADB is also disabled using `/data/no-adb` and stopped for this boot.
 No SSH/SFTP, Samba, or FTP service is provided by Slot. Installing a different

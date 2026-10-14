@@ -55,13 +55,6 @@ start)
     [ ! -f "$P/proc/sys/net/ipv4/ip_forward" ] || echo 0 > "$P/proc/sys/net/ipv4/ip_forward"
     mkdir -p "$P/data"
     : > "$P/data/no-adb"
-    # Remove only Slot-owned retired credentials; never follow a directory symlink.
-    if [ ! -L "$P/data/slot-network" ]; then
-        rm -rf "$P/data/slot-network"
-    else
-        rm -f "$P/data/slot-network"
-    fi
-    rm -rf "$RUN/slot-wifi"
     [ "$failed" = 0 ] || { echo 'Offline policy could not disable a BaseOS service; link play remains blocked' >&2; exit 1; }
     : > "$RUN/slot-offline-ready"
     ;;

@@ -1,4 +1,4 @@
-"""Exercise offline migration, fail-closed linking, and runtime policy without hardware."""
+"""Exercise fail-closed linking, and runtime policy without hardware."""
 import os
 from pathlib import Path
 import subprocess
@@ -12,11 +12,10 @@ class Offline(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
-        for directory in ['bin', 'run', 'data/slot-network', 'sys/class/net/wlan0',
+        for directory in ['bin', 'run', 'data', 'sys/class/net/wlan0',
                           'sys/class/net/wlan1', 'sys/class/net/lo', 'proc/123',
                           'proc/sys/net/ipv6/conf/all', 'usr/sbin']:
             (self.root / directory).mkdir(parents=True, exist_ok=True)
-        (self.root / 'data/slot-network/vault.key').write_text('old secret')
         (self.root / 'usr/sbin/dropbear').touch()
         (self.root / 'proc/sys/net/ipv6/conf/all/disable_ipv6').write_text('0')
         self.log = self.root / 'events'
@@ -31,9 +30,8 @@ class Offline(unittest.TestCase):
     def run_policy(self, verb):
         return subprocess.run(['sh', str(SCRIPT), verb], env=self.env, capture_output=True)
 
-    def test_start_deletes_retired_secrets_and_blocks_services(self):
+    def test_start_blocks_services(self):
         self.assertEqual(self.run_policy('start').returncode, 0)
-        self.assertFalse((self.root / 'data/slot-network').exists())
         self.assertTrue((self.root / 'data/no-adb').exists())
         self.assertTrue((self.root / 'run/slot-offline-ready').exists())
         events = self.log.read_text()
