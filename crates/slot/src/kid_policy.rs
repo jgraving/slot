@@ -263,20 +263,19 @@ impl Policy {
         if !playing {
             return Ok(self.remaining(wall) > 0);
         }
+        let excess = elapsed.saturating_sub(self.credit_ms);
         self.credit_ms = self.credit_ms.saturating_sub(elapsed);
         if self.credit_ms == 0 {
-            let grant = (u64::from(self.minutes) * 60)
-                .saturating_sub(self.used)
-                .min(60);
-            if grant == 0 {
-                return Ok(false);
-            }
             let mut next = self.clone();
+            let budget = u64::from(self.minutes) * 60;
+            next.used = next.used.saturating_add(excess.div_ceil(1000)).min(budget);
+            let grant = budget.saturating_sub(next.used).min(60);
             next.used += grant;
             next.last_wall = wall;
             next.save(root)?;
             next.credit_ms = grant * 1000;
             *self = next;
+            return Ok(grant > 0);
         }
         Ok(true)
     }
