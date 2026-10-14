@@ -1,13 +1,13 @@
 # Wi-Fi setup
 
 Wi-Fi is included in the current System build and does not require OTA.
-Open the main options menu, choose **Wi-Fi** (below Sound), then **Find a network**.
+Open the main options menu, choose **Network** (below Sound), then **Find a network**.
 Choose your WPA2 network, enter the password and press START. After connecting,
 choose **Save encrypted credentials** to reconnect automatically on later boots.
 **Set button lock** is optional and off by default.
 
 Install the entire System overlay, replacing System/slot and adding System/network.sh;
-keep existing emulator cores. If the Wi-Fi row is missing, check that you replaced
+keep existing emulator cores. If the Network row is missing, check that you replaced
 the executable on the active content card rather than creating System/System.
 The late boot power-switch animation is removed in this version.
 
@@ -32,7 +32,7 @@ configuration and disables secret-bearing crash dumps before loading credentials
 WPA2-Personal/AES is the initial scope; WPA3-only and enterprise networks need
 separate implementations. Unknown vault versions and tampered data fail closed.
 
-## Settings → Wi-Fi
+## Settings → Network
 
 The menu offers a WPA2/AES scan list, masked controller keyboard, session-only
 connection, saved connection, Wi-Fi off and confirmed forgetting. D-pad moves,

@@ -119,7 +119,7 @@ fn wifi_has_no_redundant_heading_and_scrolls_networks_with_an_indicator() {
             .count(),
         6
     );
-    assert!(lines.iter().any(|l| l == "SELECTED Home9"));
+    assert!(lines.iter().any(|l| l == "SELECTED DEVICE Home9"));
     let last = manager.screen_face();
     let pixel = |face: &slot_ui::UndoFace| {
         let at = (90 * face.w as usize + face.w as usize - 11) * 4;

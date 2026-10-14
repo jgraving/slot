@@ -154,7 +154,7 @@ impl QuickRow {
             QuickRow::Rewind => "Rewind",
             QuickRow::GbPalettes => "GB Palettes",
             QuickRow::Bluetooth => "Sound",
-            QuickRow::Network => "Wi-Fi",
+            QuickRow::Network => "Network",
             QuickRow::Night => "Night Mode",
             QuickRow::Power => "Power",
             QuickRow::LidClose => "Lid Close",
