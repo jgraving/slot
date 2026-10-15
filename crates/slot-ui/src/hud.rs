@@ -63,10 +63,9 @@ impl HudKind {
         match self {
             HudKind::Brightness => Icon::Brightness,
             HudKind::BlueLight => Icon::BlueLight,
-            HudKind::Volume if headphones && muted => Icon::HeadphonesMuted,
+            HudKind::Volume if headphones && (muted || value == 0) => Icon::HeadphonesMuted,
             HudKind::Volume if headphones => Icon::Headphones,
-            HudKind::Volume if muted => Icon::VolumeMuted,
-            HudKind::Volume if value == 0 => Icon::VolumeZero,
+            HudKind::Volume if muted || value == 0 => Icon::VolumeMuted,
             HudKind::Volume => Icon::Volume,
             HudKind::Rewind => Icon::Rewind,
         }
@@ -246,18 +245,22 @@ impl Hud {
     pub fn draw(&self, canvas: Canvas, now: Millis, out: &mut Vec<Draw>) {
         let alpha = self.alpha(now);
         let toast = self.toast_alpha(now);
+        let audio_notice = toast > 0.0 && self.said.is_some_and(|(t, _)| t.audio_change());
         if alpha > 0.0 || toast > 0.0 {
             out.push(Draw::Rect {
                 x: 0.0,
                 y: 0.0,
                 w: canvas.w,
-                h: PLATE_H,
+                h: if audio_notice { PLATE_H * 2.0 } else { PLATE_H },
                 colour: faded(PLATE, alpha.max(toast)),
             });
             if toast > 0.0 {
                 self.draw_toast(canvas, now, out);
+                if audio_notice {
+                    self.draw_bar(canvas, alpha, PLATE_H, out);
+                }
             } else {
-                self.draw_bar(canvas, alpha, out);
+                self.draw_bar(canvas, alpha, 0.0, out);
             }
         }
         let link = self
@@ -273,13 +276,13 @@ impl Hud {
         }
     }
 
-    fn draw_bar(&self, canvas: Canvas, alpha: f32, out: &mut Vec<Draw>) {
+    fn draw_bar(&self, canvas: Canvas, alpha: f32, offset: f32, out: &mut Vec<Draw>) {
         let x = canvas.centred(BAR_W);
         if let Some(tex) = self.icon() {
             let (w, h) = icon_box(HUD_ICON_PX);
             out.push(Draw::Tex {
                 x: x - ICON_GAP - w as f32,
-                y: (PLATE_H - h as f32) / 2.0,
+                y: offset + (PLATE_H - h as f32) / 2.0,
                 w: w as f32,
                 h: h as f32,
                 tex,
@@ -288,14 +291,14 @@ impl Hud {
         }
         out.push(Draw::Rect {
             x,
-            y: BAR_Y,
+            y: offset + BAR_Y,
             w: BAR_W,
             h: BAR_H,
             colour: faded(TRACK, alpha),
         });
         out.push(Draw::Rect {
             x,
-            y: BAR_Y,
+            y: offset + BAR_Y,
             w: BAR_W * self.fraction(),
             h: BAR_H,
             colour: faded(FILL, alpha),

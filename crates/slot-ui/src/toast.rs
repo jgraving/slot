@@ -8,6 +8,9 @@ use crate::CartFace;
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum Toast {
+    BluetoothConnected,
+    BluetoothDisconnected,
+    HeadphonesDisconnected,
     StateSaved,
     StateLoaded,
     NeedsGpsp,
@@ -27,7 +30,10 @@ pub enum Toast {
 }
 
 impl Toast {
-    const FIXED: [Toast; 15] = [
+    const FIXED: [Toast; 18] = [
+        Toast::BluetoothConnected,
+        Toast::BluetoothDisconnected,
+        Toast::HeadphonesDisconnected,
         Toast::StateSaved,
         Toast::StateLoaded,
         Toast::NeedsGpsp,
@@ -59,6 +65,15 @@ impl Toast {
         }
     }
 
+    pub fn audio_change(self) -> bool {
+        matches!(
+            self,
+            Toast::BluetoothConnected
+                | Toast::BluetoothDisconnected
+                | Toast::HeadphonesDisconnected
+        )
+    }
+
     pub fn alarm(self) -> bool {
         self == Toast::CardUnwritable
     }
@@ -72,6 +87,9 @@ impl Toast {
 
     pub fn text(self) -> &'static str {
         match self {
+            Toast::BluetoothConnected => "Bluetooth connected",
+            Toast::BluetoothDisconnected => "Bluetooth disconnected",
+            Toast::HeadphonesDisconnected => "Headphones unplugged",
             Toast::StateSaved => "State Saved",
             Toast::StateLoaded => "State Loaded",
             Toast::NeedsGpsp => "Please switch to gpSP",
@@ -121,7 +139,7 @@ fn setting(toast: Toast) -> Setting {
             middle: OUT_H as f32 / 2.0,
         },
         false => Setting {
-            w: TOAST_W,
+            w: if toast.audio_change() { 320 } else { TOAST_W },
             h: TOAST_H,
             px: TOAST_PX,
             min_px: TOAST_MIN_PX,

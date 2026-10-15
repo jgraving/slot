@@ -18,7 +18,11 @@ local output stops automatic reconnect.
 or wired headphones are unplugged. It defaults to **0% (silent)** and changes in
 5% steps. If Bluetooth disconnects while a cable is plugged in, this volume
 applies to the wired headphones. Unplugging a cable while Bluetooth is playing
-does not change the Bluetooth volume.
+does not change the Bluetooth volume. Reconnecting the last Bluetooth device
+restores its volume and mute setting from before the disconnect during the
+current session. A brief notice and the usual volume bar show each Bluetooth
+connection change; unplugging wired headphones also shows a notice and volume
+bar. Zero volume uses a muted icon.
 
 ## Device support
 

@@ -27,8 +27,11 @@ fn a_cart_gpsp_cannot_link_says_there_is_no_link() {
 fn the_banner_says_what_happened_and_never_what_is_on_screen() {
     let all = Toast::all();
     assert_eq!(
-        all[..15],
+        all[..18],
         [
+            Toast::BluetoothConnected,
+            Toast::BluetoothDisconnected,
+            Toast::HeadphonesDisconnected,
             Toast::StateSaved,
             Toast::StateLoaded,
             Toast::NeedsGpsp,
@@ -48,7 +51,7 @@ fn the_banner_says_what_happened_and_never_what_is_on_screen() {
         "a banner was added or dropped: every face is uploaded by its place in this list"
     );
     assert_eq!(
-        all[15..],
+        all[18..],
         GbPalette::all().map(Toast::Palette).collect::<Vec<_>>()[..],
         "the palette banners do not follow the fixed ones in palette order"
     );

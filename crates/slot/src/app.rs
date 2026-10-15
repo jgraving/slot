@@ -304,6 +304,7 @@ pub struct App {
     bluetooth_supported: bool,
     pub bluetooth_indicator: Option<TexId>,
     bluetooth_connected: bool,
+    bluetooth_volume: Option<(String, u8, bool)>,
     bluetooth_route: Option<String>,
     disconnect_volume: u8,
     bluetooth_probe: Option<std::sync::mpsc::Receiver<bool>>,
@@ -456,6 +457,7 @@ impl App {
             bluetooth_supported: false,
             bluetooth_indicator: None,
             bluetooth_connected: false,
+            bluetooth_volume: None,
             bluetooth_route: None,
             disconnect_volume: 0,
             bluetooth_probe: None,
@@ -1127,23 +1129,51 @@ impl App {
     }
 
     pub fn bluetooth_state(&mut self, address: Option<String>, connected: bool) {
-        let lost = self.bluetooth_connected
-            && !connected
-            && address.is_some()
-            && self.bluetooth_route == address;
+        let active = address.is_some() && connected;
+        let changed = self.bluetooth_connected != active || self.bluetooth_route != address;
+        if self.bluetooth_connected && changed {
+            if let Some(previous) = self.bluetooth_route.clone() {
+                self.bluetooth_volume = Some((previous, self.state.volume, self.state.muted));
+            }
+        }
+        let lost = self.bluetooth_connected && !active;
+        let previous_address = self.bluetooth_route.clone();
         self.bluetooth_route = address.clone();
         if lost {
             self.apply_disconnect_volume(self.headphones);
-            if let (Some(root), Some(address)) = (self.root.clone(), address.clone()) {
+            if let (Some(root), Some(address)) = (self.root.clone(), previous_address) {
                 crate::bluetooth::fallback_to_local(root, address);
             }
         }
-        self.bluetooth_connected = address.is_some() && connected;
+        self.bluetooth_connected = active;
+        if active && changed {
+            if let Some((saved_address, volume, muted)) = &self.bluetooth_volume {
+                if Some(saved_address) == address.as_ref() {
+                    self.state.volume = *volume;
+                    self.state.muted = *muted;
+                    self.vol_before.clear();
+                    self.persist_soon();
+                }
+            }
+        }
         self.hud
             .set_headphones(self.headphones || self.bluetooth_connected);
         if let Some(menu) = &mut self.bluetooth {
             menu.wired = self.headphones;
             menu.observe_output(address.as_deref(), connected);
+        }
+        if changed && (active || lost) {
+            let now = self.now();
+            self.hud
+                .show(HudKind::Volume, self.output_volume(), self.muted(), now);
+            self.hud.toast(
+                if active {
+                    Toast::BluetoothConnected
+                } else {
+                    Toast::BluetoothDisconnected
+                },
+                now,
+            );
         }
     }
 
@@ -2709,6 +2739,7 @@ impl App {
                 self.headphones = on;
                 if !on && !self.bluetooth_connected {
                     self.apply_disconnect_volume(false);
+                    self.hud.toast(Toast::HeadphonesDisconnected, self.now());
                 }
                 self.hud.set_headphones(on || self.bluetooth_connected);
                 if let Some(menu) = &mut self.bluetooth {
@@ -4690,6 +4721,46 @@ fn bezel_slot(platform: Platform) -> usize {
 #[cfg(test)]
 mod bluetooth_tests {
     use super::*;
+
+    #[test]
+    fn reconnect_restores_bluetooth_volume_without_resetting_each_poll() {
+        let mut app = App::new(vec![]);
+        let address = Some("AA:BB:CC:DD:EE:FF".to_owned());
+        app.state.volume = 45;
+        app.state.muted = false;
+        app.bluetooth_state(address.clone(), true);
+        app.bluetooth_state(address.clone(), false);
+        assert_eq!(app.output_volume(), 0);
+        assert_eq!(app.hud_icon(), Icon::VolumeMuted);
+        assert_eq!(app.toast(), Some(Toast::BluetoothDisconnected));
+        app.bluetooth_state(None, false); // fallback helper clears the route
+        app.state.volume = 15; // adjust speaker while disconnected
+        app.bluetooth_state(address.clone(), true);
+        assert_eq!(app.output_volume(), 45);
+        assert_eq!(app.toast(), Some(Toast::BluetoothConnected));
+        app.state.volume = 35;
+        app.bluetooth_state(address.clone(), true);
+        assert_eq!(app.output_volume(), 35);
+        app.bluetooth_state(None, false); // manually select local output
+        assert_eq!(app.output_volume(), 0);
+        app.bluetooth_state(address, true);
+        assert_eq!(app.output_volume(), 35);
+    }
+
+    #[test]
+    fn reconnect_preserves_explicit_bluetooth_mute() {
+        let mut app = App::new(vec![]);
+        let address = Some("AA:BB:CC:DD:EE:FF".to_owned());
+        app.state.volume = 40;
+        app.state.muted = true;
+        app.disconnect_volume = 20;
+        app.bluetooth_state(address.clone(), true);
+        app.bluetooth_state(address.clone(), false);
+        assert_eq!(app.output_volume(), 20);
+        app.bluetooth_state(address, true);
+        assert_eq!(app.volume(), 40);
+        assert_eq!(app.output_volume(), 0);
+    }
 
     #[test]
     fn bluetooth_disconnect_sets_local_volume_once_and_hides_icon() {
