@@ -435,6 +435,11 @@ impl Manager {
             }
             .into(),
         );
+        if self.bluetooth_available {
+            if let Some(hints) = lines.last_mut() {
+                hints.push_str(" · X Save report");
+            }
+        }
         lines
     }
 }
@@ -620,6 +625,9 @@ pub fn screen_face(lines: &[String]) -> UndoFace {
             });
             if line.contains("Y Manage") {
                 hints.push(slot_ui::hint_face("Y", "Manage"));
+            }
+            if line.contains("X Save report") {
+                hints.push(slot_ui::hint_face("X", "Save report"));
             }
             let gap = slot_ui::LEGEND_GAP as u32;
             let total = hints.iter().map(|h| h.w).sum::<u32>() + gap * (hints.len() as u32 - 1);
