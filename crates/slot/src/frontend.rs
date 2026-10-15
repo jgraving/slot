@@ -34,8 +34,9 @@ const ALERT_INK: [u8; 3] = [0xf0, 0xb4, 0x3c];
 
 pub struct Frontend {
     bluetooth_tex: Option<TexId>,
-    bluetooth_icon: Option<TexId>,
-    bluetooth_icon_light: Option<bool>,
+    audio_icon: Option<TexId>,
+    hud_audio_icon: Option<TexId>,
+    audio_icon_key: Option<(bool, bool)>,
     bluetooth_lines: Vec<String>,
     session: Session,
     start: Instant,
@@ -160,8 +161,9 @@ impl Frontend {
             .set_power(Power::new(platform, DOZE_TIMEOUT));
         Frontend {
             bluetooth_tex: None,
-            bluetooth_icon: None,
-            bluetooth_icon_light: None,
+            audio_icon: None,
+            hud_audio_icon: None,
+            audio_icon_key: None,
             bluetooth_lines: Vec::new(),
             session,
             start: now,
@@ -500,16 +502,35 @@ impl Frontend {
     }
 
     pub fn compose(&mut self, compositor: &mut Compositor) {
-        if self.session.app().bluetooth_active() {
+        let bluetooth = self.session.app().bluetooth_active();
+        if bluetooth || self.session.app().wired_audio_active() {
             let light = self.session.app().light();
-            if self.bluetooth_icon_light != Some(light) {
-                let face = crate::bluetooth::indicator_face_with_ink(slot_ui::footer_ink(light));
-                upload(compositor, &mut self.bluetooth_icon, face);
-                self.bluetooth_icon_light = Some(light);
+            if self.audio_icon_key != Some((bluetooth, light)) {
+                let face = |ink| {
+                    if bluetooth {
+                        crate::bluetooth::indicator_face_with_ink(ink)
+                    } else {
+                        let f = slot_ui::icon_face(slot_ui::Icon::Headphones, 20.0, ink);
+                        slot_ui::UndoFace {
+                            rgba: f.rgba,
+                            w: f.w,
+                            h: f.h,
+                        }
+                    }
+                };
+                upload(
+                    compositor,
+                    &mut self.audio_icon,
+                    face(slot_ui::footer_ink(light)),
+                );
+                upload(compositor, &mut self.hud_audio_icon, face(slot_ui::HUD_INK));
+                self.audio_icon_key = Some((bluetooth, light));
             }
-            self.session.app_mut().bluetooth_indicator = self.bluetooth_icon;
+            self.session.app_mut().audio_indicator = self.audio_icon;
+            self.session.app_mut().hud_audio_indicator = self.hud_audio_icon;
         } else {
-            self.session.app_mut().bluetooth_indicator = None;
+            self.session.app_mut().audio_indicator = None;
+            self.session.app_mut().hud_audio_indicator = None;
         }
 
         if let Some(menu) = &mut self.session.app_mut().bluetooth {

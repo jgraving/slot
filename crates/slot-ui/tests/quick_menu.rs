@@ -153,7 +153,8 @@ fn the_rows_run_in_the_order_the_user_chose() {
             QuickRow::ScreenGba,
             QuickRow::ScreenGbc,
             QuickRow::ScreenGb,
-            QuickRow::Bluetooth
+            QuickRow::Bluetooth,
+            QuickRow::PlaySound
         ]
     );
     for page in [
@@ -317,7 +318,11 @@ fn the_in_game_pages_hold_their_rows_in_order() {
     );
     assert_eq!(
         QuickRow::SETTINGS,
-        [QuickRow::PlayScreen, QuickRow::PlayGameplay]
+        [
+            QuickRow::PlayScreen,
+            QuickRow::PlaySound,
+            QuickRow::PlayGameplay
+        ]
     );
     assert_eq!(
         QuickRow::PLAY_SCREEN,

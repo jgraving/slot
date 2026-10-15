@@ -333,3 +333,33 @@ fn exit_game_is_offered_with_two_carts() {
     let (_d, a) = playing();
     assert!(!a.in_game_hidden().contains(&QuickRow::ExitGame));
 }
+
+#[test]
+fn sound_opens_in_game_and_returns_to_the_same_settings_row() {
+    let (_d, mut a) = playing();
+    go_to(&mut a, QuickRow::PlaySound);
+    press(&mut a, Btn::A);
+    assert!(a.bluetooth.is_some());
+    assert_eq!(a.in_game_menu(), Some(QuickRow::PlaySound));
+    assert!(matches!(a.phase(), Phase::Playing { .. }));
+    press(&mut a, Btn::B);
+    assert!(a.bluetooth.is_none());
+    assert_eq!(a.in_game_menu(), Some(QuickRow::PlaySound));
+    press(&mut a, Btn::B);
+    assert_eq!(a.in_game_menu(), Some(QuickRow::Settings));
+}
+
+#[test]
+fn connected_audio_indicator_is_drawn_next_to_the_in_game_battery() {
+    let (_d, mut a) = playing();
+    a.bluetooth_state(Some("AA:BB:CC:DD:EE:FF".into()), true);
+    let icon = slot_ui::TexId::from_raw(991);
+    a.hud_audio_indicator = Some(icon);
+    go_to(&mut a, QuickRow::Settings);
+    a.update(2.0);
+    let mut draws = vec![];
+    a.draw(&mut draws);
+    assert!(draws
+        .iter()
+        .any(|d| matches!(d, slot_ui::Draw::Tex {tex,y,..} if *tex == icon && *y < 40.0)));
+}

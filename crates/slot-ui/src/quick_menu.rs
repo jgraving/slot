@@ -47,10 +47,11 @@ pub enum QuickRow {
     ScreenGbc,
     ScreenGb,
     Bluetooth,
+    PlaySound,
 }
 
 impl QuickRow {
-    pub const ALL: [QuickRow; 41] = [
+    pub const ALL: [QuickRow; 42] = [
         QuickRow::FastForward,
         QuickRow::FastForwardSound,
         QuickRow::Screen,
@@ -92,6 +93,7 @@ impl QuickRow {
         QuickRow::ScreenGbc,
         QuickRow::ScreenGb,
         QuickRow::Bluetooth,
+        QuickRow::PlaySound,
     ];
 
     pub const MAIN: [QuickRow; 5] = [
@@ -150,7 +152,11 @@ impl QuickRow {
         QuickRow::ExitGame,
     ];
 
-    pub const SETTINGS: [QuickRow; 2] = [QuickRow::PlayScreen, QuickRow::PlayGameplay];
+    pub const SETTINGS: [QuickRow; 3] = [
+        QuickRow::PlayScreen,
+        QuickRow::PlaySound,
+        QuickRow::PlayGameplay,
+    ];
 
     pub const PLAY_SCREEN: [QuickRow; 4] = [
         QuickRow::Shader,
@@ -192,7 +198,9 @@ impl QuickRow {
             QuickRow::Resume | QuickRow::States | QuickRow::Settings | QuickRow::ExitGame => {
                 &QuickRow::PLAY
             }
-            QuickRow::PlayScreen | QuickRow::PlayGameplay => &QuickRow::SETTINGS,
+            QuickRow::PlayScreen | QuickRow::PlaySound | QuickRow::PlayGameplay => {
+                &QuickRow::SETTINGS
+            }
             QuickRow::Shader | QuickRow::ColourCorrection | QuickRow::Palette | QuickRow::Bezel => {
                 &QuickRow::PLAY_SCREEN
             }
@@ -269,7 +277,7 @@ impl QuickRow {
             QuickRow::Rumble => "Rumble",
             QuickRow::DateTime => "Date & Time",
             QuickRow::About => "About",
-            QuickRow::Bluetooth => "Sound",
+            QuickRow::Bluetooth | QuickRow::PlaySound => "Sound",
             QuickRow::GbaShader => "Shader",
             QuickRow::GbShader => "Shader",
             QuickRow::GbcShader => "Shader",
@@ -312,6 +320,7 @@ impl QuickRow {
             self,
             QuickRow::DateTime
                 | QuickRow::Bluetooth
+                | QuickRow::PlaySound
                 | QuickRow::About
                 | QuickRow::Screen
                 | QuickRow::Game

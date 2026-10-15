@@ -189,6 +189,13 @@ report() {
         echo '--- BlueALSA PCM volume properties (read only) ---'
         timeout 3 dbus-send --system --print-reply --dest=org.bluealsa /org/bluealsa org.freedesktop.DBus.ObjectManager.GetManagedObjects 2>&1 ||
             timeout 3 dbus-send --system --print-reply --dest=org.bluealsa /org/bluealsa org.bluealsa.Manager1.GetPCMs 2>&1 || true
+        echo '--- ALSA cards and PCM devices ---'
+        cat /proc/asound/cards /proc/asound/pcm 2>/dev/null || true
+        echo '--- USB audio driver ---'
+        if [ -d /sys/module/snd_usb_audio ]; then echo 'snd_usb_audio present'; fi
+        if [ -r /proc/config.gz ]; then
+            zcat /proc/config.gz 2>/dev/null | grep -E '^(CONFIG_SND_USB_AUDIO=|# CONFIG_SND_USB_AUDIO )' || true
+        fi
         echo '--- ALSA outputs ---'
         timeout 3 aplay -L 2>&1 || true
         echo '--- Operation transcript ---'

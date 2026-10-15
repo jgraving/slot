@@ -88,8 +88,42 @@ pub fn draw_footer_connection(
     icon: Option<TexId>,
     out: &mut Vec<Draw>,
 ) {
+    draw_connection(
+        battery,
+        percent,
+        icon,
+        FOOTER_MARGIN,
+        FOOTER_Y + (HINT_H as f32 - 20.0) / 2.0,
+        out,
+    );
+}
+
+pub fn draw_corner_connection(
+    battery: Option<Battery>,
+    percent: Printed,
+    icon: Option<TexId>,
+    out: &mut Vec<Draw>,
+) {
+    draw_connection(
+        battery,
+        percent,
+        icon,
+        CORNER_MARGIN,
+        (PLATE_H - 20.0) / 2.0,
+        out,
+    );
+}
+
+fn draw_connection(
+    battery: Option<Battery>,
+    percent: Printed,
+    icon: Option<TexId>,
+    margin: f32,
+    y: f32,
+    out: &mut Vec<Draw>,
+) {
     if let Some(tex) = icon {
-        let x = FOOTER_MARGIN
+        let x = margin
             + if battery.is_some() {
                 crate::battery::gauge_width(percent) + 10.0
             } else {
@@ -97,7 +131,7 @@ pub fn draw_footer_connection(
             };
         out.push(Draw::Tex {
             x,
-            y: FOOTER_Y + (HINT_H as f32 - 20.0) / 2.0,
+            y,
             w: 20.0,
             h: 20.0,
             tex,

@@ -24,6 +24,10 @@ current session. A brief notice and the usual volume bar show each Bluetooth
 connection change; unplugging wired headphones also shows a notice and volume
 bar. Zero volume uses a muted icon.
 
+Sound is also available from Settings in the in-game menu. Closing it returns
+to the paused game menu. The battery indicator shows Bluetooth for wireless
+audio or headphones for the active wired jack, on the carousel and in-game menu.
+
 ## Device support
 
 Sound always includes the local output and disconnect-volume setting. Pairing and

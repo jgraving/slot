@@ -302,7 +302,8 @@ const FAVORITES_AT: usize = 1;
 pub struct App {
     pub bluetooth: Option<crate::bluetooth::Manager>,
     bluetooth_supported: bool,
-    pub bluetooth_indicator: Option<TexId>,
+    pub audio_indicator: Option<TexId>,
+    pub hud_audio_indicator: Option<TexId>,
     bluetooth_connected: bool,
     bluetooth_volume: Option<(String, u8, bool)>,
     bluetooth_route: Option<String>,
@@ -455,7 +456,8 @@ impl App {
         App {
             bluetooth: None,
             bluetooth_supported: false,
-            bluetooth_indicator: None,
+            audio_indicator: None,
+            hud_audio_indicator: None,
             bluetooth_connected: false,
             bluetooth_volume: None,
             bluetooth_route: None,
@@ -932,6 +934,7 @@ impl App {
             | QuickRow::ExitGame
             | QuickRow::PlayScreen
             | QuickRow::PlayGameplay
+            | QuickRow::PlaySound
             | QuickRow::Palette
             | QuickRow::ScreenGba
             | QuickRow::ScreenGbc
@@ -1192,6 +1195,10 @@ impl App {
 
     fn local_headphones(&self) -> bool {
         self.headphones && !self.bluetooth_connected
+    }
+
+    pub fn wired_audio_active(&self) -> bool {
+        self.local_headphones()
     }
 
     pub fn bluetooth_active(&self) -> bool {
@@ -2059,6 +2066,7 @@ impl App {
             QuickRow::Resume => self.in_game_menu = None,
             QuickRow::States => self.open_states(),
             QuickRow::ExitGame => self.eject(),
+            QuickRow::PlaySound => self.open_quick_row(QuickRow::Bluetooth),
             _ => {
                 if let Some(child) = row.child() {
                     self.in_game_menu = Some(child);
@@ -2150,6 +2158,7 @@ impl App {
             | QuickRow::ExitGame
             | QuickRow::PlayScreen
             | QuickRow::PlayGameplay
+            | QuickRow::PlaySound
             | QuickRow::Shader
             | QuickRow::ColourCorrection
             | QuickRow::Palette
@@ -2267,6 +2276,7 @@ impl App {
             | QuickRow::ExitGame
             | QuickRow::PlayScreen
             | QuickRow::PlayGameplay
+            | QuickRow::PlaySound
             | QuickRow::Shader
             | QuickRow::ColourCorrection
             | QuickRow::Palette
@@ -3119,11 +3129,11 @@ impl App {
                     footer_ink(self.light()),
                     out,
                 );
-                if self.bluetooth_connected {
+                if self.bluetooth_connected || self.local_headphones() {
                     slot_ui::draw_footer_connection(
                         self.battery,
                         self.battery_percent,
-                        self.bluetooth_indicator,
+                        self.audio_indicator,
                         out,
                     );
                 }
@@ -3211,6 +3221,12 @@ impl App {
                     self.battery_percent,
                     self.hud_bolt,
                     self.shelf_clock,
+                    out,
+                );
+                slot_ui::draw_corner_connection(
+                    self.battery,
+                    self.battery_percent,
+                    self.hud_audio_indicator,
                     out,
                 );
             }
@@ -4721,6 +4737,20 @@ fn bezel_slot(platform: Platform) -> usize {
 #[cfg(test)]
 mod bluetooth_tests {
     use super::*;
+
+    #[test]
+    fn active_output_distinguishes_bluetooth_from_a_plugged_in_jack() {
+        let mut app = App::new(vec![]);
+        app.headphones = true;
+        assert!(app.wired_audio_active());
+        app.bluetooth_state(Some("AA:BB:CC:DD:EE:FF".into()), true);
+        assert!(app.bluetooth_active());
+        assert!(!app.wired_audio_active());
+        app.bluetooth_state(None, false);
+        assert!(app.wired_audio_active());
+        app.headphones = false;
+        assert!(!app.wired_audio_active());
+    }
 
     #[test]
     fn reconnect_restores_bluetooth_volume_without_resetting_each_poll() {
