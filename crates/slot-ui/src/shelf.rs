@@ -7,7 +7,7 @@ use crate::board::{board_in, Placed};
 use crate::cart::{cart_box, gb_shell_of, is_clear, label_colour, label_text, CART_H, CART_W};
 use crate::hud::Millis;
 use crate::silhouette::GbShell;
-use crate::slot_chrome::{draw_empty_slot, MOUTH_H};
+use crate::slot_chrome::{draw_empty_slot, SlotChrome, MOUTH_H};
 
 const SIDE_SCALE: f32 = 0.78;
 const SIDE_ALPHA: f32 = 1.0;
@@ -110,10 +110,11 @@ impl Shelf {
     }
 
     pub fn depart(&mut self) {
+        self.release_hold();
         self.departure = Some(0.0);
     }
     pub fn departure_finished(&self) -> bool {
-        self.departure.is_some_and(|t| t >= 0.45)
+        self.departure.is_some_and(|t| t >= 0.73)
     }
     pub fn finish_departure(&mut self) {
         self.departure = None;
@@ -457,8 +458,28 @@ impl Shelf {
     }
 
     pub fn draw(&self, shake: f32, slot: Option<(TexId, TexId)>, out: &mut Vec<Draw>) {
-        self.draw_row(None, shake, 0.0, 1.0, out);
-        draw_empty_slot(slot, out);
+        if let Some((t, cart)) = self.departure.zip(self.carts.get(self.index)) {
+            self.draw_row(Some(&cart.stem), shake, 0.0, 1.0, out);
+            let (rest, scale) = self.selected_at();
+            SlotChrome {
+                cart,
+                face: self.face(self.index),
+                rest,
+                scale,
+                seat: t / 0.45,
+                alert: None,
+                dim: 0.0,
+                screen: 0.0,
+                game: false,
+                over: false,
+                behind: self.behind(&cart.stem),
+                slot,
+            }
+            .draw(out);
+        } else {
+            self.draw_row(None, shake, 0.0, 1.0, out);
+            draw_empty_slot(slot, out);
+        }
     }
 
     pub fn draw_row(
@@ -492,13 +513,7 @@ impl Shelf {
                 continue;
             }
             let x = x + shake;
-            let y = foot_y(ch as f32)
-                - h
-                - if i == self.index && slot == 0 {
-                    (self.departure.unwrap_or(0.0).max(0.0) / 0.45).powi(2) * (OUT_H as f32 + h)
-                } else {
-                    0.0
-                };
+            let y = foot_y(ch as f32) - h;
             let key = (cart.platform, cart.stem.clone());
             let marks = [
                 (self.favorites.contains(&key), self.favorite_face),

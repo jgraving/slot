@@ -350,6 +350,7 @@ impl Frontend {
         let shadow = cart(faces.chip_shadow);
         let mut up = |f: UndoFace| (compositor.create_texture(f.w, f.h, &f.rgba), f.w, f.h);
         let favorite = up(faces.favorite).0;
+        let favorite_hint = up(faces.favorite_hint);
         let kid = up(faces.kid).0;
         let lines = faces.shutdown.into_iter().map(&mut up).collect();
         let menu = faces.power_menu.into_iter().map(&mut up).collect();
@@ -393,6 +394,7 @@ impl Frontend {
         }
         let app = self.session.app_mut();
         app.set_favorite_face(favorite);
+        app.favorite_prompt_face = Some(favorite_hint);
         app.set_kid_face(kid);
         app.set_link_badge_faces(link_badges);
         app.set_shutdown_faces(lines);
@@ -519,18 +521,6 @@ impl Frontend {
             crate::latency::taken();
         }
         self.cart_faces.sync(self.session.app_mut(), compositor);
-        if self.session.app().favorite_prompt.is_some() {
-            let lines = self.session.app().favorite_prompt_lines();
-            if lines != self.kid_lines || self.session.app().favorite_prompt_face.is_none() {
-                let tex = upload(
-                    compositor,
-                    &mut self.kid_tex,
-                    crate::bluetooth::screen_face(&lines),
-                );
-                self.session.app_mut().favorite_prompt_face = Some(tex);
-                self.kid_lines = lines;
-            }
-        }
         if let Some(menu) = &mut self.session.app_mut().kid_menu {
             let lines = menu.lines();
             if lines != self.kid_lines || menu.face.is_none() {
@@ -774,6 +764,7 @@ fn legend_faces(compositor: &mut Compositor, legend: &[(&str, &str)]) -> Vec<Tex
 struct UiFaces {
     link_badges: Vec<CartFace>,
     favorite: UndoFace,
+    favorite_hint: UndoFace,
     kid: UndoFace,
     shutdown: Vec<UndoFace>,
     power_menu: Vec<UndoFace>,
@@ -799,6 +790,7 @@ impl UiFaces {
     fn build() -> Self {
         UiFaces {
             favorite: slot_ui::favorite_face(),
+            favorite_hint: slot_ui::favorite_confirm_face(),
             kid: slot_ui::kid_face(),
             link_badges: LinkBadge::FACES
                 .iter()

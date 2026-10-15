@@ -254,3 +254,14 @@ fn glyph_cap(glyph: char) -> Vec<u8> {
     }
     cap
 }
+
+pub fn favorite_confirm_face() -> UndoFace {
+    let press = word_face("Press");
+    let confirm = hint_face("START", "to confirm");
+    let gap = 6;
+    let w = press.w + gap + confirm.w;
+    let mut rgba = vec![0; (w * HINT_H * 4) as usize];
+    blit(&mut rgba, w, &press.rgba, press.w, press.h, 0, 0);
+    blit(&mut rgba, w, &confirm.rgba, confirm.w, confirm.h, press.w + gap, 0);
+    UndoFace { rgba, w, h: HINT_H }
+}

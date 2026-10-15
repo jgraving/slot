@@ -39,15 +39,5 @@ fn parent_screens_render_at_device_resolution() {
         m.input(Action::GbaDown(b), 1_800_000_000);
     }
     save("parent-options", m.screen_face());
-    save(
-        "remove-favorite",
-        slot::bluetooth::screen_face(&[
-            "Remove favorite?".into(),
-            "Example game".into(),
-            "COMPACT".into(),
-            "SELECTED Keep favorite".into(),
-            "ROW Remove favorite".into(),
-            "B Back   A Select".into(),
-        ]),
-    );
+    save("remove-favorite", slot_ui::favorite_confirm_face());
 }

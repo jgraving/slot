@@ -180,11 +180,10 @@ fn y_toggles_last_favorite_skips_empty_shelf_and_persists() {
     assert_eq!(app.shelf_platform_name(), Some("Favorites"));
     tap(&mut app, Btn::Y);
     assert!(app.selected_is_favorite());
-    tap(&mut app, Btn::A); // Keep is the safe default.
+    tap(&mut app, Btn::A); // Only Start can confirm.
     assert!(app.selected_is_favorite());
     tap(&mut app, Btn::Y);
-    tap(&mut app, Btn::Down);
-    tap(&mut app, Btn::A);
+    tap(&mut app, Btn::Start);
     assert!(!app.selected_is_favorite());
     assert_eq!(app.shelf_platform_name(), Some("Favorites"));
     for _ in 0..120 {
