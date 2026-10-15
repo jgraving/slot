@@ -98,6 +98,10 @@ pub struct SlotChrome<'a> {
 
 impl SlotChrome<'_> {
     pub fn draw(&self, out: &mut Vec<Draw>) {
+        self.draw_with_star(None, out);
+    }
+
+    pub fn draw_with_star(&self, star: Option<(TexId, f32, f32)>, out: &mut Vec<Draw>) {
         let canvas = self.canvas;
         let seat = self.seat.clamp(0.0, 1.0);
         let dim = self.dim.clamp(0.0, 1.0);
@@ -173,6 +177,17 @@ impl SlotChrome<'_> {
                 }
             }
         });
+
+        if let Some(star) = star {
+            crate::favorite::draw_star(
+                self.cart,
+                star,
+                crate::Placed { x, y, w: cw, h: ch },
+                cart_alpha,
+                0.0,
+                out,
+            );
+        }
 
         if let Some((tex, alpha)) = self.alert {
             let (w, h) = icon_box(ALERT_PX);

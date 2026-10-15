@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <defs>
+    <path id="star" d="M64 9 Q65 9 66 12 L79 43 L113 46 Q116 46 113 49 L87 71 L95 105 Q96 109 92 107 L64 89 L35 107 Q32 109 33 105 L41 71 L15 49 Q12 46 16 46 L49 43 L62 12 Q63 9 64 9Z"/>
+    <linearGradient id="gold" x1="0" y1="0" x2=".8" y2="1">
+      <stop stop-color="#fff3bd"/>
+      <stop offset=".2" stop-color="#f6c32c"/>
+      <stop offset=".36" stop-color="#b87913"/>
+      <stop offset=".47" stop-color="#fff4c4"/>
+      <stop offset=".54" stop-color="#e3b448"/>
+      <stop offset=".72" stop-color="#b77a18"/>
+      <stop offset=".86" stop-color="#f9d567"/>
+      <stop offset="1" stop-color="#945c12"/>
+    </linearGradient>
+    <linearGradient id="rim" x1="0" y1="0" x2=".6" y2="1">
+      <stop stop-color="#fff8d4"/><stop offset=".4" stop-color="#e8bd53"/>
+      <stop offset=".7" stop-color="#805012"/><stop offset="1" stop-color="#f9d779"/>
+    </linearGradient>
+    <linearGradient id="gleam" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#fff9d9" stop-opacity=".8"/><stop offset=".5" stop-color="#fff9d9" stop-opacity="0"/>
+      <stop offset="1" stop-color="#643a06" stop-opacity=".24"/>
+    </linearGradient>
+    <filter id="shadow" x="-15%" y="-15%" width="130%" height="140%"><feGaussianBlur stdDeviation="1.3"/></filter>
+    <clipPath id="clip"><use href="#star"/></clipPath>
+    <filter id="grain"><feTurbulence baseFrequency=".7 .35" numOctaves="2" seed="17" type="fractalNoise"/><feColorMatrix type="saturate" values="0"/><feComposite in2="SourceGraphic" operator="in"/><feBlend in2="SourceGraphic" mode="soft-light"/></filter>
+  </defs>
+  <use href="#star" fill="#291702" opacity=".42" transform="translate(0 2)" filter="url(#shadow)"/>
+  <use href="#star" fill="url(#gold)" stroke="#795012" stroke-width="1.8" stroke-linejoin="round"/>
+  <g clip-path="url(#clip)">
+    <use href="#star" fill="url(#gold)" filter="url(#grain)" opacity=".22"/>
+    <!-- Shallow creases in thin foil, not a raised jewel. -->
+    <path d="M64 9L63 62L15 47L61 65L33 108L65 68L95 107L68 65L115 47L66 61Z" fill="url(#gleam)"/>
+    <path d="M21 52L92 82M28 55L99 85M36 33L88 55M49 85L87 97" fill="none" stroke="#fff4be" stroke-opacity=".24" stroke-width=".45"/>
+    <path d="M47 68L63 63L81 72M57 30L65 53M69 82L80 91" fill="none" stroke="#87540c" stroke-opacity=".2" stroke-width=".5"/>
+  </g>
+  <use href="#star" fill="none" stroke="url(#rim)" stroke-width="1.15" stroke-linejoin="round"/>
+  <path d="M63 13L50 44L18 48M44 71L36 103" fill="none" stroke="#fff7d4" stroke-width=".8" stroke-linecap="round" opacity=".8"/>
+</svg>

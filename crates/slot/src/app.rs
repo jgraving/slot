@@ -3113,7 +3113,7 @@ impl App {
             slot: self.slot_faces,
             canvas: self.canvas(),
         }
-        .draw(out);
+        .draw_with_star(self.shelf().star_for(stem), out);
     }
 
     pub fn alert_visible(&self) -> bool {
@@ -3356,6 +3356,15 @@ impl App {
                 alpha: 1.0,
                 turn,
             });
+        }
+
+        if let Some(stem) = self.selected_stem() {
+            if let (Some((cart, _)), Some(star)) =
+                (self.shelf().find(stem), self.shelf().star_for(stem))
+            {
+                let (lid, turn) = lid_from(self.canvas(), shelf, progress);
+                slot_ui::draw_star(cart, star, lid, 1.0, turn, out);
+            }
         }
 
         if let [cancel, swap, choose] = self.core_legend_faces.as_slice() {
