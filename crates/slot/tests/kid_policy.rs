@@ -71,3 +71,12 @@ fn malformed_or_missing_active_policy_is_not_treated_as_unrestricted() {
     std::fs::write(Policy::directory(d.path()).join("settings"), b"broken").unwrap();
     assert!(Policy::read(d.path()).is_err());
 }
+
+#[test]
+fn a_long_frame_cannot_refund_daily_playtime() {
+    let (d, mut p) = ready(Rule::Daily);
+    p.begin(NOW).unwrap();
+    assert!(p.tick(d.path(), NOW, 0, true).unwrap());
+    assert!(!p.tick(d.path(), NOW + 300, 300_000, true).unwrap());
+    assert_eq!(Policy::read(d.path()).unwrap().remaining(NOW + 300), 0);
+}

@@ -2550,7 +2550,62 @@ impl App {
         self.timers();
     }
 
+    fn kid_time_available(&mut self, playing: bool) -> bool {
+        if !self.kids.active {
+            return true;
+        }
+        if self.kid_error {
+            return false;
+        }
+        let wall = self.wall_secs();
+        let now = self.now();
+        let Some(root) = self.root.clone() else {
+            return false;
+        };
+        match self.kids.tick(&root, wall, now, playing) {
+            Ok(allowed) => allowed,
+            Err(_) => {
+                self.kid_error = true;
+                false
+            }
+        }
+    }
+
+    fn kid_time_notice(&mut self) {
+        self.stop_for_parent();
+        if let Some(root) = self.root.clone() {
+            let message = if self.kid_error {
+                "Parent settings could not be saved"
+            } else {
+                "Ask a parent for more time"
+            };
+            self.kid_menu = Some(crate::kid_menu::Menu::notice(
+                root,
+                self.kids.clone(),
+                message,
+            ));
+        }
+    }
+
+    fn enforce_kid_time(&mut self) {
+        let playing = matches!(self.phase, Phase::Playing { .. })
+            && !self.audio_paused()
+            && self.power_menu.is_none()
+            && self.game_menu.is_none()
+            && !self.shutting_down();
+        if !self.kid_time_available(playing)
+            && self.kid_menu.is_none()
+            && matches!(
+                self.phase,
+                Phase::Playing { .. } | Phase::Inserting { .. } | Phase::Polaroids { .. }
+            )
+        {
+            self.kid_time_notice();
+        }
+    }
+
     fn timers(&mut self) {
+        self.enforce_kid_time();
         self.remember_browsing();
         if self
             .comfort_dirty
@@ -3422,6 +3477,10 @@ impl App {
     }
 
     fn insert(&mut self, clean: bool) {
+        if !self.kid_time_available(false) {
+            self.kid_time_notice();
+            return;
+        }
         if self.kids.active
             && (self.kid_error
                 || !self
@@ -3618,6 +3677,7 @@ impl App {
         if let Some(power) = &mut self.power {
             power.on_open();
         }
+        self.enforce_kid_time();
     }
 
     pub fn on_doze_timeout(&mut self) {
