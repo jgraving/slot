@@ -55,6 +55,7 @@ case "$*" in
    if [ "${MOCK_PROFILE_ONCE:-no}" = yes ] && [ ! -f "$SLOT_ROOT/connect-retried" ]; then touch "$SLOT_ROOT/connect-retried"; echo 'Failed to connect: org.bluez.Error.Failed br-connection-profile-unavailable'; exit 1; fi;;
  *devices*) echo 'Device AA:BB:CC:DD:EE:FF My headphones'; echo 'Device 00:11:22:33:44:55 00-11-22-33-44-55';;
  *info*)
+   [ "${MOCK_ALIAS:-}" = "" ] || echo "Alias: $MOCK_ALIAS"
    if [ -f "$SLOT_ROOT/paired" ]; then echo 'Paired: yes'; else echo "Paired: ${MOCK_PAIRED:-yes}"; fi
    echo "Connected: ${MOCK_CONNECTED:-yes}"
    echo "UUID: Audio Sink (${MOCK_UUID:-0000110b-0000-1000-8000-00805f9b34fb})";;
@@ -346,6 +347,16 @@ esac
             self.assertEqual((self.root / 'route').read_text().strip(), '')
         finally:
             if worker.poll() is None: worker.kill(); worker.communicate()
+
+    def test_device_alias_cannot_fake_pairing_or_audio_service(self):
+        (self.root / 'Config').mkdir()
+        (self.root / 'Config/bluetooth-headphones').write_text(MAC)
+        self.env.update(MOCK_PAIRED='no', MOCK_ALIAS='Paired: yes')
+        self.assertNotEqual(self.run_command('reconnect').returncode, 0)
+        self.assertNotIn('connect ' + MAC, (self.root / 'calls').read_text())
+        self.env.update(MOCK_PAIRED='yes', MOCK_UUID='00001124-0000-1000-8000-00805f9b34fb', MOCK_ALIAS='0000110b-0000-1000-8000-00805f9b34fb')
+        self.assertNotEqual(self.run_command('connect', MAC).returncode, 0)
+        self.assertNotIn('trust ' + MAC, (self.root / 'calls').read_text())
 
 if __name__ == '__main__':
     unittest.main()

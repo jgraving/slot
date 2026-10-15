@@ -248,7 +248,7 @@ wait_audio_ready() {
     while :; do
         check_cancel
         adapter=$(bt show) || true
-        if printf '%s\n' "$adapter" | grep -qi '0000110a-0000-1000-8000-00805f9b34fb'; then return 0; fi
+        if printf '%s\n' "$adapter" | grep -qi '^[[:space:]]*UUID:.*0000110a-0000-1000-8000-00805f9b34fb'; then return 0; fi
         ready=$((ready + 1))
         [ "$ready" -lt 15 ] || fail 'Bluetooth audio service did not register its A2DP source'
         sleep "${SLOT_BT_POLL_INTERVAL:-1}"
@@ -269,7 +269,7 @@ start() {
         sleep 1
     done
     bt power on >/dev/null
-    bt show | grep -q 'Powered: yes' || fail 'Bluetooth adapter did not power on'
+    bt show | grep -q '^[[:space:]]*Powered: yes[[:space:]]*$' || fail 'Bluetooth adapter did not power on'
     if ! automatic; then rm -f "$OFF"; fi
     bt discoverable off >/dev/null
     # Pairable controls incoming requests; explicit outgoing pairing still works.
@@ -329,7 +329,7 @@ wait_property() {
     while :; do
         check_cancel
         info=$(bt info "$TARGET") || true
-        printf '%s\n' "$info" | grep -q "$property: yes" && return 0
+        printf '%s\n' "$info" | grep -q "^[[:space:]]*$property: yes[[:space:]]*$" && return 0
         if [ -n "$SESSION_PID" ]; then
             if grep -q 'Failed to pair:' "$WORK/session-output"; then
                 reason=$(sed -n 's/.*Failed to pair: //p' "$WORK/session-output" | tail -n 1)
@@ -367,8 +367,8 @@ emit_list() {
         info=$(bt info "$address") || true
         paired=no
         connected=no
-        printf '%s\n' "$info" | grep -q 'Paired: yes' && paired=yes
-        printf '%s\n' "$info" | grep -q 'Connected: yes' && connected=yes
+        printf '%s\n' "$info" | grep -q '^[[:space:]]*Paired: yes[[:space:]]*$' && paired=yes
+        printf '%s\n' "$info" | grep -q '^[[:space:]]*Connected: yes[[:space:]]*$' && connected=yes
         printf 'STATE %s %s %s\n' "$address" "$paired" "$connected"
     done
     selected=''
@@ -381,7 +381,7 @@ connect() {
     wait_audio_ready
     check_cancel
     info=$(bt info "$TARGET") || true
-    if ! printf '%s\n' "$info" | grep -q 'Paired: yes'; then
+    if ! printf '%s\n' "$info" | grep -q '^[[:space:]]*Paired: yes[[:space:]]*$'; then
         ! automatic || fail 'Saved headphones need to be paired again'
         start_session
         STAGE=pairing
@@ -411,7 +411,7 @@ connect() {
     while :; do
         check_cancel
         info=$(bt info "$TARGET") || true
-        printf '%s\n' "$info" | grep -qi '0000110b-0000-1000-8000-00805f9b34fb' && break
+        printf '%s\n' "$info" | grep -qi '^[[:space:]]*UUID:.*0000110b-0000-1000-8000-00805f9b34fb' && break
         n=$((n + 1))
         [ "$n" -lt 10 ] || fail 'This device does not offer headphone audio (A2DP)'
         sleep "${SLOT_BT_POLL_INTERVAL:-1}"
@@ -477,7 +477,7 @@ case "$VERB" in
         current=$(cat "$ROUTE" 2>/dev/null || true)
         if [ "$current" = "bluealsa:DEV=$TARGET,PROFILE=a2dp" ]; then
             info=$(bt info "$TARGET") || true
-            if printf '%s\n' "$info" | grep -q 'Connected: no'; then route ''; fi
+            if printf '%s\n' "$info" | grep -q '^[[:space:]]*Connected: no[[:space:]]*$'; then route ''; fi
         fi
         # Keep the saved device for reconnect on the next startup.
         emit_list
@@ -493,7 +493,7 @@ case "$VERB" in
         timeout 3 "$BT" discoverable off >/dev/null 2>&1 || true
         timeout 3 "$BT" power off >/dev/null 2>&1 || true
         rfkill block bluetooth >> "$SESSION_LOG" 2>&1 || fail 'Could not disable Bluetooth'
-        if timeout 3 "$BT" show 2>/dev/null | grep -q 'Powered: yes'; then
+        if timeout 3 "$BT" show 2>/dev/null | grep -q '^[[:space:]]*Powered: yes[[:space:]]*$'; then
             fail 'Bluetooth is still powered on'
         fi
         printf 'OUTPUT speaker\n'
