@@ -19,7 +19,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: 0ce71fa5c08841ee5f02c1f714dd633a172f0884
+          ref: c84611da0bdd1237c53f241d6ccd49bf61e267ac
 
       - name: Install zip, cmake and Task
         run: |
@@ -57,8 +57,8 @@ jobs:
         run: |
           set -eu
           out="slot-bluetooth-pr33"
-          zip="slot-sound-reconnect-System-0ce71fa.zip"
-          (cd "$out" && zip -qry "../$zip" System && zip -qry ../slot-sound-reconnect-install-0ce71fa.zip .)
+          zip="slot-sound-System-c84611d.zip"
+          (cd "$out" && zip -qry "../$zip" System && zip -qry ../slot-sound-install-c84611d.zip .)
           echo "zip=$zip" >> "$GITHUB_OUTPUT"
 
       - uses: actions/upload-artifact@v7
@@ -66,5 +66,5 @@ jobs:
           name: ${{ steps.package.outputs.zip }}
           path: |
             ${{ steps.package.outputs.zip }}
-            slot-sound-reconnect-install-0ce71fa.zip
+            slot-sound-install-c84611d.zip
           if-no-files-found: error
