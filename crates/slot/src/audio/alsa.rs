@@ -31,6 +31,9 @@ pub fn requested_device() -> Option<String> {
 
 fn parse_device(text: &str) -> Option<String> {
     let name = text.trim();
+    if crate::usb_audio::valid_route(name) {
+        return Some(name.to_owned());
+    }
     let address = name
         .strip_prefix("bluealsa:DEV=")?
         .strip_suffix(",PROFILE=a2dp")?;
@@ -375,6 +378,12 @@ mod tests {
             vec!["headset"]
         );
         assert_eq!(candidates(None).collect::<Vec<_>>(), DEVICES);
+    }
+    #[test]
+    fn usb_playback_resamples_without_implicit_speaker_fallback() {
+        let route = "plughw:CARD=Audio,DEV=0";
+        assert_eq!(parse_device(route), Some(route.into()));
+        assert_eq!(candidates(Some(route)).collect::<Vec<_>>(), vec![route]);
     }
     #[test]
     fn headphone_route_wraps_bluealsa_for_resampling_and_rejects_other_pcm_names() {
