@@ -194,6 +194,8 @@ fn a_card_from_before_the_settings_keeps_all_its_values() {
             blue_light: 1,
             volume: 40,
             volume_hp: 40,
+            volume_bt: None,
+            muted_bt: false,
             muted: true,
             muted_hp: true,
             clock_set: true,

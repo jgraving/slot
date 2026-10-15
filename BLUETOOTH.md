@@ -13,7 +13,9 @@ existing controls. Press X to save a diagnostic report in the SD card’s
 
 The last selected Bluetooth device reconnects when slot starts and is retried
 if it disconnects while slot is awake. Retry delays increase from 5 to 15, 30,
-then 60 seconds; reconnect never scans for or pairs a new device. Selecting the
+then 60 seconds. A passive BlueZ listener notices connection changes promptly;
+if that tool is unavailable, polling remains as a fallback. The listener stops
+while slot sleeps or Bluetooth is off. Reconnect never scans for or pairs a new device. Selecting the
 local output stops automatic reconnect. **Turn Bluetooth off** also powers off
 and blocks the radio, and stays off after restarting. Pairings are kept. Select
 a saved device or scan for devices to turn Bluetooth back on.
@@ -23,8 +25,8 @@ or wired headphones are unplugged. It defaults to **0% (silent)** and changes in
 5% steps. If Bluetooth disconnects while a cable is plugged in, this volume
 applies to the wired headphones. Unplugging a cable while Bluetooth is playing
 does not change the Bluetooth volume. Reconnecting the last Bluetooth device
-restores its volume and mute setting from before the disconnect during the
-current session. A brief notice and the usual volume bar show each Bluetooth
+restores the Bluetooth output’s volume and mute setting, including after a
+restart. Bluetooth, speaker and wired output volumes are stored separately. A brief notice and the usual volume bar show each Bluetooth
 connection change; unplugging wired headphones also shows a notice and volume
 bar. Zero volume uses a muted icon.
 
@@ -71,3 +73,10 @@ They do not replace testing on the device.
 For unexpectedly quiet audio, connect the device and press X in Sound, then check
 `Bluetooth/latest-report.txt`. It includes slot’s volume settings and read-only
 mixer readings. No gain boost or automatic change to device volume is applied.
+
+Routine operation transcripts stay in temporary memory and are removed when the
+operation ends. Saved diagnostics overwrite `latest-report.txt`, `latest-error.txt`
+or `latest-restore.txt`; each helper report is limited to 128 KiB. The helper
+removes only its older timestamped operation logs and error archives. Background
+BlueALSA output is not appended to these files. Press X to save a fresh report
+when investigating a problem.

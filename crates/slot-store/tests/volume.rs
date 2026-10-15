@@ -48,3 +48,18 @@ fn the_headphones_mute_round_trips_and_falls_back_to_the_speakers() {
     let old = read_slot_state(d.path());
     assert_eq!((old.muted, old.muted_hp), (true, true));
 }
+
+#[test]
+fn bluetooth_volume_and_mute_round_trip_separately() {
+    let d = tempfile::tempdir().unwrap();
+    std::fs::create_dir(d.path().join("Config")).unwrap();
+    let state = slot_store::SlotState {
+        volume: 10,
+        volume_hp: 20,
+        volume_bt: Some(55),
+        muted_bt: true,
+        ..Default::default()
+    };
+    slot_store::write_slot_state(d.path(), &state).unwrap();
+    assert_eq!(slot_store::read_slot_state(d.path()), state);
+}

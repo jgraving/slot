@@ -305,7 +305,6 @@ pub struct App {
     pub audio_indicator: Option<TexId>,
     pub hud_audio_indicator: Option<TexId>,
     bluetooth_connected: bool,
-    bluetooth_volume: Option<(String, u8, bool)>,
     bluetooth_route: Option<String>,
     disconnect_volume: u8,
     bluetooth_probe: Option<std::sync::mpsc::Receiver<bool>>,
@@ -459,7 +458,6 @@ impl App {
             audio_indicator: None,
             hud_audio_indicator: None,
             bluetooth_connected: false,
-            bluetooth_volume: None,
             bluetooth_route: None,
             disconnect_volume: 0,
             bluetooth_probe: None,
@@ -1134,11 +1132,6 @@ impl App {
     pub fn bluetooth_state(&mut self, address: Option<String>, connected: bool) {
         let active = address.is_some() && connected;
         let changed = self.bluetooth_connected != active || self.bluetooth_route != address;
-        if self.bluetooth_connected && changed {
-            if let Some(previous) = self.bluetooth_route.clone() {
-                self.bluetooth_volume = Some((previous, self.state.volume, self.state.muted));
-            }
-        }
         let lost = self.bluetooth_connected && !active;
         let previous_address = self.bluetooth_route.clone();
         self.bluetooth_route = address.clone();
@@ -1150,14 +1143,13 @@ impl App {
         }
         self.bluetooth_connected = active;
         if active && changed {
-            if let Some((saved_address, volume, muted)) = &self.bluetooth_volume {
-                if Some(saved_address) == address.as_ref() {
-                    self.state.volume = *volume;
-                    self.state.muted = *muted;
-                    self.vol_before.clear();
-                    self.persist_soon();
-                }
+            if self.state.volume_bt.is_none() {
+                // Keep the first connection at the user's existing volume.
+                self.state.volume_bt = Some(self.state.volume);
+                self.state.muted_bt = self.state.muted;
             }
+            self.vol_before.clear();
+            self.persist_soon();
         }
         self.hud
             .set_headphones(self.headphones || self.bluetooth_connected);
@@ -2381,6 +2373,7 @@ impl App {
         let level = match kind {
             HudKind::Brightness => &mut self.state.brightness,
             HudKind::BlueLight => &mut self.state.blue_light,
+            HudKind::Volume if self.bluetooth_connected => self.state.volume_bt.get_or_insert(0),
             HudKind::Volume if self.local_headphones() => &mut self.state.volume_hp,
             HudKind::Volume => &mut self.state.volume,
             HudKind::Rewind => return false,
@@ -2463,7 +2456,9 @@ impl App {
     }
 
     fn level(&self) -> u8 {
-        if self.local_headphones() {
+        if self.bluetooth_connected {
+            self.state.volume_bt.unwrap_or(0)
+        } else if self.local_headphones() {
             self.state.volume_hp
         } else {
             self.state.volume
@@ -2471,7 +2466,9 @@ impl App {
     }
 
     fn level_mut(&mut self) -> &mut u8 {
-        if self.local_headphones() {
+        if self.bluetooth_connected {
+            self.state.volume_bt.get_or_insert(0)
+        } else if self.local_headphones() {
             &mut self.state.volume_hp
         } else {
             &mut self.state.volume
@@ -2479,7 +2476,9 @@ impl App {
     }
 
     pub fn muted(&self) -> bool {
-        if self.local_headphones() {
+        if self.bluetooth_connected {
+            self.state.muted_bt
+        } else if self.local_headphones() {
             self.state.muted_hp
         } else {
             self.state.muted
@@ -2487,7 +2486,9 @@ impl App {
     }
 
     fn muted_mut(&mut self) -> &mut bool {
-        if self.local_headphones() {
+        if self.bluetooth_connected {
+            &mut self.state.muted_bt
+        } else if self.local_headphones() {
             &mut self.state.muted_hp
         } else {
             &mut self.state.muted
@@ -4768,13 +4769,37 @@ mod bluetooth_tests {
         app.bluetooth_state(address.clone(), true);
         assert_eq!(app.output_volume(), 45);
         assert_eq!(app.toast(), Some(Toast::BluetoothConnected));
-        app.state.volume = 35;
+        app.state.volume_bt = Some(35);
         app.bluetooth_state(address.clone(), true);
         assert_eq!(app.output_volume(), 35);
         app.bluetooth_state(None, false); // manually select local output
         assert_eq!(app.output_volume(), 0);
         app.bluetooth_state(address, true);
         assert_eq!(app.output_volume(), 35);
+    }
+
+    #[test]
+    fn bluetooth_volume_survives_restart_without_overwriting_local_volume() {
+        let root = tempfile::tempdir().unwrap();
+        std::fs::create_dir(root.path().join("Config")).unwrap();
+        let mut app = App::new(vec![]);
+        app.state.volume = 20;
+        app.state.volume_hp = 30;
+        let address = Some("AA:BB:CC:DD:EE:FF".to_owned());
+        app.bluetooth_state(address.clone(), true);
+        *app.level_mut() = 65;
+        *app.muted_mut() = true;
+        write_slot_state(root.path(), &app.state).unwrap();
+        let mut restarted = App::new(vec![]);
+        restarted.state = slot_store::read_slot_state(root.path());
+        assert_eq!(restarted.volume(), 20);
+        restarted.bluetooth_state(address, true);
+        assert_eq!(restarted.volume(), 65);
+        assert!(restarted.muted());
+        assert_eq!(restarted.state.volume_hp, 30);
+        restarted.bluetooth_state(None, false);
+        assert_eq!(restarted.volume(), 0);
+        assert_eq!(restarted.state.volume_bt, Some(65));
     }
 
     #[test]
