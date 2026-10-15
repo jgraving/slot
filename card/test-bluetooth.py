@@ -243,8 +243,7 @@ esac
             self.assertEqual(worker.returncode, 0, error)
             self.assertFalse((self.root / 'lock').exists())
             self.assertFalse((self.root / 'Config/bluetooth-headphones').exists())
-            logs = '\n'.join(p.read_text() for p in (self.root / 'Bluetooth').glob('operation-*.log'))
-            self.assertIn('Automatic reconnect cancelled', logs)
+            self.assertFalse(list((self.root / 'Bluetooth').glob('operation-*.log')))
         finally:
             if worker.poll() is None: worker.kill(); worker.communicate()
 
@@ -357,6 +356,24 @@ esac
         self.env.update(MOCK_PAIRED='yes', MOCK_UUID='00001124-0000-1000-8000-00805f9b34fb', MOCK_ALIAS='0000110b-0000-1000-8000-00805f9b34fb')
         self.assertNotEqual(self.run_command('connect', MAC).returncode, 0)
         self.assertNotIn('trust ' + MAC, (self.root / 'calls').read_text())
+
+    def test_logs_are_bounded_and_only_owned_legacy_files_are_removed(self):
+        logs = self.root / 'Bluetooth'
+        (logs / 'errors').mkdir(parents=True)
+        for name in ['operation-20261015-120000-123.log', 'errors/20261015-120000-124.txt']:
+            (logs / name).write_text('old')
+        (logs / 'operation-personal.log').write_text('keep')
+        (logs / 'errors/notes.txt').write_text('keep')
+        self.assertEqual(self.run_command('list').returncode, 0)
+        self.assertFalse((logs / 'operation-20261015-120000-123.log').exists())
+        self.assertFalse((logs / 'errors/20261015-120000-124.txt').exists())
+        self.assertEqual((logs / 'operation-personal.log').read_text(), 'keep')
+        self.assertEqual((logs / 'errors/notes.txt').read_text(), 'keep')
+        (self.root / 'Logs').mkdir()
+        (self.root / 'Logs/slot.log').write_text('x' * 300000)
+        self.assertEqual(self.run_command('diagnose').returncode, 0)
+        self.assertLessEqual((logs / 'latest-report.txt').stat().st_size, 131072)
+        self.assertFalse(list(self.root.glob('lock.work.*')))
 
 if __name__ == '__main__':
     unittest.main()
