@@ -60,6 +60,9 @@ case "$*" in
      esac
    done;;
  *show*)
+   probe=$(cat "$SLOT_ROOT/controller-probes" 2>/dev/null || echo 0)
+   probe=$((probe + 1)); echo "$probe" > "$SLOT_ROOT/controller-probes"
+   [ "$probe" -gt "${MOCK_CONTROLLER_DELAY:-0}" ] || exit 1
    [ "${MOCK_CONTROLLER:-yes}" = yes ] || exit 1
    echo "Controller AA:BB:CC:DD:EE:00"; if [ -f "$SLOT_ROOT/powered-off" ]; then echo "Powered: no"; else echo "Powered: yes"; fi
    count=$(cat "$SLOT_ROOT/show-count" 2>/dev/null || echo 0)
@@ -440,6 +443,35 @@ esac
         self.assertEqual(route.read_text(), 'bluealsa:DEV=' + MAC + ',PROFILE=a2dp')
         calls = (self.root / 'calls').read_text() if (self.root / 'calls').exists() else ''
         self.assertNotIn('disconnect ' + MAC, calls)
+
+    def test_slow_controller_initialization_is_waited_for_without_reset(self):
+        self.env['MOCK_CONTROLLER_DELAY'] = '7'
+        Path(self.env['SLOT_BT_INIT']).write_text('#!/bin/sh\necho called > "$SLOT_ROOT/vendor-called"\nexit 1\n')
+        result = self.run_command('scan')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse((self.root / 'vendor-called').exists())
+        self.assertFalse((self.root / 'Bluetooth/latest-error.txt').exists())
+
+    def test_permanently_missing_controller_stops_without_resetting_it(self):
+        self.env['MOCK_CONTROLLER'] = 'no'
+        result = self.run_command('scan')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('Bluetooth adapter did not appear', result.stderr)
+        self.assertFalse((self.root / 'lock').exists())
+
+    def test_manual_action_waits_for_a_finishing_operation(self):
+        import threading
+        import shutil
+        lock = self.root / 'lock'; lock.mkdir()
+        (lock / 'pid').write_text(str(os.getpid())); (lock / 'verb').write_text('scan')
+        release = threading.Timer(0.15, lambda: shutil.rmtree(lock))
+        release.start()
+        try:
+            result = self.run_command('speaker')
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertFalse((self.root / 'Bluetooth/latest-error.txt').exists())
+        finally:
+            release.join()
 
     def test_existing_adapter_never_runs_vendor_initialization(self):
         Path(self.env['SLOT_BT_INIT']).write_text('#!/bin/sh\necho called > "$SLOT_ROOT/vendor-called"\nexit 1\n')

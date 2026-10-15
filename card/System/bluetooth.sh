@@ -298,11 +298,14 @@ start() {
     rfkill unblock bluetooth >> "$SESSION_LOG" 2>&1 || true
     attach_adapter >> "$SESSION_LOG" 2>&1 || fail "Bluetooth adapter initialization failed"
     ready=0
+    deadline=$(( $(date +%s) + 20 ))
     while ! bt show | grep -q '^Controller '; do
         check_cancel
         ready=$((ready + 1))
-        [ "$ready" -lt 5 ] || fail 'Bluetooth adapter did not appear'
-        sleep 1
+        # HCI can exist while firmware initialization is still in progress.
+        # Wait for BlueZ rather than reattaching/resetting a live UART.
+        [ "$ready" -lt 20 ] && [ "$(date +%s)" -lt "$deadline" ] || fail 'Bluetooth adapter did not appear'
+        sleep "${SLOT_BT_POLL_INTERVAL:-1}"
     done
     bt power on >/dev/null
     bt show | grep -q '^[[:space:]]*Powered: yes[[:space:]]*$' || fail 'Bluetooth adapter did not power on'
@@ -523,7 +526,7 @@ case "$VERB" in
                 touch "$LOCK/cancel" 2>/dev/null || true
             fi
             tries=$((tries + 1))
-            [ "$tries" -lt "${SLOT_BT_LOCK_TRIES:-45}" ] || fail 'Another Bluetooth operation is still running; wait and try again'
+            [ "$tries" -lt "${SLOT_BT_LOCK_TRIES:-90}" ] || fail 'Another Bluetooth operation is still running; wait and try again'
             sleep "${SLOT_BT_POLL_INTERVAL:-1}"
         done
         OWNED=1

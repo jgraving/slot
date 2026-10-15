@@ -43,7 +43,12 @@ If pairing is missing, the reason is saved in `Logs/bluetooth-support.log`.
 
 On BaseOS, slot attaches the Bluetooth UART only when the adapter is absent,
 then uses BlueZ to control power. Scanning and reconnecting do not rerun the
-vendor low-level controller-enable commands. Audio uses BlueALSA and its ALSA plugin. Older BaseOS versions
+vendor low-level controller-enable commands. Startup waits up to about 20 seconds
+for BlueZ to expose an initializing adapter (plus any in-flight command timeout).
+Manual operations queue behind a running operation for up to 90 seconds; stale
+locks are reclaimed and automatic reconnect yields to a manual choice. These
+waits run off the UI thread. A persistent failure still reports its cause instead
+of claiming success or retrying indefinitely. Audio uses BlueALSA and its ALSA plugin. Older BaseOS versions
 without the hardware flag fall back to checking for a controller; other systems
 need an adapter that is already available through BlueZ.
 
