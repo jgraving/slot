@@ -21,6 +21,7 @@ use crate::prefetch::Prefetch;
 pub struct Session {
     bluetooth_monitor: crate::bluetooth::Indicator,
     bluetooth_reconnect: crate::bluetooth::Reconnect,
+    bluetooth_events: crate::bluetooth::Events,
     root: PathBuf,
     app: App,
     emu: Option<EmuHandle>,
@@ -45,6 +46,7 @@ impl Session {
         let mut session = Session {
             bluetooth_monitor: Default::default(),
             bluetooth_reconnect: Default::default(),
+            bluetooth_events: Default::default(),
             app: App::boot(&root),
             root,
             emu: None,
@@ -237,8 +239,14 @@ impl Session {
     }
 
     pub fn update(&mut self, dt: f32) {
-        if !matches!(self.app.phase(), crate::app::Phase::Doze { .. }) {
-            let connected = self.bluetooth_monitor.poll();
+        let awake = !matches!(self.app.phase(), crate::app::Phase::Doze { .. });
+        let (changed, watching) = self.bluetooth_events.poll(&self.root, awake);
+        if awake {
+            if changed {
+                self.bluetooth_monitor.changed();
+                self.bluetooth_reconnect.changed();
+            }
+            let connected = self.bluetooth_monitor.poll(watching);
             self.app
                 .bluetooth_state(self.bluetooth_monitor.address(), connected);
             self.bluetooth_reconnect.poll(&self.root, connected);

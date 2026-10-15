@@ -521,13 +521,20 @@ fn run(root: PathBuf, verb: &str, address: Option<String>) -> ResultMessage {
         _ => None,
     };
     if let Some(mut report) = fallback {
-        if let Ok(log) = std::fs::read_to_string(root.join("Logs/slot.log")) {
+        if let Ok(mut file) = std::fs::File::open(root.join("Logs/slot.log")) {
+            use std::io::{Read, Seek, SeekFrom};
+            let size = file.metadata().map_or(0, |m| m.len());
+            let _ = file.seek(SeekFrom::Start(size.saturating_sub(65536)));
+            let mut bytes = Vec::new();
+            let _ = file.take(65536).read_to_end(&mut bytes);
             report.push_str("\n--- Application log ---\n");
-            let lines: Vec<_> = log.lines().collect();
-            report.push_str(&lines[lines.len().saturating_sub(120)..].join("\n"));
+            report.push_str(&String::from_utf8_lossy(&bytes));
         }
         let _ = std::fs::create_dir_all(root.join("Bluetooth"));
-        let _ = std::fs::write(root.join("Bluetooth/latest-error.txt"), report);
+        let _ = std::fs::write(
+            root.join("Bluetooth/latest-error.txt"),
+            &report.as_bytes()[..report.len().min(131072)],
+        );
     }
     match result {
         Ok(output) if output.status.success() => ResultMessage {
@@ -1055,6 +1062,138 @@ mod menu_tests {
     }
 }
 
+/// A passive BlueZ signal listener. It never powers the adapter or starts discovery.
+/// Signals only invalidate cached state; the helper still verifies the saved device.
+#[derive(Default)]
+pub struct Events {
+    child: Option<std::process::Child>,
+    incoming: Option<Receiver<()>>,
+    attempted: Option<std::time::Instant>,
+    selection: String,
+    sampled: Option<std::time::Instant>,
+    asleep: bool,
+}
+
+impl Events {
+    pub fn poll(&mut self, root: &std::path::Path, awake: bool) -> (bool, bool) {
+        if !awake {
+            if !self.asleep {
+                self.stop();
+                self.selection.clear();
+                self.sampled = None;
+                self.attempted = None;
+                // Cancel only our automatic helper, never a manual pairing.
+                let lock = std::env::var_os("SLOT_BT_LOCK")
+                    .map(PathBuf::from)
+                    .unwrap_or_else(|| PathBuf::from("/run/slot-bluetooth.lock"));
+                if std::fs::read_to_string(lock.join("verb"))
+                    .is_ok_and(|v| matches!(v.trim(), "restore" | "reconnect"))
+                {
+                    let _ = std::fs::write(lock.join("cancel"), "");
+                }
+            }
+            self.asleep = true;
+            return (false, false);
+        }
+        self.asleep = false;
+        if self.sampled.is_none_or(|t| t.elapsed().as_secs() >= 1) {
+            self.sampled = Some(std::time::Instant::now());
+            let selected = if !root.join("Config/bluetooth-off").exists() {
+                std::fs::read_to_string(root.join("Config/bluetooth-headphones"))
+                    .unwrap_or_default()
+                    .trim()
+                    .to_owned()
+            } else {
+                String::new()
+            };
+            if self.selection != selected {
+                self.stop();
+                self.selection = selected;
+                self.attempted = None;
+            }
+        }
+        if !valid_address(&self.selection) {
+            return (false, false);
+        }
+        if self
+            .child
+            .as_mut()
+            .is_some_and(|c| !matches!(c.try_wait(), Ok(None)))
+        {
+            self.stop();
+        }
+        if self.child.is_none() && self.attempted.is_none_or(|t| t.elapsed().as_secs() >= 60) {
+            self.attempted = Some(std::time::Instant::now());
+            self.start();
+        }
+        let changed = self
+            .incoming
+            .as_ref()
+            .is_some_and(|rx| rx.try_recv().is_ok());
+        (changed, self.child.is_some())
+    }
+
+    #[cfg(feature = "device")]
+    fn start(&mut self) {
+        use std::io::{BufRead, BufReader};
+        use std::process::{Command, Stdio};
+        // Accept any adapter, but only the selected device's connection events.
+        let rule = "type='signal',sender='org.bluez',interface='org.freedesktop.DBus.Properties',member='PropertiesChanged',arg0='org.bluez.Device1'";
+        let Ok(mut child) = Command::new("dbus-monitor")
+            .args(["--system", rule])
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            .spawn()
+        else {
+            return;
+        };
+        let stdout = child.stdout.take().unwrap();
+        let address = self.selection.clone();
+        let (tx, rx) = mpsc::sync_channel(1);
+        std::thread::spawn(move || {
+            let mut selected = false;
+            for line in BufReader::new(stdout).lines() {
+                let Ok(line) = line else { break };
+                if connection_event(&line, &address, &mut selected) {
+                    // Coalesce events; the authoritative property read follows.
+                    let _ = tx.try_send(());
+                }
+            }
+        });
+        self.child = Some(child);
+        self.incoming = Some(rx);
+    }
+
+    #[cfg(not(feature = "device"))]
+    fn start(&mut self) {}
+
+    fn stop(&mut self) {
+        if let Some(mut child) = self.child.take() {
+            let _ = child.kill();
+            let _ = child.wait();
+        }
+        self.incoming = None;
+    }
+}
+impl Drop for Events {
+    fn drop(&mut self) {
+        self.stop();
+    }
+}
+
+fn connection_event(line: &str, address: &str, selected: &mut bool) -> bool {
+    if line.starts_with("signal ") {
+        let component = format!("/dev_{};", address.replace(':', "_"));
+        *selected = line
+            .to_ascii_uppercase()
+            .contains(&component.to_ascii_uppercase());
+        false
+    } else {
+        *selected && line.trim() == "string \"Connected\""
+    }
+}
+
 /// Retry only the saved choice. No discovery, new pairing, or UI-thread commands.
 #[derive(Default)]
 pub struct Reconnect {
@@ -1064,6 +1203,9 @@ pub struct Reconnect {
 }
 
 impl Reconnect {
+    pub fn changed(&mut self) {
+        self.checked = Some(std::time::Instant::now() - std::time::Duration::from_secs(60));
+    }
     pub fn poll(&mut self, root: &std::path::Path, connected: bool) {
         if let Some(rx) = &self.pending {
             if !matches!(rx.try_recv(), Err(mpsc::TryRecvError::Empty)) {
@@ -1122,6 +1264,11 @@ pub struct Indicator {
 }
 
 impl Indicator {
+    pub fn changed(&mut self) {
+        self.checked = None;
+        self.pending = None;
+    }
+
     pub fn select(&mut self, address: Option<String>) {
         self.active = address.is_some();
         self.output = address.unwrap_or_default();
@@ -1132,7 +1279,7 @@ impl Indicator {
     pub fn address(&self) -> Option<String> {
         (!self.output.is_empty()).then(|| self.output.clone())
     }
-    pub fn poll(&mut self) -> bool {
+    pub fn poll(&mut self, watching: bool) -> bool {
         if let Some(rx) = &self.pending {
             match rx.try_recv() {
                 Ok((address, connected)) => {
@@ -1163,10 +1310,9 @@ impl Indicator {
             self.active = false;
             return false;
         }
-        if self
-            .checked
-            .is_some_and(|t| t.elapsed() < std::time::Duration::from_secs(1))
-        {
+        if self.checked.is_some_and(|t| {
+            t.elapsed() < std::time::Duration::from_secs(if watching { 30 } else { 2 })
+        }) {
             return self.active;
         }
         self.checked = Some(std::time::Instant::now());
@@ -1247,6 +1393,55 @@ pub fn indicator_face_with_ink(ink: [u8; 3]) -> UndoFace {
 #[cfg(test)]
 mod indicator_tests {
     use super::*;
+    #[test]
+    fn events_ignore_other_devices_and_unrelated_properties() {
+        let address = "AA:BB:CC:DD:EE:FF";
+        let mut selected = false;
+        assert!(!connection_event(
+            "signal path=/org/bluez/hci1/dev_AA_BB_CC_DD_EE_FF; interface=x",
+            address,
+            &mut selected
+        ));
+        assert!(!connection_event(
+            "   string \"Alias\"",
+            address,
+            &mut selected
+        ));
+        assert!(connection_event(
+            "   string \"Connected\"",
+            address,
+            &mut selected
+        ));
+        assert!(!connection_event(
+            "signal path=/org/bluez/hci0/dev_00_11_22_33_44_55; interface=x",
+            address,
+            &mut selected
+        ));
+        assert!(!connection_event(
+            "   string \"Connected\"",
+            address,
+            &mut selected
+        ));
+    }
+
+    #[test]
+    fn no_selection_off_and_sleep_do_not_start_a_listener() {
+        let root = tempfile::tempdir().unwrap();
+        let mut events = Events::default();
+        assert_eq!(events.poll(root.path(), true), (false, false));
+        std::fs::create_dir(root.path().join("Config")).unwrap();
+        std::fs::write(
+            root.path().join("Config/bluetooth-headphones"),
+            "AA:BB:CC:DD:EE:FF",
+        )
+        .unwrap();
+        std::fs::write(root.path().join("Config/bluetooth-off"), "").unwrap();
+        events.sampled = None;
+        assert_eq!(events.poll(root.path(), true), (false, false));
+        assert_eq!(events.poll(root.path(), false), (false, false));
+        assert!(events.child.is_none());
+    }
+
     #[test]
     fn only_a_valid_selected_headphone_route_can_show_an_indicator() {
         assert_eq!(
