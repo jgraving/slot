@@ -25,7 +25,7 @@ class BluetoothTests(unittest.TestCase):
         aplay = bin_dir / 'aplay'
         aplay.write_text('#!/bin/sh\necho "${MOCK_PCM:-bluealsa}"\n')
         aplay.chmod(0o755)
-        bt = bin_dir / 'bluetoothctl' 
+        bt = bin_dir / 'bluetoothctl'
         bt.write_text('''#!/bin/sh
 printf '%s\\n' "$*" >> "$SLOT_ROOT/calls"
 case "$*" in
