@@ -396,6 +396,27 @@ esac
         self.assertLessEqual((logs / 'latest-report.txt').stat().st_size, 131072)
         self.assertFalse(list(self.root.glob('lock.work.*')))
 
+    def test_usb_selection_replaces_bluetooth_without_speaker_route(self):
+        (self.root / 'Config').mkdir(exist_ok=True)
+        (self.root / 'Config/bluetooth-headphones').write_text(MAC)
+        route = 'plughw:CARD=Audio,DEV=0'
+        result = self.run_command('usb', route)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual((self.root / 'route').read_text().strip(), route)
+        self.assertIn('OUTPUT ' + route, result.stdout)
+        self.assertFalse((self.root / 'Config/bluetooth-headphones').exists())
+        self.assertIn('disconnect ' + MAC, (self.root / 'calls').read_text())
+
+    def test_diagnostics_include_usb_volume_and_kernel_section(self):
+        (self.root / 'Config').mkdir(exist_ok=True)
+        (self.root / 'Config/slot.state').write_text('volume_usb=35\nmuted_usb=0\nprivate_setting=secret\n')
+        self.assertEqual(self.run_command('diagnose').returncode, 0)
+        report = (self.root / 'Bluetooth/latest-report.txt').read_text()
+        self.assertIn('volume_usb=35', report)
+        self.assertIn('muted_usb=0', report)
+        self.assertIn('USB kernel messages', report)
+        self.assertNotIn('private_setting', report)
+
     def test_pairing_waits_for_audio_connect_before_closing_agent(self):
         self.env.update(MOCK_PAIRED='no', MOCK_AUDIO_DELAY='0.12', MOCK_REQUIRE_TRUST='yes')
         result = self.run_command('connect', MAC)

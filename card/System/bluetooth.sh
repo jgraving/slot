@@ -200,7 +200,7 @@ report() {
         [ ! -r "$PREF" ] || cat "$PREF"
         echo '--- slot volume settings ---'
         if [ -r "$ROOT/Config/slot.state" ]; then
-            grep -E '^(volume|volume_hp|volume_bt|muted|muted_hp|muted_bt)=' "$ROOT/Config/slot.state" || true
+            grep -E '^(volume|volume_hp|volume_bt|volume_usb|muted|muted_hp|muted_bt|muted_usb)=' "$ROOT/Config/slot.state" || true
         fi
         echo '--- Local mixer (read only) ---'
         timeout 3 amixer scontents 2>&1 || true
@@ -215,6 +215,29 @@ report() {
         if [ -d /sys/module/snd_usb_audio ]; then echo 'snd_usb_audio present'; fi
         if [ -r /proc/config.gz ]; then
             zcat /proc/config.gz 2>/dev/null | grep -E '^(CONFIG_SND_USB_AUDIO=|# CONFIG_SND_USB_AUDIO )' || true
+        fi
+        if [ "$VERB" = diagnose ]; then
+            echo '--- USB kernel messages (last 100 matching lines) ---'
+            timeout 3 dmesg 2>&1 | grep -Ei 'usb|xhci|ehci|ohci|musb|snd|over.current|under.voltage' | tail -n 100 || true
+            echo '--- USB devices and power state (read only) ---'
+            for usb in /sys/bus/usb/devices/*; do
+                [ -r "$usb/idVendor" ] || continue
+                echo "Device: ${usb##*/}"
+                for field in idVendor idProduct manufacturer product speed bMaxPower authorized power/control power/runtime_status power/autosuspend_delay_ms; do
+                    [ -r "$usb/$field" ] || continue
+                    printf '%s: ' "$field"; head -c 256 "$usb/$field"; echo
+                done
+            done
+            echo '--- USB audio streams and mixers (read only) ---'
+            for card in /proc/asound/card[0-9]*; do
+                [ -r "$card/usbid" ] || continue
+                echo "Card: ${card##*/}"
+                cat "$card/id" "$card/usbid" 2>/dev/null || true
+                for stream in "$card"/stream*; do
+                    [ ! -r "$stream" ] || head -c 8192 "$stream"
+                done
+                timeout 3 amixer -c "${card##*card}" scontents 2>&1 | head -c 8192 || true
+            done
         fi
         echo '--- ALSA outputs ---'
         timeout 3 aplay -L 2>&1 || true
@@ -472,7 +495,10 @@ trap cleanup 0
 trap 'ERROR="Bluetooth operation interrupted"; exit 1' 1 2 15
 automatic && { [ ! -f "$PREF" ] || [ -f "$OFF" ]; } && { rm -f "$SESSION_LOG"; exit 0; }
 # Read-only operations use their own scratch directory and never hold the radio lock.
-case "$VERB" in connect|forget|fallback) valid_mac "$TARGET" || fail 'Invalid Bluetooth address';; esac
+case "$VERB" in
+    connect|forget|fallback) valid_mac "$TARGET" || fail 'Invalid Bluetooth address';;
+    usb) printf '%s\n' "$TARGET" | grep -Eq '^plughw:CARD=[A-Za-z0-9_]{1,32},DEV=[0-9]{1,3}$' || fail 'Invalid USB audio output';;
+esac
 case "$VERB" in
     list|diagnose) ;;
     *)
@@ -546,6 +572,17 @@ case "$VERB" in
         if timeout 3 "$BT" show 2>/dev/null | grep -q '^[[:space:]]*Powered: yes[[:space:]]*$'; then
             fail 'Bluetooth is still powered on'
         fi
+        printf 'OUTPUT %s\n' "$output"
+        ;;
+    usb)
+        STAGE='USB selection'
+        # Replace the route directly: never expose the speaker while releasing
+        # Bluetooth. A delayed Bluetooth fallback checks the old route first.
+        output=$TARGET
+        old_device=$(cat "$PREF" 2>/dev/null || true)
+        rm -f "$PREF"
+        route "$output"
+        if valid_mac "$old_device"; then bt disconnect "$old_device" >/dev/null || true; fi
         printf 'OUTPUT %s\n' "$output"
         ;;
     speaker)
