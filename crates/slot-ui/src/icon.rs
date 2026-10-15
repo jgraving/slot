@@ -146,7 +146,7 @@ impl Badge {
 pub fn star_face(scale: u32, colour: [u8; 3]) -> CartFace {
     let w = 11 * scale.max(1);
     let svg = include_str!("../assets/favorite-star.svg").replace(
-        "#f6c32c",
+        "#c3a15a",
         &format!("#{:02x}{:02x}{:02x}", colour[0], colour[1], colour[2]),
     );
     let rgba = crate::art::render_svg(&svg, w, w).expect("embedded favorite star SVG");

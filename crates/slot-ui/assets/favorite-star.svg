@@ -2,22 +2,27 @@
   <defs>
     <path id="star" d="M64 9 Q65 9 66 12 L79 43 L113 46 Q116 46 113 49 L87 71 L95 105 Q96 109 92 107 L64 89 L35 107 Q32 109 33 105 L41 71 L15 49 Q12 46 16 46 L49 43 L62 12 Q63 9 64 9Z"/>
     <linearGradient id="gold" x1="0" y1="0" x2=".8" y2="1">
-      <stop stop-color="#fff3bd"/>
-      <stop offset=".2" stop-color="#f6c32c"/>
-      <stop offset=".36" stop-color="#b87913"/>
-      <stop offset=".47" stop-color="#fff4c4"/>
-      <stop offset=".54" stop-color="#e3b448"/>
-      <stop offset=".72" stop-color="#b77a18"/>
-      <stop offset=".86" stop-color="#f9d567"/>
-      <stop offset="1" stop-color="#945c12"/>
+      <stop stop-color="#fff8df"/>
+      <stop offset=".16" stop-color="#d8bd78"/>
+      <stop offset=".30" stop-color="#886021"/>
+      <stop offset=".38" stop-color="#4c3518"/>
+      <stop offset=".405" stop-color="#b59148"/>
+      <stop offset=".445" stop-color="#fffbea"/>
+      <stop offset=".48" stop-color="#f2e3b5"/>
+      <stop offset=".515" stop-color="#c3a15a"/>
+      <stop offset=".61" stop-color="#78521d"/>
+      <stop offset=".70" stop-color="#a47d35"/>
+      <stop offset=".84" stop-color="#f3dda0"/>
+      <stop offset=".90" stop-color="#fff2ce"/>
+      <stop offset="1" stop-color="#73501e"/>
     </linearGradient>
     <linearGradient id="rim" x1="0" y1="0" x2=".6" y2="1">
-      <stop stop-color="#fff8d4"/><stop offset=".4" stop-color="#e8bd53"/>
-      <stop offset=".7" stop-color="#805012"/><stop offset="1" stop-color="#f9d779"/>
+      <stop stop-color="#fff8d4"/><stop offset=".4" stop-color="#c5a35e"/>
+      <stop offset=".7" stop-color="#503718"/><stop offset="1" stop-color="#eed9a0"/>
     </linearGradient>
     <linearGradient id="gleam" x1="0" y1="0" x2="1" y2="1">
-      <stop stop-color="#fff9d9" stop-opacity=".8"/><stop offset=".5" stop-color="#fff9d9" stop-opacity="0"/>
-      <stop offset="1" stop-color="#643a06" stop-opacity=".24"/>
+      <stop stop-color="#fff9d9" stop-opacity=".95"/><stop offset=".5" stop-color="#fff9d9" stop-opacity="0"/>
+      <stop offset="1" stop-color="#643a06" stop-opacity=".42"/>
     </linearGradient>
     <filter id="shadow" x="-15%" y="-15%" width="130%" height="140%"><feGaussianBlur stdDeviation="1.3"/></filter>
     <clipPath id="clip"><use href="#star"/></clipPath>
