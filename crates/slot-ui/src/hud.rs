@@ -147,6 +147,7 @@ pub struct Hud {
     held: bool,
     muted: bool,
     headphones: bool,
+    bluetooth: bool,
     ff: FfState,
     said: Option<(Toast, Millis)>,
     alarm: Option<Millis>,
@@ -211,7 +212,18 @@ impl Hud {
     }
 
     pub fn glyph(&self) -> Icon {
+        if self.kind == HudKind::Volume && self.bluetooth {
+            return if self.muted || self.value == 0 {
+                Icon::BluetoothMuted
+            } else {
+                Icon::Bluetooth
+            };
+        }
         self.kind.icon(self.value, self.muted, self.headphones)
+    }
+
+    pub fn set_bluetooth(&mut self, on: bool) {
+        self.bluetooth = on;
     }
 
     pub fn set_headphones(&mut self, on: bool) {

@@ -21,10 +21,12 @@ pub enum Icon {
     Charging,
     Headphones,
     HeadphonesMuted,
+    Bluetooth,
+    BluetoothMuted,
 }
 
 impl Icon {
-    pub const ALL: [Icon; 12] = [
+    pub const ALL: [Icon; 14] = [
         Icon::Volume,
         Icon::VolumeZero,
         Icon::VolumeMuted,
@@ -37,6 +39,8 @@ impl Icon {
         Icon::Charging,
         Icon::Headphones,
         Icon::HeadphonesMuted,
+        Icon::Bluetooth,
+        Icon::BluetoothMuted,
     ];
 
     pub fn index(self) -> usize {
@@ -57,6 +61,7 @@ impl Icon {
             Icon::Charging => '\u{f0e7}',
             Icon::Headphones => '\u{f025}',
             Icon::HeadphonesMuted => '\u{f07ce}',
+            Icon::Bluetooth | Icon::BluetoothMuted => '\u{f294}',
         }
     }
 }
@@ -230,6 +235,52 @@ fn raster(icon: Icon, px: f32) -> Option<Arc<Raster>> {
 fn rasterise(icon: Icon, px: f32) -> Option<Raster> {
     let font = symbols_font()?;
     let f = frame(font, px);
+    if matches!(icon, Icon::Bluetooth | Icon::BluetoothMuted) {
+        let muted = icon == Icon::BluetoothMuted;
+        let mut out = vec![0u8; (f.w * f.h) as usize];
+        let height = (f.h as f32 * 0.85) as i32;
+        let width = (f.w as f32 * if muted { 0.55 } else { 0.7 }) as i32;
+        let left = if muted { 0 } else { (f.w as i32 - width) / 2 };
+        let top = (f.h as i32 - height) / 2;
+        let mut line = |x0: i32, y0: i32, x1: i32, y1: i32| {
+            let steps = (x1 - x0).abs().max((y1 - y0).abs()).max(1);
+            for i in 0..=steps {
+                let x = x0 + (x1 - x0) * i / steps;
+                let y = y0 + (y1 - y0) * i / steps;
+                for dx in 0..2 {
+                    if x + dx >= 0 && x + dx < f.w as i32 && y >= 0 && y < f.h as i32 {
+                        out[(y as u32 * f.w + (x + dx) as u32) as usize] = 255;
+                    }
+                }
+            }
+        };
+        for ((x0, y0), (x1, y1)) in [
+            ((9, 1), (9, 18)),
+            ((9, 1), (16, 6)),
+            ((16, 6), (3, 15)),
+            ((9, 18), (16, 13)),
+            ((16, 13), (3, 4)),
+        ] {
+            line(
+                left + x0 * width / 20,
+                top + y0 * height / 20,
+                left + x1 * width / 20,
+                top + y1 * height / 20,
+            );
+        }
+        if muted {
+            let size = (px * 0.24).round().max(5.0) as i32;
+            let x = f.w as i32 - size - 2;
+            let y = f.h as i32 - size - 3;
+            line(x, y, x + size - 1, y + size - 1);
+            line(x + size - 1, y, x, y + size - 1);
+        }
+        return Some(Raster {
+            cov: out,
+            w: f.w,
+            h: f.h,
+        });
+    }
     let (m, cov) = font.rasterize(icon.glyph(), px);
     let x0 = m.xmin - f.left;
     let y0 = f.top - (m.ymin + m.height as i32);

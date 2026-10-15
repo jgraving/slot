@@ -99,8 +99,8 @@ impl QuickRow {
     pub const MAIN: [QuickRow; 5] = [
         QuickRow::General,
         QuickRow::Screen,
-        QuickRow::Game,
         QuickRow::Bluetooth,
+        QuickRow::Game,
         QuickRow::About,
     ];
 

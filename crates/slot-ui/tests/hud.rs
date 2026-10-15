@@ -274,3 +274,23 @@ fn audio_notice_keeps_volume_bar_visible_below_the_text() {
     assert!(!hud.visible(1500));
     assert!(!hud.toast_visible(1500));
 }
+
+#[test]
+fn bluetooth_volume_is_distinct_from_wired_and_retains_mute_mark() {
+    let mut hud = Hud::new();
+    hud.set_headphones(true);
+    hud.show(HudKind::Volume, 45, false, 0);
+    assert_eq!(hud.glyph(), Icon::Headphones);
+    hud.set_bluetooth(true);
+    assert_eq!(hud.glyph(), Icon::Bluetooth);
+    hud.show(HudKind::Volume, 0, false, 0);
+    assert_eq!(hud.glyph(), Icon::BluetoothMuted);
+    hud.show(HudKind::Volume, 45, true, 0);
+    assert_eq!(hud.glyph(), Icon::BluetoothMuted);
+    hud.set_bluetooth(false);
+    hud.set_headphones(false);
+    assert_eq!(hud.glyph(), Icon::VolumeMuted);
+    hud.show(HudKind::Brightness, 5, false, 0);
+    hud.set_bluetooth(true);
+    assert_eq!(hud.glyph(), Icon::Brightness);
+}

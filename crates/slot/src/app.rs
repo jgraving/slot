@@ -1151,8 +1151,8 @@ impl App {
             self.vol_before.clear();
             self.persist_soon();
         }
-        self.hud
-            .set_headphones(self.headphones || self.bluetooth_connected);
+        self.hud.set_headphones(self.headphones);
+        self.hud.set_bluetooth(self.bluetooth_connected);
         if let Some(menu) = &mut self.bluetooth {
             menu.wired = self.headphones;
             menu.observe_output(address.as_deref(), connected);
@@ -2752,7 +2752,7 @@ impl App {
                     self.apply_disconnect_volume(false);
                     self.hud.toast(Toast::HeadphonesDisconnected, self.now());
                 }
-                self.hud.set_headphones(on || self.bluetooth_connected);
+                self.hud.set_headphones(on);
                 if let Some(menu) = &mut self.bluetooth {
                     menu.wired = on;
                 }
@@ -4879,7 +4879,7 @@ mod bluetooth_tests {
         app.tick_ms(0);
         assert!(!app.bluetooth_supported);
         app.phase = Phase::QuickMenu {
-            row: QuickRow::Game,
+            row: QuickRow::Screen,
         };
         app.apply(Action::GbaDown(Btn::Down));
         assert_eq!(app.quick_menu(), Some(QuickRow::Bluetooth));
