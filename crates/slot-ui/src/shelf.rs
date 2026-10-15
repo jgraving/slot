@@ -33,7 +33,7 @@ const SLOTS: i32 = 3;
 pub const REPEAT_DELAY_MS: Millis = 400;
 
 pub const STAR_SCALE: u32 = 3;
-pub const STAR_INK: [u8; 3] = [0xc3, 0xa1, 0x5a];
+pub const STAR_INK: [u8; 3] = [0xf6, 0xc3, 0x2c];
 
 const REPEAT_MS: [Millis; 4] = [110, 85, 65, 50];
 

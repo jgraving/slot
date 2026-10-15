@@ -163,3 +163,52 @@ fn foil_has_transparent_edges_and_metallic_tones() {
         .collect();
     assert!(tones.len() > 100);
 }
+
+#[test]
+fn matte_sticker_interior_is_opaque_at_every_texture_size() {
+    // Independent outline, inset from the rounded/antialiased edge. Highlights
+    // and texture must never punch holes through to the cartridge label.
+    let outline = [
+        (64., 9.),
+        (79., 43.),
+        (115., 47.),
+        (87., 71.),
+        (95., 107.),
+        (64., 89.),
+        (33., 107.),
+        (41., 71.),
+        (14., 47.),
+        (49., 43.),
+    ];
+    for scale in [3, 12, 24] {
+        let f = star_face(scale, STAR_INK);
+        let mut checked = 0;
+        for y in 0..f.h {
+            for x in 0..f.w {
+                let (px, py) = (
+                    (x as f32 + 0.5) * 128. / f.w as f32,
+                    (y as f32 + 0.5) * 128. / f.h as f32,
+                );
+                let mut inside = false;
+                let mut distance = f32::MAX;
+                for i in 0..outline.len() {
+                    let (ax, ay) = outline[i];
+                    let (bx, by) = outline[(i + 1) % outline.len()];
+                    if (ay > py) != (by > py) && px < (bx - ax) * (py - ay) / (by - ay) + ax {
+                        inside = !inside;
+                    }
+                    let (dx, dy) = (bx - ax, by - ay);
+                    let t = (((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy)).clamp(0., 1.);
+                    distance = distance.min((px - ax - t * dx).hypot(py - ay - t * dy));
+                }
+                if inside && distance > 5. {
+                    let p = &f.rgba[((y * f.w + x) * 4) as usize..][..4];
+                    assert_eq!(p[3], 255, "hole at {x},{y}, scale {scale}");
+                    assert!(p[0] < 240, "glossy white highlight at {x},{y}");
+                    checked += 1;
+                }
+            }
+        }
+        assert!(checked > 100);
+    }
+}
