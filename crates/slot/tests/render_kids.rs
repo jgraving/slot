@@ -50,8 +50,4 @@ fn parent_screens_render_at_device_resolution() {
             "B Back   A Select".into(),
         ]),
     );
-    save(
-        "cartridge-back",
-        slot_ui::cartridge_back_face(slot_store::Platform::Gba),
-    );
 }

@@ -938,7 +938,6 @@ impl App {
         } else {
             self.refresh_collections();
         }
-        self.shelf_mut().flip();
     }
 
     pub fn favorite_prompt_lines(&self) -> Vec<String> {
@@ -987,7 +986,6 @@ impl App {
         } else {
             self.refresh_collections();
         }
-        self.shelf_mut().flip();
         self.hud.toast(
             if added {
                 Toast::FavoriteAdded
@@ -1271,9 +1269,9 @@ impl App {
         self.clock_faces = Some((line, hint));
     }
 
-    pub fn set_back_faces(&mut self, backs: [TexId; 3], kid: TexId) {
+    pub fn set_kid_face(&mut self, kid: TexId) {
         for (_, shelf) in &mut self.shelves {
-            shelf.set_back_faces(backs, kid);
+            shelf.set_kid_face(kid);
         }
     }
 

@@ -58,8 +58,6 @@ pub struct Shelf {
     interiors: Vec<Option<TexId>>,
     kids: HashSet<(Platform, String)>,
     kid_face: Option<TexId>,
-    back_faces: Option<[TexId; 3]>,
-    flip: Option<f32>,
     departure: Option<f32>,
     shadow: Option<TexId>,
     gb_shadow: Option<TexId>,
@@ -83,8 +81,6 @@ impl Shelf {
             favorites: HashSet::new(),
             kids: HashSet::new(),
             kid_face: None,
-            back_faces: None,
-            flip: None,
             departure: None,
             favorite_face: None,
             interiors: vec![None; carts.len()],
@@ -103,23 +99,18 @@ impl Shelf {
         }
     }
 
-    pub fn set_back_faces(&mut self, backs: [TexId; 3], kid: TexId) {
-        self.back_faces = Some(backs);
+    pub fn set_kid_face(&mut self, kid: TexId) {
         self.kid_face = Some(kid);
     }
     pub fn set_kids(&mut self, kids: HashSet<(Platform, String)>) {
         self.kids = kids;
     }
-    pub fn flip(&mut self) {
-        self.release_hold();
-        self.flip = Some(0.0);
-    }
     pub fn animating(&self) -> bool {
-        self.flip.is_some() || self.departure.is_some()
+        self.departure.is_some()
     }
 
     pub fn depart(&mut self) {
-        self.departure = Some(-1.2);
+        self.departure = Some(0.0);
     }
     pub fn departure_finished(&self) -> bool {
         self.departure.is_some_and(|t| t >= 0.45)
@@ -460,9 +451,6 @@ impl Shelf {
         if let Some(t) = &mut self.departure {
             *t += dt;
         }
-        if let Some(t) = self.flip {
-            self.flip = (t + dt < 1.2).then_some(t + dt);
-        }
         let accel = -2.0 * OMEGA * self.vel - OMEGA * OMEGA * (self.scroll - self.scroll_target());
         self.vel += accel * dt;
         self.scroll += self.vel * dt;
@@ -511,67 +499,31 @@ impl Shelf {
                 } else {
                     0.0
                 };
-            let angle = if i == self.index && slot == 0 {
-                self.flip
-                    .map(|t| {
-                        if t < 0.25 {
-                            t / 0.25
-                        } else if t < 0.95 {
-                            1.0
-                        } else {
-                            (1.2 - t) / 0.25
-                        }
-                    })
-                    .unwrap_or(0.0)
-                    * std::f32::consts::PI
-            } else {
-                0.0
-            };
-            let squeeze = angle.cos().abs().max(0.015);
-            let centre = x + w / 2.0;
-            let x = centre - w * squeeze / 2.0;
-            let w = w * squeeze;
-            if angle.cos() < 0.0 {
-                if let Some(backs) = self.back_faces {
-                    let at = match cart.platform {
-                        Platform::Gba => 0,
-                        Platform::Gb => 1,
-                        Platform::Gbc => 2,
-                    };
+            let key = (cart.platform, cart.stem.clone());
+            let marks = [
+                (self.favorites.contains(&key), self.favorite_face),
+                (self.kids.contains(&key), self.kid_face),
+            ];
+            let count = marks
+                .iter()
+                .filter(|(marked, face)| *marked && face.is_some())
+                .count();
+            let size = 28.0 * scale;
+            let gap = 6.0 * scale;
+            let total = count as f32 * (size + gap) - gap;
+            let mut mark_x = x + (w - total) / 2.0;
+            for (marked, face) in marks {
+                if let Some(tex) = face.filter(|_| marked) {
                     out.push(Draw::Tex {
-                        x,
-                        y,
-                        w,
-                        h,
-                        tex: backs[at],
+                        x: mark_x,
+                        y: y - size - 8.0 * scale,
+                        w: size,
+                        h: size,
+                        tex,
                         alpha: alpha * dim,
                     });
-                } else {
-                    out.push(Draw::Rect {
-                        x,
-                        y,
-                        w,
-                        h,
-                        colour: [0.25, 0.25, 0.28, alpha * dim],
-                    });
+                    mark_x += size + gap;
                 }
-                let key = (cart.platform, cart.stem.clone());
-                for (marked, face, side) in [
-                    (self.favorites.contains(&key), self.favorite_face, -1.0),
-                    (self.kids.contains(&key), self.kid_face, 1.0),
-                ] {
-                    if let Some(tex) = face.filter(|_| marked) {
-                        out.push(Draw::Tex {
-                            x: centre + (side * 24.0 - 18.0) * scale * squeeze,
-                            y: y + h * 0.55,
-                            w: 36.0 * scale * squeeze,
-                            h: 36.0 * scale,
-                            tex,
-                            alpha: alpha * dim,
-                        });
-                    }
-                }
-                continue;
             }
             if alpha < 1.0 {
                 let backing = match self.shells.get(i).copied().flatten() {
@@ -684,27 +636,5 @@ pub fn kid_face() -> crate::UndoFace {
         rgba: crate::art::render_svg(svg, 96, 96).expect("kid mark SVG"),
         w: 96,
         h: 96,
-    }
-}
-pub fn cartridge_back_face(platform: Platform) -> crate::UndoFace {
-    let (w, h) = cart_box(platform);
-    let svg = format!(
-        r##"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {w} {h}"><rect x="4" y="4" width="{}" height="{}" rx="14" fill="#595a63" stroke="#292a31" stroke-width="6"/><rect x="19" y="22" width="{}" height="{}" rx="7" fill="#51525a" stroke="#74757d" stroke-width="2"/><path d="M30 40 H{} M30 48 H{} M30 56 H{}" stroke="#373840" stroke-width="3"/><circle cx="{}" cy="{}" r="7" fill="#303139" stroke="#86878e" stroke-width="2"/><path d="M{} {} h8" stroke="#aaaab0" stroke-width="2"/></svg>"##,
-        w - 8,
-        h - 8,
-        w - 38,
-        h - 48,
-        w - 30,
-        w - 30,
-        w - 30,
-        w / 2,
-        h - 28,
-        w / 2 - 4,
-        h - 28
-    );
-    crate::UndoFace {
-        rgba: crate::art::render_svg(&svg, w, h).expect("cartridge back SVG"),
-        w,
-        h,
     }
 }

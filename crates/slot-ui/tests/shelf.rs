@@ -22,43 +22,36 @@ fn shelf_with(n: usize) -> Shelf {
 }
 
 #[test]
-fn marks_live_on_the_back_and_flip_returns_to_the_front() {
+fn marks_stay_above_the_front_without_changing_its_geometry() {
     let mut s = shelf_with(1);
+    let front = TexId::from_raw(1);
     let star = TexId::from_raw(100);
     let kid = TexId::from_raw(101);
-    let back = TexId::from_raw(102);
-    s.set_faces(vec![TexId::from_raw(1)]);
+    s.set_faces(vec![front]);
     s.set_favorite_face(star);
-    s.set_back_faces([back; 3], kid);
+    s.set_kid_face(kid);
     let keys = std::collections::HashSet::from([(Platform::Gba, "Game 0".into())]);
     s.set_favorites(keys.clone());
     s.set_kids(keys);
-    let draw = |s: &Shelf| {
-        let mut out = Vec::new();
-        s.draw_row(None, 0.0, 0.0, 1.0, &mut out);
-        out
-    };
-    let has = |out: &[Draw], face| {
+    let mut out = Vec::new();
+    s.draw_row(None, 0.0, 0.0, 1.0, &mut out);
+    let bounds = |face| {
         out.iter()
-            .any(|d| matches!(d,Draw::Tex{tex,..} if *tex==face))
+            .find_map(|d| match *d {
+                Draw::Tex {
+                    tex, x, y, w, h, ..
+                } if tex == face => Some((x, y, w, h)),
+                _ => None,
+            })
+            .unwrap()
     };
-    assert!(!has(&draw(&s), star));
-    assert!(!has(&draw(&s), kid));
-    s.flip();
-    for _ in 0..30 {
-        s.update(1.0 / 60.0);
-    }
-    let out = draw(&s);
-    assert!(has(&out, back));
-    assert!(has(&out, star));
-    assert!(has(&out, kid));
-    assert!(!has(&out, TexId::from_raw(1)));
-    for _ in 0..60 {
-        s.update(1.0 / 60.0);
-    }
+    let (_, y, w, h) = bounds(front);
+    assert_eq!((w, h), (slot_ui::CART_W as f32, slot_ui::CART_H as f32));
+    let (sx, sy, sw, sh) = bounds(star);
+    let (kx, ky, _, kh) = bounds(kid);
+    assert!(sy + sh < y && ky + kh < y);
+    assert!(sx + sw < kx);
     assert!(!s.animating());
-    assert!(!has(&draw(&s), star));
-    assert!(has(&draw(&s), TexId::from_raw(1)));
 }
 
 fn placed(s: &Shelf) -> Vec<(f32, f32)> {
@@ -1168,7 +1161,7 @@ fn removing_a_cartridge_pulls_it_up_before_membership_changes() {
     };
     let start = y(&s);
     s.depart();
-    for _ in 0..84 {
+    for _ in 0..12 {
         s.update(1.0 / 60.0);
     }
     assert!(y(&s) < start);
