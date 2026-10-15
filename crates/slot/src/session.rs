@@ -19,6 +19,7 @@ use crate::persist;
 use crate::prefetch::Prefetch;
 
 pub struct Session {
+    bluetooth_monitor: crate::bluetooth::Indicator,
     root: PathBuf,
     app: App,
     emu: Option<EmuHandle>,
@@ -41,6 +42,7 @@ impl Session {
 
     pub fn boot_with(root: PathBuf, sink: Box<dyn AudioSink>) -> Self {
         let mut session = Session {
+            bluetooth_monitor: Default::default(),
             app: App::boot(&root),
             root,
             emu: None,
@@ -233,6 +235,13 @@ impl Session {
     }
 
     pub fn update(&mut self, dt: f32) {
+        if !matches!(self.app.phase(), crate::app::Phase::Doze { .. }) {
+            let connected = self.bluetooth_monitor.poll();
+            if let Some(menu) = &mut self.app.bluetooth {
+                menu.observe_output(self.bluetooth_monitor.address().as_deref(), connected);
+            }
+        }
+
         self.bridge_link(|app| app.update(dt));
         if let Some(emu) = &self.emu {
             emu.set_volume(self.app.output_volume());

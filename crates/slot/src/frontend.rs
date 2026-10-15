@@ -33,6 +33,8 @@ const DOZE_TIMEOUT: Duration = Duration::from_secs(180);
 const ALERT_INK: [u8; 3] = [0xf0, 0xb4, 0x3c];
 
 pub struct Frontend {
+    bluetooth_tex: Option<TexId>,
+    bluetooth_lines: Vec<String>,
     session: Session,
     start: Instant,
     last: Instant,
@@ -155,6 +157,8 @@ impl Frontend {
             .app_mut()
             .set_power(Power::new(platform, DOZE_TIMEOUT));
         Frontend {
+            bluetooth_tex: None,
+            bluetooth_lines: Vec::new(),
             session,
             start: now,
             last: now,
@@ -492,6 +496,18 @@ impl Frontend {
     }
 
     pub fn compose(&mut self, compositor: &mut Compositor) {
+        if let Some(menu) = &mut self.session.app_mut().bluetooth {
+            let lines = menu.lines();
+            if lines != self.bluetooth_lines || menu.face.is_none() {
+                menu.face = Some(upload(
+                    compositor,
+                    &mut self.bluetooth_tex,
+                    crate::bluetooth::screen_face(&lines),
+                ));
+                self.bluetooth_lines = lines;
+            }
+        }
+
         compositor.set_blue_light(self.session.app().blue_light());
         compositor.set_picture(self.session.app().picture_rect());
         compositor.set_screen_effect(match self.session.app().screen_shader() {

@@ -46,10 +46,11 @@ pub enum QuickRow {
     GbaBezel,
     ScreenGbc,
     ScreenGb,
+    Bluetooth,
 }
 
 impl QuickRow {
-    pub const ALL: [QuickRow; 40] = [
+    pub const ALL: [QuickRow; 41] = [
         QuickRow::FastForward,
         QuickRow::FastForwardSound,
         QuickRow::Screen,
@@ -90,12 +91,14 @@ impl QuickRow {
         QuickRow::GbaBezel,
         QuickRow::ScreenGbc,
         QuickRow::ScreenGb,
+        QuickRow::Bluetooth,
     ];
 
-    pub const MAIN: [QuickRow; 4] = [
+    pub const MAIN: [QuickRow; 5] = [
         QuickRow::General,
         QuickRow::Screen,
         QuickRow::Game,
+        QuickRow::Bluetooth,
         QuickRow::About,
     ];
 
@@ -266,6 +269,7 @@ impl QuickRow {
             QuickRow::Rumble => "Rumble",
             QuickRow::DateTime => "Date & Time",
             QuickRow::About => "About",
+            QuickRow::Bluetooth => "Bluetooth Audio",
             QuickRow::GbaShader => "Shader",
             QuickRow::GbShader => "Shader",
             QuickRow::GbcShader => "Shader",
@@ -307,6 +311,7 @@ impl QuickRow {
         matches!(
             self,
             QuickRow::DateTime
+                | QuickRow::Bluetooth
                 | QuickRow::About
                 | QuickRow::Screen
                 | QuickRow::Game

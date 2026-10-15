@@ -22,6 +22,38 @@ const PERIOD_FRAMES: usize = 512;
 
 const RELEASE_AFTER: Duration = Duration::from_secs(3);
 
+pub fn requested_device() -> Option<String> {
+    let path =
+        std::env::var_os("SLOT_AUDIO_ROUTE").unwrap_or_else(|| "/run/slot-audio-device".into());
+    let text = std::fs::read_to_string(path).ok()?;
+    parse_device(&text)
+}
+
+fn parse_device(text: &str) -> Option<String> {
+    let name = text.trim();
+    let address = name
+        .strip_prefix("bluealsa:DEV=")?
+        .strip_suffix(",PROFILE=a2dp")?;
+    let parts: Vec<_> = address.split(':').collect();
+    if parts.len() != 6
+        || !parts
+            .iter()
+            .all(|p| p.len() == 2 && p.bytes().all(|b| b.is_ascii_hexdigit()))
+    {
+        return None;
+    }
+    // The plug wrapper resamples the emulator's rate to the headphone transport's rate.
+    Some(format!("plug:SLAVE='{name}'"))
+}
+
+// A selected headset never falls back to the speaker. Selecting Internal speaker
+// explicitly clears the route, including when headphones go out of range.
+fn candidates(requested: Option<&str>) -> impl Iterator<Item = &str> {
+    requested
+        .into_iter()
+        .chain(DEVICES.into_iter().filter(move |_| requested.is_none()))
+}
+
 const DEVICES: [&str; 4] = ["plug:default", "default", "plughw:0,0", "hw:0,0"];
 
 type PcmOpen = unsafe extern "C" fn(*mut *mut c_void, *const c_char, c_int, c_int) -> c_int;
@@ -79,9 +111,10 @@ impl Alsa {
         }
     }
 
-    fn open_pcm(&self, rate: u32) -> Result<*mut c_void, AudioError> {
+    fn open_pcm(&self, rate: u32) -> Result<(*mut c_void, String), AudioError> {
         let mut last = AudioError::NoDevice;
-        for name in DEVICES {
+        let requested = requested_device();
+        for name in candidates(requested.as_deref()) {
             let Ok(cname) = CString::new(name) else {
                 continue;
             };
@@ -108,7 +141,7 @@ impl Alsa {
                 continue;
             }
             eprintln!("slot: audio {name} at {rate} Hz");
-            return Ok(pcm);
+            return Ok((pcm, name.to_owned()));
         }
         Err(last)
     }
@@ -197,12 +230,18 @@ struct Playback {
     pcm: Option<*mut c_void>,
     rate: u32,
     failing: bool,
+    route: Option<String>,
+    actual: String,
 }
 
 fn play(ring: &Arc<Ring>, sample_rate: u32) -> Result<Playback, AudioError> {
     let alsa = Alsa::load()?;
+    let mut actual = String::new();
     let pcm = match alsa.open_pcm(sample_rate) {
-        Ok(pcm) => Some(pcm),
+        Ok((pcm, name)) => {
+            actual = name;
+            Some(pcm)
+        }
         Err(e) => {
             eprintln!("slot: audio: {e}, retrying");
             None
@@ -214,6 +253,8 @@ fn play(ring: &Arc<Ring>, sample_rate: u32) -> Result<Playback, AudioError> {
         pcm,
         rate: sample_rate,
         failing: pcm.is_none(),
+        route: requested_device(),
+        actual,
     })
 }
 
@@ -222,8 +263,20 @@ impl Playback {
         let mut buf = vec![0i16; PERIOD_FRAMES * CHANNELS as usize];
         let span = Duration::from_secs_f64(PERIOD_FRAMES as f64 / self.rate as f64);
         let mut silence = Silence::new(RELEASE_AFTER);
+        let mut route_check = Instant::now();
         let mut pace = Pacer::new(span);
         while !stop.load(Ordering::Relaxed) {
+            if self.route.as_ref().is_some_and(|r| *r != self.actual) {
+                self.release();
+            }
+            if route_check.elapsed() >= Duration::from_millis(200) {
+                let route = requested_device();
+                if route != self.route || route.as_ref().is_some_and(|r| *r != self.actual) {
+                    self.release();
+                    self.route = route;
+                }
+                route_check = Instant::now();
+            }
             ring.fill(&mut buf);
             let hold = silence.hear(&buf, span);
             match (self.pcm, hold) {
@@ -232,7 +285,8 @@ impl Playback {
                     eprintln!("slot: audio released after silence");
                 }
                 (None, true) => match self.alsa.open_pcm(self.rate) {
-                    Ok(pcm) => {
+                    Ok((pcm, name)) => {
+                        self.actual = name;
                         eprintln!("slot: audio reopened at {:.1} ms", crate::boot_time::ms());
                         self.pcm = Some(pcm);
                         self.failing = false;
@@ -250,7 +304,8 @@ impl Playback {
                 Some(pcm) => {
                     pace.reset();
                     if !self.write(pcm, &buf) {
-                        return;
+                        self.release();
+                        std::thread::sleep(Duration::from_millis(200));
                     }
                 }
                 None => std::thread::sleep(pace.wait(Instant::now())),
@@ -260,6 +315,7 @@ impl Playback {
 
     fn write(&self, pcm: *mut c_void, buf: &[i16]) -> bool {
         let mut written = 0;
+        let mut stalled = 0;
         while written < PERIOD_FRAMES {
             let at = written * CHANNELS as usize;
             let frames = unsafe {
@@ -269,6 +325,14 @@ impl Playback {
                     (PERIOD_FRAMES - written) as u64,
                 )
             };
+            if frames <= 0 {
+                stalled += 1;
+                if stalled >= 5 {
+                    return false;
+                }
+            } else {
+                stalled = 0;
+            }
             if frames < 0 {
                 let err = unsafe { (self.alsa.recover)(pcm, frames as c_int, 1) };
                 if err < 0 {
@@ -276,6 +340,9 @@ impl Playback {
                     return false;
                 }
                 continue;
+            }
+            if frames == 0 {
+                std::thread::sleep(Duration::from_millis(1));
             }
             written += frames as usize;
         }
@@ -295,5 +362,33 @@ impl Playback {
 impl Drop for Playback {
     fn drop(&mut self) {
         self.release();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{candidates, parse_device, DEVICES};
+    #[test]
+    fn quiet_headphone_failure_has_no_speaker_candidate() {
+        assert_eq!(
+            candidates(Some("headset")).collect::<Vec<_>>(),
+            vec!["headset"]
+        );
+        assert_eq!(candidates(None).collect::<Vec<_>>(), DEVICES);
+    }
+    #[test]
+    fn headphone_route_wraps_bluealsa_for_resampling_and_rejects_other_pcm_names() {
+        assert_eq!(
+            parse_device("bluealsa:DEV=AA:BB:CC:DD:EE:FF,PROFILE=a2dp\n"),
+            Some("plug:SLAVE='bluealsa:DEV=AA:BB:CC:DD:EE:FF,PROFILE=a2dp'".into())
+        );
+        for route in [
+            "",
+            "default",
+            "bluealsa:DEV=bad,PROFILE=a2dp",
+            "bluealsa:DEV=AA:BB:CC:DD:EE:FF,PROFILE=sco",
+        ] {
+            assert_eq!(parse_device(route), None);
+        }
     }
 }

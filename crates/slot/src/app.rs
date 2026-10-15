@@ -300,6 +300,9 @@ const RECENTS_AT: usize = 0;
 const FAVORITES_AT: usize = 1;
 
 pub struct App {
+    pub bluetooth: Option<crate::bluetooth::Manager>,
+    bluetooth_supported: bool,
+    bluetooth_probe: Option<std::sync::mpsc::Receiver<bool>>,
     phase: Phase,
     shelves: Vec<(Rack, Shelf)>,
     shelf_at: usize,
@@ -445,6 +448,9 @@ impl App {
         let state_writer = crate::state_writer::StateWriter::spawn();
         let card_writes = state_writer.card_writes();
         App {
+            bluetooth: None,
+            bluetooth_supported: false,
+            bluetooth_probe: None,
             radio: radio_jobs(),
             state_writer,
             phase: Phase::Shelf,
@@ -562,6 +568,7 @@ impl App {
         crate::boot_time::mark("scan");
         let mut app = App::new(carts);
         app.root = Some(root.to_path_buf());
+        app.bluetooth_probe = crate::bluetooth::probe(root);
         app.state = read_slot_state(root);
         app.restock_recents();
         app.restock_favorites();
@@ -901,7 +908,8 @@ impl App {
             } else {
                 QuickValue::Dark
             }),
-            QuickRow::DateTime
+            QuickRow::Bluetooth
+            | QuickRow::DateTime
             | QuickRow::About
             | QuickRow::Screen
             | QuickRow::Game
@@ -1114,11 +1122,19 @@ impl App {
             self.state.wallpaper,
             WallpaperPick::File(_) | WallpaperPick::Random
         );
-        match (own, self.framed_panel()) {
-            (true, true) => &[],
-            (true, false) => &[QuickRow::GbaBezel],
-            (false, true) => &[QuickRow::WallpaperTint],
-            (false, false) => &[QuickRow::WallpaperTint, QuickRow::GbaBezel],
+        match (own, self.framed_panel(), self.bluetooth_supported) {
+            (true, true, true) => &[],
+            (true, false, true) => &[QuickRow::GbaBezel],
+            (false, true, true) => &[QuickRow::WallpaperTint],
+            (false, false, true) => &[QuickRow::WallpaperTint, QuickRow::GbaBezel],
+            (true, true, false) => &[QuickRow::Bluetooth],
+            (true, false, false) => &[QuickRow::GbaBezel, QuickRow::Bluetooth],
+            (false, true, false) => &[QuickRow::WallpaperTint, QuickRow::Bluetooth],
+            (false, false, false) => &[
+                QuickRow::WallpaperTint,
+                QuickRow::GbaBezel,
+                QuickRow::Bluetooth,
+            ],
         }
     }
 
@@ -1814,6 +1830,19 @@ impl App {
             Action::PowerOff => return,
             _ => {}
         }
+        if self.bluetooth.is_some() && !matches!(self.phase, Phase::Doze { .. }) {
+            if self.adjust(action) {
+                return;
+            }
+            if self
+                .bluetooth
+                .as_mut()
+                .is_some_and(|menu| menu.input(action))
+            {
+                self.bluetooth = None;
+            }
+            return;
+        }
         if let Phase::SetClock {
             picker, from_menu, ..
         } = &mut self.phase
@@ -2000,6 +2029,13 @@ impl App {
 
     fn open_quick_row(&mut self, row: QuickRow) {
         match row {
+            QuickRow::Bluetooth => {
+                if self.bluetooth_supported {
+                    if let Some(root) = &self.root {
+                        self.bluetooth = Some(crate::bluetooth::Manager::new(root.clone()));
+                    }
+                }
+            }
             QuickRow::DateTime => {
                 self.phase = clock_screen(self.utc_secs(), self.state.utc_offset_min, true);
             }
@@ -2146,6 +2182,7 @@ impl App {
             | QuickRow::Recents
             | QuickRow::ShowTitles
             | QuickRow::DateTime
+            | QuickRow::Bluetooth
             | QuickRow::About
             | QuickRow::Screen
             | QuickRow::Game
@@ -2570,6 +2607,20 @@ impl App {
     }
 
     fn timers(&mut self) {
+        if let Some(probe) = &self.bluetooth_probe {
+            match probe.try_recv() {
+                Ok(supported) => {
+                    self.bluetooth_supported = supported;
+                    self.bluetooth_probe = None;
+                }
+                Err(std::sync::mpsc::TryRecvError::Disconnected) => self.bluetooth_probe = None,
+                Err(std::sync::mpsc::TryRecvError::Empty) => {}
+            }
+        }
+        if let Some(menu) = &mut self.bluetooth {
+            menu.poll();
+        }
+
         self.play_hold();
         self.repeat_held_dir();
         let offer = self.undo_label();
@@ -2888,6 +2939,24 @@ impl App {
                     alpha: 1.0,
                 });
             }
+            return;
+        }
+        if let Some(menu) = self
+            .bluetooth
+            .as_ref()
+            .filter(|_| !matches!(self.phase, Phase::Doze { .. }))
+        {
+            if let Some(tex) = menu.face {
+                out.push(Draw::Tex {
+                    x: 0.0,
+                    y: 0.0,
+                    w: self.canvas().w,
+                    h: OUT_H as f32,
+                    tex,
+                    alpha: 1.0,
+                });
+            }
+            self.hud.draw(self.canvas(), self.now(), out);
             return;
         }
         match &self.phase {
@@ -4553,5 +4622,43 @@ fn bezel_slot(platform: Platform) -> usize {
         Platform::Gba => 0,
         Platform::Gb => 1,
         Platform::Gbc => 2,
+    }
+}
+
+#[cfg(test)]
+mod bluetooth_tests {
+    use super::*;
+
+    #[test]
+    fn bluetooth_stays_hidden_until_a_successful_probe() {
+        for result in [false, true] {
+            let mut app = App::new(vec![]);
+            assert!(app.hidden_rows().contains(&QuickRow::Bluetooth));
+            let (tx, rx) = std::sync::mpsc::channel();
+            app.bluetooth_probe = Some(rx);
+            app.tick_ms(0);
+            assert!(app.hidden_rows().contains(&QuickRow::Bluetooth));
+            tx.send(result).unwrap();
+            app.tick_ms(1);
+            assert_eq!(app.hidden_rows().contains(&QuickRow::Bluetooth), !result);
+            assert!(app.bluetooth_probe.is_none());
+        }
+    }
+
+    #[test]
+    fn failed_probe_worker_keeps_upstream_menu_and_navigation() {
+        let mut app = App::new(vec![]);
+        let (tx, rx) = std::sync::mpsc::channel();
+        app.bluetooth_probe = Some(rx);
+        drop(tx);
+        app.tick_ms(0);
+        assert!(app.hidden_rows().contains(&QuickRow::Bluetooth));
+        app.phase = Phase::QuickMenu {
+            row: QuickRow::Game,
+        };
+        app.apply(Action::GbaDown(Btn::Down));
+        assert_eq!(app.quick_menu(), Some(QuickRow::About));
+        app.open_quick_row(QuickRow::Bluetooth);
+        assert!(app.bluetooth.is_none());
     }
 }
