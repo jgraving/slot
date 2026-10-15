@@ -17,10 +17,13 @@ INIT=${SLOT_BT_INIT:-/mnt/vendor/ctrl/setBluetooth.sh}
 attach_adapter() {
     if [ -f "$INIT" ]; then
         if [ ! -d "${SLOT_HCI_PATH:-/sys/class/bluetooth/hci0}" ]; then
-            if pidof rtk_hciattach >/dev/null 2>&1; then killall rtk_hciattach 2>/dev/null || true; fi
-            rm -f /tmp/.init_bt
+            # Attach the UART only when absent. Never rerun the vendor's `all`
+            # path: it issues hciconfig commands underneath a running BlueZ.
+            if ! pidof rtk_hciattach >/dev/null 2>&1; then
+                rm -f /tmp/.init_bt
+                timeout 15 sh "$INIT" init || return 1
+            fi
         fi
-        timeout 15 sh "$INIT" all || return 1
         timeout 5 systemctl start bluetooth || return 1
     fi
 }
@@ -197,7 +200,7 @@ report() {
         [ ! -r "$PREF" ] || cat "$PREF"
         echo '--- slot volume settings ---'
         if [ -r "$ROOT/Config/slot.state" ]; then
-            grep -E '^(volume|volume_hp|muted|muted_hp)=' "$ROOT/Config/slot.state" || true
+            grep -E '^(volume|volume_hp|volume_bt|muted|muted_hp|muted_bt)=' "$ROOT/Config/slot.state" || true
         fi
         echo '--- Local mixer (read only) ---'
         timeout 3 amixer scontents 2>&1 || true
@@ -392,6 +395,22 @@ emit_list() {
     [ ! -r "$ROUTE" ] || selected=$(sed -n 's/^bluealsa:DEV=\([^,]*\),PROFILE=a2dp$/\1/p' "$ROUTE")
     printf 'OUTPUT %s\n' "${selected:-speaker}"
 }
+wait_audio_transport() {
+    STAGE='audio transport readiness'
+    device=$(printf '%s' "$TARGET" | tr ':' '_' | tr 'a-f' 'A-F')
+    n=0
+    while :; do
+        check_cancel
+        # Connected is only the Bluetooth link. Require the selected device's
+        # A2DP playback PCM before publishing a route or claiming success.
+        bounded timeout 3 dbus-send --system --print-reply --dest=org.bluealsa /org/bluealsa \
+            org.freedesktop.DBus.ObjectManager.GetManagedObjects > "$WORK/pcms" 2>&1 || true
+        if grep -Eq "object path \"/org/bluealsa/hci[0-9]+/dev_$device/a2dpsrc/sink\"" "$WORK/pcms"; then return 0; fi
+        n=$((n + 1))
+        [ "$n" -lt 15 ] || { cat "$WORK/pcms" >> "$SESSION_LOG"; fail 'Bluetooth connected but audio did not become ready'; }
+        sleep "${SLOT_BT_POLL_INTERVAL:-1}"
+    done
+}
 connect() {
     valid_mac "$TARGET" || fail 'Invalid Bluetooth address'
     start
@@ -440,6 +459,8 @@ connect() {
         fi
     fi
     if automatic; then wait_property Connected 8; else wait_property Connected 20; fi
+    wait_audio_transport
+    check_cancel
     mkdir -p "$ROOT/Config"
     rm -f "$OFF"
     printf '%s\n' "$TARGET" > "$PREF.$$"

@@ -41,8 +41,9 @@ saved Bluetooth devices appear only when Bluetooth support is detected. The
 check runs in the background without starting the radio on current BaseOS.
 If pairing is missing, the reason is saved in `Logs/bluetooth-support.log`.
 
-On BaseOS, slot uses the existing Bluetooth startup script and service when you
-scan or connect. Audio uses BlueALSA and its ALSA plugin. Older BaseOS versions
+On BaseOS, slot attaches the Bluetooth UART only when the adapter is absent,
+then uses BlueZ to control power. Scanning and reconnecting do not rerun the
+vendor low-level controller-enable commands. Audio uses BlueALSA and its ALSA plugin. Older BaseOS versions
 without the hardware flag fall back to checking for a controller; other systems
 need an adapter that is already available through BlueZ.
 
@@ -51,7 +52,10 @@ only for a device selected in Sound. The temporary agent does not auto-approve
 ambiguous authorization prompts or guess legacy PINs; devices requiring those
 prompts are rejected with an error. A device is trusted only after its audio
 service has been verified. Manual actions can interrupt automatic reconnect.
-Failed connections leave the current audio output unchanged.
+Connections are reported as successful only after the selected device’s A2DP
+playback endpoint appears in BlueALSA. Failed connections leave the current
+audio output unchanged. Automatic speaker fallback never cancels a reconnect
+already in progress.
 
 These controls reduce unnecessary exposure; they do not replace BaseOS security
 updates or disable unrelated system Bluetooth services.

@@ -26,6 +26,17 @@ class BluetoothTests(unittest.TestCase):
         aplay = bin_dir / 'aplay'
         aplay.write_text('#!/bin/sh\necho "${MOCK_PCM:-bluealsa}"\n')
         aplay.chmod(0o755)
+        dbus = bin_dir / 'dbus-send'
+        dbus.write_text('''#!/bin/sh
+count=$(cat "$SLOT_ROOT/pcm-count" 2>/dev/null || echo 0)
+count=$((count + 1)); echo "$count" > "$SLOT_ROOT/pcm-count"
+if [ "${MOCK_AUDIO_PCM:-yes}" = yes ] && [ "$count" -gt "${MOCK_PCM_DELAY:-0}" ]; then
+  printf 'object path "%s"\\n' "/org/bluealsa/hci0/dev_${MOCK_PCM_DEVICE:-AA_BB_CC_DD_EE_FF}/a2dpsrc/sink"
+else
+  echo 'array []'
+fi
+''')
+        dbus.chmod(0o755)
         bt = bin_dir / 'bluetoothctl'
         bt.write_text('''#!/bin/sh
 printf '%s\\n' "$*" >> "$SLOT_ROOT/calls"
@@ -134,6 +145,8 @@ esac
         self.assertEqual(self.run_command('connect', MAC).returncode, 0)
 
     def test_failed_vendor_initialization_hides_support(self):
+        (self.root / 'hci0').rmdir()
+        (self.root / 'bin/pidof').write_text('#!/bin/sh\nexit 1\n')
         Path(self.env['SLOT_BT_INIT']).write_text('#!/bin/sh\nexit 1\n')
         self.assertNotEqual(self.run_command('supported').returncode, 0)
         self.assertFalse((self.root / 'calls').exists())
@@ -406,6 +419,45 @@ esac
         self.assertEqual(route.read_text(), 'bluealsa:DEV=' + MAC + ',PROFILE=a2dp')
         calls = (self.root / 'calls').read_text() if (self.root / 'calls').exists() else ''
         self.assertNotIn('disconnect ' + MAC, calls)
+
+    def test_existing_adapter_never_runs_vendor_initialization(self):
+        Path(self.env['SLOT_BT_INIT']).write_text('#!/bin/sh\necho called > "$SLOT_ROOT/vendor-called"\nexit 1\n')
+        for verb, args in [('connect', [MAC]), ('scan', [])]:
+            result = self.run_command(verb, *args)
+            self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse((self.root / 'vendor-called').exists())
+
+    def test_missing_adapter_uses_attach_only_not_low_level_enable(self):
+        (self.root / 'hci0').rmdir()
+        (self.root / 'bin/pidof').write_text('#!/bin/sh\n[ "$1" != rtk_hciattach ]\n')
+        Path(self.env['SLOT_BT_INIT']).write_text('#!/bin/sh\necho "$1" > "$SLOT_ROOT/vendor-called"\n[ "$1" = init ]\n')
+        result = self.run_command('connect', MAC)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual((self.root / 'vendor-called').read_text().strip(), 'init')
+
+    def test_connected_link_without_audio_never_publishes_route(self):
+        self.env['MOCK_AUDIO_PCM'] = 'no'
+        result = self.run_command('connect', MAC)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('audio did not become ready', result.stderr)
+        self.assertFalse((self.root / 'route').exists())
+        self.assertFalse((self.root / 'Config/bluetooth-headphones').exists())
+
+    def test_audio_pcm_can_arrive_after_bluetooth_connects(self):
+        self.env['MOCK_PCM_DELAY'] = '3'
+        result = self.run_command('connect', MAC)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual((self.root / 'pcm-count').read_text().strip(), '4')
+        self.assertTrue((self.root / 'route').exists())
+
+    def test_another_devices_pcm_does_not_replace_the_current_output(self):
+        route = self.root / 'route'
+        old = 'bluealsa:DEV=00:11:22:33:44:55,PROFILE=a2dp'
+        route.write_text(old)
+        self.env['MOCK_PCM_DEVICE'] = '00_11_22_33_44_55'
+        result = self.run_command('connect', MAC)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(route.read_text(), old)
 
 if __name__ == '__main__':
     unittest.main()
