@@ -167,9 +167,13 @@ report() {
         timeout 3 hciconfig -a 2>&1 || true
         echo '--- All discovered devices (unfiltered) ---'
         timeout 3 "$BT" devices 2>&1 || true
-        if valid_mac "$TARGET"; then
+        report_target=$TARGET
+        if ! valid_mac "$report_target" && [ -r "$ROUTE" ]; then
+            report_target=$(sed -n 's/^bluealsa:DEV=\([^,]*\),PROFILE=a2dp$/\1/p' "$ROUTE")
+        fi
+        if valid_mac "$report_target"; then
             echo '--- Selected device ---'
-            timeout 3 "$BT" info "$TARGET" 2>&1 || true
+            timeout 3 "$BT" info "$report_target" 2>&1 || true
         fi
         echo '--- Audio route / saved preference ---'
         [ ! -r "$ROUTE" ] || cat "$ROUTE"
@@ -183,7 +187,8 @@ report() {
         echo '--- Bluetooth mixer (read only) ---'
         timeout 3 amixer -D bluealsa scontents 2>&1 || true
         echo '--- BlueALSA PCM volume properties (read only) ---'
-        timeout 3 dbus-send --system --print-reply --dest=org.bluealsa /org/bluealsa org.bluealsa.Manager1.GetPCMs 2>&1 || true
+        timeout 3 dbus-send --system --print-reply --dest=org.bluealsa /org/bluealsa org.freedesktop.DBus.ObjectManager.GetManagedObjects 2>&1 ||
+            timeout 3 dbus-send --system --print-reply --dest=org.bluealsa /org/bluealsa org.bluealsa.Manager1.GetPCMs 2>&1 || true
         echo '--- ALSA outputs ---'
         timeout 3 aplay -L 2>&1 || true
         echo '--- Operation transcript ---'
