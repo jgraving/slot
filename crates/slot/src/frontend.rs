@@ -36,7 +36,7 @@ pub struct Frontend {
     bluetooth_tex: Option<TexId>,
     audio_icon: Option<TexId>,
     hud_audio_icon: Option<TexId>,
-    audio_icon_key: Option<(bool, bool)>,
+    audio_icon_key: Option<(u8, bool)>,
     bluetooth_lines: Vec<String>,
     session: Session,
     start: Instant,
@@ -503,14 +503,30 @@ impl Frontend {
 
     pub fn compose(&mut self, compositor: &mut Compositor) {
         let bluetooth = self.session.app().bluetooth_active();
-        if bluetooth || self.session.app().wired_audio_active() {
+        let usb = self.session.app().usb_audio_active();
+        let kind = if usb {
+            2
+        } else if bluetooth {
+            1
+        } else {
+            0
+        };
+        if usb || bluetooth || self.session.app().wired_audio_active() {
             let light = self.session.app().light();
-            if self.audio_icon_key != Some((bluetooth, light)) {
+            if self.audio_icon_key != Some((kind, light)) {
                 let face = |ink| {
-                    if bluetooth {
+                    if bluetooth && !usb {
                         crate::bluetooth::indicator_face_with_ink(ink)
                     } else {
-                        let f = slot_ui::icon_face(slot_ui::Icon::Headphones, 20.0, ink);
+                        let f = slot_ui::icon_face(
+                            if usb {
+                                slot_ui::Icon::Usb
+                            } else {
+                                slot_ui::Icon::Headphones
+                            },
+                            20.0,
+                            ink,
+                        );
                         slot_ui::UndoFace {
                             rgba: f.rgba,
                             w: f.w,
@@ -524,7 +540,7 @@ impl Frontend {
                     face(slot_ui::footer_ink(light)),
                 );
                 upload(compositor, &mut self.hud_audio_icon, face(slot_ui::HUD_INK));
-                self.audio_icon_key = Some((bluetooth, light));
+                self.audio_icon_key = Some((kind, light));
             }
             self.session.app_mut().audio_indicator = self.audio_icon;
             self.session.app_mut().hud_audio_indicator = self.hud_audio_icon;

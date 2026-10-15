@@ -306,6 +306,7 @@ pub struct App {
     pub hud_audio_indicator: Option<TexId>,
     bluetooth_connected: bool,
     bluetooth_route: Option<String>,
+    usb_active: bool,
     disconnect_volume: u8,
     bluetooth_probe: Option<std::sync::mpsc::Receiver<bool>>,
     phase: Phase,
@@ -459,6 +460,7 @@ impl App {
             hud_audio_indicator: None,
             bluetooth_connected: false,
             bluetooth_route: None,
+            usb_active: false,
             disconnect_volume: 0,
             bluetooth_probe: None,
             radio: radio_jobs(),
@@ -1172,6 +1174,39 @@ impl App {
         }
     }
 
+    pub fn usb_audio_active(&self) -> bool {
+        self.usb_active
+    }
+
+    pub fn usb_state(&mut self, active: bool, unplugged: bool) {
+        if self.usb_active == active {
+            // A restarted application may inherit a stale runtime USB route.
+            if unplugged && self.output_volume() != self.disconnect_volume {
+                self.apply_disconnect_volume(self.headphones);
+            }
+            return;
+        }
+        self.usb_active = active;
+        self.hud.set_usb(active);
+        self.vol_before.clear();
+        if !active && !self.bluetooth_connected {
+            self.apply_disconnect_volume(self.headphones);
+        }
+        let now = self.now();
+        self.hud
+            .show(HudKind::Volume, self.output_volume(), self.muted(), now);
+        if active || unplugged {
+            self.hud.toast(
+                if active {
+                    Toast::UsbConnected
+                } else {
+                    Toast::UsbDisconnected
+                },
+                now,
+            );
+        }
+    }
+
     fn apply_disconnect_volume(&mut self, wired: bool) {
         let value = self.disconnect_volume;
         if wired {
@@ -1186,7 +1221,7 @@ impl App {
     }
 
     fn local_headphones(&self) -> bool {
-        self.headphones && !self.bluetooth_connected
+        self.headphones && !self.bluetooth_connected && !self.usb_active
     }
 
     pub fn wired_audio_active(&self) -> bool {
@@ -2373,6 +2408,7 @@ impl App {
         let level = match kind {
             HudKind::Brightness => &mut self.state.brightness,
             HudKind::BlueLight => &mut self.state.blue_light,
+            HudKind::Volume if self.usb_active => &mut self.state.volume_usb,
             HudKind::Volume if self.bluetooth_connected => self.state.volume_bt.get_or_insert(0),
             HudKind::Volume if self.local_headphones() => &mut self.state.volume_hp,
             HudKind::Volume => &mut self.state.volume,
@@ -2456,7 +2492,9 @@ impl App {
     }
 
     fn level(&self) -> u8 {
-        if self.bluetooth_connected {
+        if self.usb_active {
+            self.state.volume_usb
+        } else if self.bluetooth_connected {
             self.state.volume_bt.unwrap_or(0)
         } else if self.local_headphones() {
             self.state.volume_hp
@@ -2466,7 +2504,9 @@ impl App {
     }
 
     fn level_mut(&mut self) -> &mut u8 {
-        if self.bluetooth_connected {
+        if self.usb_active {
+            &mut self.state.volume_usb
+        } else if self.bluetooth_connected {
             self.state.volume_bt.get_or_insert(0)
         } else if self.local_headphones() {
             &mut self.state.volume_hp
@@ -2476,7 +2516,9 @@ impl App {
     }
 
     pub fn muted(&self) -> bool {
-        if self.bluetooth_connected {
+        if self.usb_active {
+            self.state.muted_usb
+        } else if self.bluetooth_connected {
             self.state.muted_bt
         } else if self.local_headphones() {
             self.state.muted_hp
@@ -2486,7 +2528,9 @@ impl App {
     }
 
     fn muted_mut(&mut self) -> &mut bool {
-        if self.bluetooth_connected {
+        if self.usb_active {
+            &mut self.state.muted_usb
+        } else if self.bluetooth_connected {
             &mut self.state.muted_bt
         } else if self.local_headphones() {
             &mut self.state.muted_hp
@@ -2748,7 +2792,7 @@ impl App {
             let on = self.power.as_ref().is_some_and(|p| p.headphones());
             if on != self.headphones {
                 self.headphones = on;
-                if !on && !self.bluetooth_connected {
+                if !on && !self.bluetooth_connected && !self.usb_active {
                     self.apply_disconnect_volume(false);
                     self.hud.toast(Toast::HeadphonesDisconnected, self.now());
                 }
@@ -4800,6 +4844,31 @@ mod bluetooth_tests {
         restarted.bluetooth_state(None, false);
         assert_eq!(restarted.volume(), 0);
         assert_eq!(restarted.state.volume_bt, Some(65));
+    }
+
+    #[test]
+    fn usb_volume_is_independent_and_unplug_applies_disconnect_volume() {
+        let mut app = App::new(vec![]);
+        app.state.volume = 55;
+        app.state.volume_hp = 35;
+        app.disconnect_volume = 10;
+        app.usb_state(true, false);
+        assert_eq!(app.volume(), 20);
+        assert_eq!(app.hud_icon(), Icon::Usb);
+        *app.level_mut() = 45;
+        *app.muted_mut() = true;
+        app.usb_state(false, true);
+        assert_eq!(app.volume(), 10);
+        assert_eq!(app.state.volume_usb, 45);
+        assert_eq!(app.state.volume_hp, 35);
+        app.headphones = true;
+        app.usb_state(true, false);
+        assert_eq!(app.volume(), 45);
+        assert!(app.muted());
+        assert!(!app.wired_audio_active());
+        app.usb_state(false, true);
+        assert_eq!(app.state.volume_hp, 10);
+        assert!(app.wired_audio_active());
     }
 
     #[test]

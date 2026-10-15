@@ -196,6 +196,8 @@ fn a_card_from_before_the_settings_keeps_all_its_values() {
             volume_hp: 40,
             volume_bt: None,
             muted_bt: false,
+            volume_usb: 20,
+            muted_usb: false,
             muted: true,
             muted_hp: true,
             clock_set: true,

@@ -533,7 +533,11 @@ case "$VERB" in
         mkdir -p "$ROOT/Config"
         : > "$OFF"
         rm -f "$PREF"
-        route ''
+        current=$(cat "$ROUTE" 2>/dev/null || true)
+        case "$current" in
+            plughw:CARD=*,DEV=*) output=$current ;;
+            *) route ''; output=speaker ;;
+        esac
         # Do not start services merely to shut them down.
         timeout 3 "$BT" pairable off >/dev/null 2>&1 || true
         timeout 3 "$BT" discoverable off >/dev/null 2>&1 || true
@@ -542,7 +546,7 @@ case "$VERB" in
         if timeout 3 "$BT" show 2>/dev/null | grep -q '^[[:space:]]*Powered: yes[[:space:]]*$'; then
             fail 'Bluetooth is still powered on'
         fi
-        printf 'OUTPUT speaker\n'
+        printf 'OUTPUT %s\n' "$output"
         ;;
     speaker)
         STAGE='speaker selection'

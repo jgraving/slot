@@ -459,5 +459,13 @@ esac
         self.assertNotEqual(result.returncode, 0)
         self.assertEqual(route.read_text(), old)
 
+    def test_bluetooth_off_preserves_selected_usb_audio(self):
+        route = 'plughw:CARD=Audio,DEV=0'
+        (self.root / 'route').write_text(route)
+        result = self.run_command('off')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual((self.root / 'route').read_text(), route)
+        self.assertIn('OUTPUT ' + route, result.stdout)
+
 if __name__ == '__main__':
     unittest.main()

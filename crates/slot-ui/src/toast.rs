@@ -10,6 +10,8 @@ use crate::CartFace;
 pub enum Toast {
     BluetoothConnected,
     BluetoothDisconnected,
+    UsbConnected,
+    UsbDisconnected,
     HeadphonesDisconnected,
     StateSaved,
     StateLoaded,
@@ -30,9 +32,11 @@ pub enum Toast {
 }
 
 impl Toast {
-    const FIXED: [Toast; 18] = [
+    const FIXED: [Toast; 20] = [
         Toast::BluetoothConnected,
         Toast::BluetoothDisconnected,
+        Toast::UsbConnected,
+        Toast::UsbDisconnected,
         Toast::HeadphonesDisconnected,
         Toast::StateSaved,
         Toast::StateLoaded,
@@ -71,6 +75,8 @@ impl Toast {
             Toast::BluetoothConnected
                 | Toast::BluetoothDisconnected
                 | Toast::HeadphonesDisconnected
+                | Toast::UsbConnected
+                | Toast::UsbDisconnected
         )
     }
 
@@ -88,6 +94,8 @@ impl Toast {
     pub fn text(self) -> &'static str {
         match self {
             Toast::BluetoothConnected => "Bluetooth connected",
+            Toast::UsbConnected => "USB audio selected",
+            Toast::UsbDisconnected => "USB audio unplugged",
             Toast::BluetoothDisconnected => "Bluetooth disconnected",
             Toast::HeadphonesDisconnected => "Headphones unplugged",
             Toast::StateSaved => "State Saved",

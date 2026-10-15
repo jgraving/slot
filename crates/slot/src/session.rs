@@ -19,6 +19,7 @@ use crate::persist;
 use crate::prefetch::Prefetch;
 
 pub struct Session {
+    usb_monitor: crate::usb_audio::Monitor,
     bluetooth_monitor: crate::bluetooth::Indicator,
     bluetooth_reconnect: crate::bluetooth::Reconnect,
     bluetooth_events: crate::bluetooth::Events,
@@ -44,6 +45,7 @@ impl Session {
 
     pub fn boot_with(root: PathBuf, sink: Box<dyn AudioSink>) -> Self {
         let mut session = Session {
+            usb_monitor: Default::default(),
             bluetooth_monitor: Default::default(),
             bluetooth_reconnect: Default::default(),
             bluetooth_events: Default::default(),
@@ -250,6 +252,33 @@ impl Session {
             self.app
                 .bluetooth_state(self.bluetooth_monitor.address(), connected);
             self.bluetooth_reconnect.poll(&self.root, connected);
+            self.usb_monitor.poll();
+            let route = std::fs::read_to_string(crate::usb_audio::route_path()).unwrap_or_default();
+            let route = route.trim();
+            let selected = crate::usb_audio::valid_route(route);
+            let present = self.usb_monitor.devices.iter().any(|d| d.route == route);
+            self.app
+                .usb_state(selected && present, selected && !present);
+            if selected && !present {
+                // Lower local volume before allowing ALSA to open the speaker.
+                if let Some(emu) = &self.emu {
+                    emu.set_volume(self.app.output_volume());
+                }
+                if std::fs::read_to_string(crate::usb_audio::route_path())
+                    .is_ok_and(|s| s.trim() == route)
+                {
+                    let _ = crate::usb_audio::write_route("");
+                }
+            }
+            if let Some(menu) = &mut self.app.bluetooth {
+                if menu.usb_devices != self.usb_monitor.devices {
+                    menu.usb_devices = self.usb_monitor.devices.clone();
+                    menu.selected = menu.selected.min(menu.rows().len().saturating_sub(1));
+                }
+                if selected && present {
+                    menu.observe_output(Some(route), true);
+                }
+            }
         }
 
         self.bridge_link(|app| app.update(dt));
@@ -259,9 +288,11 @@ impl Session {
             .as_mut()
             .and_then(|menu| menu.route_choice.take())
         {
+            let usb = crate::usb_audio::valid_route(&output);
             let address = crate::bluetooth::valid_address(&output).then_some(output);
             self.bluetooth_monitor.select(address.clone());
             self.app.bluetooth_state(address.clone(), address.is_some());
+            self.app.usb_state(usb, false);
         }
         if let Some(emu) = &self.emu {
             emu.set_volume(self.app.output_volume());

@@ -23,10 +23,12 @@ pub enum Icon {
     HeadphonesMuted,
     Bluetooth,
     BluetoothMuted,
+    Usb,
+    UsbMuted,
 }
 
 impl Icon {
-    pub const ALL: [Icon; 14] = [
+    pub const ALL: [Icon; 16] = [
         Icon::Volume,
         Icon::VolumeZero,
         Icon::VolumeMuted,
@@ -41,6 +43,8 @@ impl Icon {
         Icon::HeadphonesMuted,
         Icon::Bluetooth,
         Icon::BluetoothMuted,
+        Icon::Usb,
+        Icon::UsbMuted,
     ];
 
     pub fn index(self) -> usize {
@@ -62,6 +66,7 @@ impl Icon {
             Icon::Headphones => '\u{f025}',
             Icon::HeadphonesMuted => '\u{f07ce}',
             Icon::Bluetooth | Icon::BluetoothMuted => '\u{f294}',
+            Icon::Usb | Icon::UsbMuted => '\u{f287}',
         }
     }
 }
@@ -235,8 +240,11 @@ fn raster(icon: Icon, px: f32) -> Option<Arc<Raster>> {
 fn rasterise(icon: Icon, px: f32) -> Option<Raster> {
     let font = symbols_font()?;
     let f = frame(font, px);
-    if matches!(icon, Icon::Bluetooth | Icon::BluetoothMuted) {
-        let muted = icon == Icon::BluetoothMuted;
+    if matches!(
+        icon,
+        Icon::Bluetooth | Icon::BluetoothMuted | Icon::Usb | Icon::UsbMuted
+    ) {
+        let muted = matches!(icon, Icon::BluetoothMuted | Icon::UsbMuted);
         let mut out = vec![0u8; (f.w * f.h) as usize];
         let height = (f.h as f32 * 0.85) as i32;
         let width = (f.w as f32 * if muted { 0.55 } else { 0.7 }) as i32;
@@ -254,13 +262,32 @@ fn rasterise(icon: Icon, px: f32) -> Option<Raster> {
                 }
             }
         };
-        for ((x0, y0), (x1, y1)) in [
-            ((9, 1), (9, 18)),
-            ((9, 1), (16, 6)),
-            ((16, 6), (3, 15)),
-            ((9, 18), (16, 13)),
-            ((16, 13), (3, 4)),
-        ] {
+        let segments: &[((i32, i32), (i32, i32))] = if matches!(icon, Icon::Usb | Icon::UsbMuted) {
+            &[
+                ((10, 18), (10, 2)),
+                ((10, 2), (7, 5)),
+                ((10, 2), (13, 5)),
+                ((10, 13), (4, 9)),
+                ((4, 9), (4, 5)),
+                ((3, 5), (5, 5)),
+                ((10, 15), (16, 11)),
+                ((16, 11), (16, 7)),
+                ((14, 7), (18, 7)),
+                ((14, 7), (14, 9)),
+                ((18, 7), (18, 9)),
+                ((14, 9), (18, 9)),
+                ((8, 18), (12, 18)),
+            ]
+        } else {
+            &[
+                ((9, 1), (9, 18)),
+                ((9, 1), (16, 6)),
+                ((16, 6), (3, 15)),
+                ((9, 18), (16, 13)),
+                ((16, 13), (3, 4)),
+            ]
+        };
+        for &((x0, y0), (x1, y1)) in segments {
             line(
                 left + x0 * width / 20,
                 top + y0 * height / 20,

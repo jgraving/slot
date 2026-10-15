@@ -76,6 +76,7 @@ pub struct Manager {
     pub page: Page,
     stack: Vec<Page>,
     pub devices: Vec<Headphones>,
+    pub usb_devices: Vec<crate::usb_audio::Device>,
     pub selected: usize,
     pub status: String,
     output: String,
@@ -99,6 +100,7 @@ impl Manager {
             page: Page::Home,
             stack: Vec::new(),
             devices: Vec::new(),
+            usb_devices: Vec::new(),
             selected: 0,
             status: String::new(),
             output: "speaker".into(),
@@ -126,7 +128,7 @@ impl Manager {
         if self.pending.is_some() {
             return;
         }
-        self.choosing_route = matches!(verb, "speaker" | "connect" | "off");
+        self.choosing_route = matches!(verb, "speaker" | "connect" | "off" | "usb" | "local");
         let root = self.root.clone();
         let (tx, rx) = mpsc::channel();
         self.pending = Some(rx);
@@ -142,14 +144,20 @@ impl Manager {
             }
             "connect" => "Pairing and connecting...",
             "forget" => "Forgetting device...",
-            "speaker" => "Switching output...",
+            "speaker" | "local" | "usb" => "Switching output...",
             "off" => "Turning Bluetooth off...",
             "diagnose" => "Saving report...",
             _ => "",
         }
         .into();
+        let bluetooth_available = self.bluetooth_available;
         std::thread::spawn(move || {
-            let _ = tx.send(run(root, verb, address));
+            let result = if verb == "usb" || verb == "local" {
+                run_usb(root, address, bluetooth_available)
+            } else {
+                run(root, verb, address)
+            };
+            let _ = tx.send(result);
         });
     }
 
@@ -171,7 +179,14 @@ impl Manager {
                             .device_indices()
                             .iter()
                             .position(|i| self.devices[*i].address == output)
-                            .map_or(0, |i| i + 1);
+                            .map(|i| i + 1)
+                            .or_else(|| {
+                                self.usb_devices
+                                    .iter()
+                                    .position(|d| d.route == output)
+                                    .map(|i| 1 + self.device_indices().len() + i)
+                            })
+                            .unwrap_or(0);
                     }
                     self.choosing_route = false;
                     self.output = output;
@@ -211,7 +226,9 @@ impl Manager {
     }
 
     fn disconnect_row(&self) -> usize {
-        1 + self.device_indices().len() + usize::from(self.bluetooth_available)
+        1 + self.device_indices().len()
+            + self.usb_devices.len()
+            + usize::from(self.bluetooth_available)
     }
 
     fn device_indices(&self) -> Vec<usize> {
@@ -239,7 +256,7 @@ impl Manager {
                 };
                 let mut rows = vec![format!(
                     "{}{}",
-                    if valid_address(&self.output) {
+                    if valid_address(&self.output) || crate::usb_audio::valid_route(&self.output) {
                         ""
                     } else {
                         "ACTIVE "
@@ -255,6 +272,17 @@ impl Manager {
                             ""
                         },
                         self.devices[*i].name
+                    )
+                }));
+                rows.extend(self.usb_devices.iter().map(|d| {
+                    format!(
+                        "{}{}",
+                        if d.route == self.output {
+                            "ACTIVE "
+                        } else {
+                            ""
+                        },
+                        d.name
                     )
                 }));
                 if self.bluetooth_available {
@@ -325,10 +353,11 @@ impl Manager {
             Action::GbaDown(Btn::A) => match self.page.clone() {
                 Page::Home => match self.selected {
                     0 if self.bluetooth_available => self.ask("speaker", None),
-                    0 => {}
+                    0 => self.ask("local", None),
                     selected
                         if self.bluetooth_available
-                            && selected == 1 + self.device_indices().len() =>
+                            && selected
+                                == 1 + self.device_indices().len() + self.usb_devices.len() =>
                     {
                         self.open(Page::Pair)
                     }
@@ -337,6 +366,17 @@ impl Manager {
                         if self.bluetooth_available && selected == self.disconnect_row() + 1 =>
                     {
                         self.ask("off", None)
+                    }
+                    selected
+                        if selected > self.device_indices().len()
+                            && selected <= self.device_indices().len() + self.usb_devices.len() =>
+                    {
+                        let route = self.usb_devices[selected - 1 - self.device_indices().len()]
+                            .route
+                            .clone();
+                        if self.output != route {
+                            self.ask("usb", Some(route));
+                        }
                     }
                     selected => {
                         if let Some(i) = self.device_indices().get(selected - 1) {
@@ -458,6 +498,79 @@ impl Manager {
         }
         lines
     }
+}
+
+fn run_usb(root: PathBuf, route: Option<String>, bluetooth_available: bool) -> ResultMessage {
+    let error = |s: &str| ResultMessage {
+        devices: vec![],
+        output: None,
+        status: format!("Error: {s}"),
+    };
+    if let Some(route) = &route {
+        if !crate::usb_audio::devices()
+            .iter()
+            .any(|d| d.route == *route)
+        {
+            return error("USB audio device is no longer connected");
+        }
+    }
+    #[cfg(feature = "device")]
+    if let Some(route) = &route {
+        // One second of digital silence verifies playback/resampling without
+        // changing mixer gain or selecting this output before it can open.
+        let ready = std::process::Command::new("timeout")
+            .args([
+                "3",
+                "aplay",
+                "-q",
+                "-D",
+                route,
+                "-t",
+                "raw",
+                "-f",
+                "S16_LE",
+                "-r",
+                "48000",
+                "-c",
+                "2",
+                "-d",
+                "1",
+                "/dev/zero",
+            ])
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .status()
+            .is_ok_and(|s| s.success());
+        if !ready {
+            return error("Could not open USB audio playback");
+        }
+    }
+    let mut result = if bluetooth_available || root.join("Config/bluetooth-headphones").exists() {
+        run(root, "speaker", None)
+    } else {
+        ResultMessage {
+            devices: vec![],
+            output: None,
+            status: String::new(),
+        }
+    };
+    if result.status.starts_with("Error:") {
+        return result;
+    }
+    if let Some(route) = &route {
+        if !crate::usb_audio::devices()
+            .iter()
+            .any(|d| d.route == *route)
+        {
+            return error("USB audio device was unplugged");
+        }
+    }
+    if crate::usb_audio::write_route(route.as_deref().unwrap_or("")).is_err() {
+        return error("Could not select audio output");
+    }
+    result.output = Some(route.unwrap_or_else(|| "speaker".into()));
+    result.status.clear();
+    result
 }
 
 pub fn fallback_to_local(root: PathBuf, address: String) {
@@ -797,6 +910,7 @@ mod menu_tests {
             disconnect_volume: 0,
             page: Page::Home,
             stack: Vec::new(),
+            usb_devices: Vec::new(),
             devices: vec![Headphones {
                 address: "AA:BB:CC:DD:EE:FF".into(),
                 name: "WF-C510".into(),
@@ -814,6 +928,28 @@ mod menu_tests {
             choosing_route: false,
         }
     }
+    #[test]
+    fn usb_outputs_appear_without_bluetooth_and_show_selected_output() {
+        let mut m = menu();
+        m.bluetooth_available = false;
+        m.usb_devices = vec![crate::usb_audio::Device {
+            route: "plughw:CARD=Audio,DEV=0".into(),
+            name: "USB · AB13X USB Audio".into(),
+        }];
+        assert_eq!(
+            m.rows(),
+            vec![
+                "ACTIVE Internal speaker",
+                "USB · AB13X USB Audio",
+                "DISCONNECT 0%"
+            ]
+        );
+        m.observe_output(Some("plughw:CARD=Audio,DEV=0"), true);
+        assert_eq!(m.rows()[0], "Internal speaker");
+        assert!(m.rows()[1].starts_with("ACTIVE USB"));
+        assert_eq!(m.disconnect_row(), 2);
+    }
+
     #[test]
     fn off_is_available_only_with_bluetooth_and_reflects_the_saved_state() {
         let root = tempfile::tempdir().unwrap();

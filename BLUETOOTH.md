@@ -1,4 +1,4 @@
-# Bluetooth audio
+# Sound outputs
 
 Open **Sound**, then **Pair audio device**. Put your device in
 pairing mode, choose **Scan for devices**, and select them from the list.
@@ -84,3 +84,22 @@ or `latest-restore.txt`; each helper report is limited to 128 KiB. The helper
 removes only its older timestamped operation logs and error archives. Background
 BlueALSA output is not appended to these files. Press X to save a fresh report
 when investigating a problem.
+
+## USB audio
+
+Plug a USB audio device into the handheld’s data/OTG port, then select its USB
+row in Sound. Only USB devices with an ALSA playback endpoint are listed;
+internal audio, HDMI and microphone-only devices are excluded. Plugging one in
+does not interrupt an existing output. Select USB explicitly after plugging it
+back in or restarting.
+
+USB playback is checked with digital silence before switching, without changing
+hardware mixer gain. USB volume starts at 20% and its volume and mute setting are
+remembered separately across restarts. The USB icon identifies the selected
+output beside the battery and in the volume indicator, including in-game menus.
+Unplugging USB applies Volume on disconnect before returning to the local output.
+Turning Bluetooth off leaves USB audio playing. No microphone capture is opened.
+
+BaseOS on RG SP detects AB13X USB Audio earbuds; playback and unplug behavior in
+this build still require device testing. USB audio does not require Bluetooth
+hardware. Card IDs are used rather than assuming the USB device is always card 3.
