@@ -269,7 +269,7 @@ impl QuickRow {
             QuickRow::Rumble => "Rumble",
             QuickRow::DateTime => "Date & Time",
             QuickRow::About => "About",
-            QuickRow::Bluetooth => "Bluetooth Audio",
+            QuickRow::Bluetooth => "Sound",
             QuickRow::GbaShader => "Shader",
             QuickRow::GbShader => "Shader",
             QuickRow::GbcShader => "Shader",

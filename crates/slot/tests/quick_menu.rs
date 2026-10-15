@@ -232,6 +232,7 @@ fn up_and_down_move_the_bar_and_wrap_at_the_ends() {
         QuickRow::General,
         QuickRow::Screen,
         QuickRow::Game,
+        QuickRow::Bluetooth,
         QuickRow::About,
         QuickRow::General,
     ] {
@@ -629,7 +630,7 @@ fn fake_faces(a: &mut App) {
     let id = TexId::from_raw;
     a.set_quick_menu_faces(QuickMenuFaces {
         labels: (0..QuickRow::ALL.len())
-            .map(|i| [(id(100 + i), 200, 40), (id(130 + i), 200, 40)])
+            .map(|i| [(id(100 + i), 200, 40), (id(150 + i), 200, 40)])
             .collect(),
         pointer: (id(700), 32, 48),
         values: (0..QuickValue::ALL.len())
@@ -643,7 +644,7 @@ fn fake_faces(a: &mut App) {
 
 fn label(row: QuickRow, lit: bool) -> usize {
     if lit {
-        130 + row.index()
+        150 + row.index()
     } else {
         100 + row.index()
     }
@@ -840,7 +841,7 @@ fn no_row_in_hand_runs_its_arrows_into_its_label() {
             .enumerate()
             .map(|(i, r)| {
                 let w = slot_ui::quick_label_face(*r, true).w;
-                [(id(100 + i), w, 40), (id(130 + i), w, 40)]
+                [(id(100 + i), w, 40), (id(150 + i), w, 40)]
             })
             .collect(),
         pointer: (id(700), 32, 48),
@@ -871,7 +872,7 @@ fn no_row_in_hand_runs_its_arrows_into_its_label() {
             }
             open_at(&mut a, row);
             let out = frame(&a);
-            let [lx, _, lw, _] = placed(&out, 130 + row.index()).expect("the lit label");
+            let [lx, _, lw, _] = placed(&out, 150 + row.index()).expect("the lit label");
             let label_ends = lx + lw - MENU_PAD as f32;
             if let Some([cx, ..]) = placed(&out, 300) {
                 assert!(

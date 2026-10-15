@@ -302,6 +302,10 @@ const FAVORITES_AT: usize = 1;
 pub struct App {
     pub bluetooth: Option<crate::bluetooth::Manager>,
     bluetooth_supported: bool,
+    pub bluetooth_indicator: Option<TexId>,
+    bluetooth_connected: bool,
+    bluetooth_route: Option<String>,
+    disconnect_volume: u8,
     bluetooth_probe: Option<std::sync::mpsc::Receiver<bool>>,
     phase: Phase,
     shelves: Vec<(Rack, Shelf)>,
@@ -450,6 +454,10 @@ impl App {
         App {
             bluetooth: None,
             bluetooth_supported: false,
+            bluetooth_indicator: None,
+            bluetooth_connected: false,
+            bluetooth_route: None,
+            disconnect_volume: 0,
             bluetooth_probe: None,
             radio: radio_jobs(),
             state_writer,
@@ -569,6 +577,7 @@ impl App {
         let mut app = App::new(carts);
         app.root = Some(root.to_path_buf());
         app.bluetooth_probe = crate::bluetooth::probe(root);
+        app.disconnect_volume = crate::bluetooth::disconnect_volume(root);
         app.state = read_slot_state(root);
         app.restock_recents();
         app.restock_favorites();
@@ -1117,24 +1126,58 @@ impl App {
         }
     }
 
+    pub fn bluetooth_state(&mut self, address: Option<String>, connected: bool) {
+        let lost = self.bluetooth_connected
+            && !connected
+            && address.is_some()
+            && self.bluetooth_route == address;
+        self.bluetooth_route = address.clone();
+        if lost {
+            self.apply_disconnect_volume(self.headphones);
+            if let (Some(root), Some(address)) = (self.root.clone(), address.clone()) {
+                crate::bluetooth::fallback_to_local(root, address);
+            }
+        }
+        self.bluetooth_connected = address.is_some() && connected;
+        self.hud
+            .set_headphones(self.headphones || self.bluetooth_connected);
+        if let Some(menu) = &mut self.bluetooth {
+            menu.wired = self.headphones;
+            menu.observe_output(address.as_deref(), connected);
+        }
+    }
+
+    fn apply_disconnect_volume(&mut self, wired: bool) {
+        let value = self.disconnect_volume;
+        if wired {
+            self.state.volume_hp = value;
+            self.state.muted_hp = value == 0;
+        } else {
+            self.state.volume = value;
+            self.state.muted = value == 0;
+        }
+        self.vol_before.clear();
+        self.persist_soon();
+    }
+
+    fn local_headphones(&self) -> bool {
+        self.headphones && !self.bluetooth_connected
+    }
+
+    pub fn bluetooth_active(&self) -> bool {
+        self.bluetooth_connected
+    }
+
     pub fn hidden_rows(&self) -> &'static [QuickRow] {
         let own = matches!(
             self.state.wallpaper,
             WallpaperPick::File(_) | WallpaperPick::Random
         );
-        match (own, self.framed_panel(), self.bluetooth_supported) {
-            (true, true, true) => &[],
-            (true, false, true) => &[QuickRow::GbaBezel],
-            (false, true, true) => &[QuickRow::WallpaperTint],
-            (false, false, true) => &[QuickRow::WallpaperTint, QuickRow::GbaBezel],
-            (true, true, false) => &[QuickRow::Bluetooth],
-            (true, false, false) => &[QuickRow::GbaBezel, QuickRow::Bluetooth],
-            (false, true, false) => &[QuickRow::WallpaperTint, QuickRow::Bluetooth],
-            (false, false, false) => &[
-                QuickRow::WallpaperTint,
-                QuickRow::GbaBezel,
-                QuickRow::Bluetooth,
-            ],
+        match (own, self.framed_panel()) {
+            (true, true) => &[],
+            (true, false) => &[QuickRow::GbaBezel],
+            (false, true) => &[QuickRow::WallpaperTint],
+            (false, false) => &[QuickRow::WallpaperTint, QuickRow::GbaBezel],
         }
     }
 
@@ -1834,12 +1877,12 @@ impl App {
             if self.adjust(action) {
                 return;
             }
-            if self
-                .bluetooth
-                .as_mut()
-                .is_some_and(|menu| menu.input(action))
-            {
-                self.bluetooth = None;
+            if let Some(menu) = &mut self.bluetooth {
+                let close = menu.input(action);
+                self.disconnect_volume = menu.disconnect_volume;
+                if close {
+                    self.bluetooth = None;
+                }
             }
             return;
         }
@@ -2030,10 +2073,11 @@ impl App {
     fn open_quick_row(&mut self, row: QuickRow) {
         match row {
             QuickRow::Bluetooth => {
-                if self.bluetooth_supported {
-                    if let Some(root) = &self.root {
-                        self.bluetooth = Some(crate::bluetooth::Manager::new(root.clone()));
-                    }
+                if let Some(root) = &self.root {
+                    let mut menu =
+                        crate::bluetooth::Manager::new(root.clone(), self.bluetooth_supported);
+                    menu.wired = self.headphones;
+                    self.bluetooth = Some(menu);
                 }
             }
             QuickRow::DateTime => {
@@ -2297,7 +2341,7 @@ impl App {
         let level = match kind {
             HudKind::Brightness => &mut self.state.brightness,
             HudKind::BlueLight => &mut self.state.blue_light,
-            HudKind::Volume if self.headphones => &mut self.state.volume_hp,
+            HudKind::Volume if self.local_headphones() => &mut self.state.volume_hp,
             HudKind::Volume => &mut self.state.volume,
             HudKind::Rewind => return false,
         };
@@ -2379,7 +2423,7 @@ impl App {
     }
 
     fn level(&self) -> u8 {
-        if self.headphones {
+        if self.local_headphones() {
             self.state.volume_hp
         } else {
             self.state.volume
@@ -2387,7 +2431,7 @@ impl App {
     }
 
     fn level_mut(&mut self) -> &mut u8 {
-        if self.headphones {
+        if self.local_headphones() {
             &mut self.state.volume_hp
         } else {
             &mut self.state.volume
@@ -2395,7 +2439,7 @@ impl App {
     }
 
     pub fn muted(&self) -> bool {
-        if self.headphones {
+        if self.local_headphones() {
             self.state.muted_hp
         } else {
             self.state.muted
@@ -2403,7 +2447,7 @@ impl App {
     }
 
     fn muted_mut(&mut self) -> &mut bool {
-        if self.headphones {
+        if self.local_headphones() {
             &mut self.state.muted_hp
         } else {
             &mut self.state.muted
@@ -2611,6 +2655,9 @@ impl App {
             match probe.try_recv() {
                 Ok(supported) => {
                     self.bluetooth_supported = supported;
+                    if let Some(menu) = &mut self.bluetooth {
+                        menu.set_available(supported);
+                    }
                     self.bluetooth_probe = None;
                 }
                 Err(std::sync::mpsc::TryRecvError::Disconnected) => self.bluetooth_probe = None,
@@ -2619,6 +2666,7 @@ impl App {
         }
         if let Some(menu) = &mut self.bluetooth {
             menu.poll();
+            self.disconnect_volume = menu.disconnect_volume;
         }
 
         self.play_hold();
@@ -2659,7 +2707,13 @@ impl App {
             let on = self.power.as_ref().is_some_and(|p| p.headphones());
             if on != self.headphones {
                 self.headphones = on;
-                self.hud.set_headphones(on);
+                if !on && !self.bluetooth_connected {
+                    self.apply_disconnect_volume(false);
+                }
+                self.hud.set_headphones(on || self.bluetooth_connected);
+                if let Some(menu) = &mut self.bluetooth {
+                    menu.wired = on;
+                }
                 let now = self.now();
                 self.hud
                     .show(HudKind::Volume, self.output_volume(), self.muted(), now);
@@ -3034,6 +3088,14 @@ impl App {
                     footer_ink(self.light()),
                     out,
                 );
+                if self.bluetooth_connected {
+                    slot_ui::draw_footer_connection(
+                        self.battery,
+                        self.battery_percent,
+                        self.bluetooth_indicator,
+                        out,
+                    );
+                }
             }
             Phase::About => {
                 slot_ui::draw_menu_ground(self.canvas(), self.menu_ground(), out);
@@ -4630,34 +4692,71 @@ mod bluetooth_tests {
     use super::*;
 
     #[test]
-    fn bluetooth_stays_hidden_until_a_successful_probe() {
+    fn bluetooth_disconnect_sets_local_volume_once_and_hides_icon() {
+        let mut app = App::new(vec![]);
+        app.disconnect_volume = 25;
+        let address = Some("AA:BB:CC:DD:EE:FF".to_owned());
+        app.bluetooth_state(address.clone(), true);
+        assert!(app.bluetooth_active());
+        app.bluetooth_state(address.clone(), false);
+        assert!(!app.bluetooth_active());
+        assert_eq!(app.state.volume, 25);
+        assert!(!app.state.muted);
+        app.state.volume = 30;
+        app.bluetooth_state(address, false);
+        assert_eq!(app.state.volume, 30, "repeated polls must not reset volume");
+    }
+
+    #[test]
+    fn bluetooth_disconnect_uses_wired_output_if_a_cable_is_present() {
+        let mut app = App::new(vec![]);
+        app.headphones = true;
+        app.state.volume = 45;
+        app.state.volume_hp = 15;
+        app.disconnect_volume = 10;
+        let address = Some("AA:BB:CC:DD:EE:FF".to_owned());
+        app.bluetooth_state(address.clone(), true);
+        assert_eq!(
+            app.volume(),
+            45,
+            "wired jack must not select Bluetooth volume"
+        );
+        app.bluetooth_state(address, false);
+        assert_eq!(app.state.volume_hp, 10);
+        assert_eq!(app.state.volume, 45);
+        app.bluetooth_state(None, false);
+        assert_eq!(app.volume(), 10);
+    }
+
+    #[test]
+    fn bluetooth_controls_stay_unavailable_until_a_successful_probe() {
         for result in [false, true] {
             let mut app = App::new(vec![]);
-            assert!(app.hidden_rows().contains(&QuickRow::Bluetooth));
+            assert!(!app.bluetooth_supported);
             let (tx, rx) = std::sync::mpsc::channel();
             app.bluetooth_probe = Some(rx);
             app.tick_ms(0);
-            assert!(app.hidden_rows().contains(&QuickRow::Bluetooth));
+            assert!(!app.bluetooth_supported);
             tx.send(result).unwrap();
             app.tick_ms(1);
-            assert_eq!(app.hidden_rows().contains(&QuickRow::Bluetooth), !result);
+            assert_eq!(app.bluetooth_supported, result);
             assert!(app.bluetooth_probe.is_none());
         }
     }
 
     #[test]
-    fn failed_probe_worker_keeps_upstream_menu_and_navigation() {
+    fn failed_probe_worker_keeps_bluetooth_controls_unavailable() {
         let mut app = App::new(vec![]);
         let (tx, rx) = std::sync::mpsc::channel();
         app.bluetooth_probe = Some(rx);
         drop(tx);
         app.tick_ms(0);
-        assert!(app.hidden_rows().contains(&QuickRow::Bluetooth));
+        assert!(!app.bluetooth_supported);
         app.phase = Phase::QuickMenu {
             row: QuickRow::Game,
         };
         app.apply(Action::GbaDown(Btn::Down));
-        assert_eq!(app.quick_menu(), Some(QuickRow::About));
+        assert_eq!(app.quick_menu(), Some(QuickRow::Bluetooth));
         app.open_quick_row(QuickRow::Bluetooth);
         assert!(app.bluetooth.is_none());
     }

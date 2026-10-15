@@ -81,14 +81,20 @@ pub struct Manager {
     output: String,
     pending: Option<Receiver<ResultMessage>>,
     pub face: Option<TexId>,
+    pub wired: bool,
+    pub bluetooth_available: bool,
+    pub disconnect_volume: u8,
     pub disconnect_notice: bool,
     pub route_choice: Option<String>,
     choosing_route: bool,
 }
 
 impl Manager {
-    pub fn new(root: PathBuf) -> Self {
+    pub fn new(root: PathBuf, bluetooth_available: bool) -> Self {
+        let disconnect_volume = disconnect_volume(&root);
         let mut manager = Self {
+            disconnect_volume,
+            bluetooth_available,
             root,
             page: Page::Home,
             stack: Vec::new(),
@@ -98,12 +104,22 @@ impl Manager {
             output: "speaker".into(),
             pending: None,
             face: None,
+            wired: false,
             disconnect_notice: false,
             route_choice: None,
             choosing_route: false,
         };
-        manager.ask("list", None);
+        if bluetooth_available {
+            manager.ask("list", None);
+        }
         manager
+    }
+
+    pub fn set_available(&mut self, available: bool) {
+        if available && !self.bluetooth_available {
+            self.bluetooth_available = true;
+            self.ask("list", None);
+        }
     }
 
     fn ask(&mut self, verb: &'static str, address: Option<String>) {
@@ -125,8 +141,8 @@ impl Manager {
                 "Connecting..."
             }
             "connect" => "Pairing and connecting...",
-            "forget" => "Forgetting headphones...",
-            "speaker" => "Switching to speaker...",
+            "forget" => "Forgetting device...",
+            "speaker" => "Switching output...",
             "diagnose" => "Saving report...",
             _ => "",
         }
@@ -148,6 +164,13 @@ impl Manager {
                 if let Some(output) = message.output {
                     if self.choosing_route && !message.status.starts_with("Error:") {
                         self.route_choice = Some(output.clone());
+                        self.page = Page::Home;
+                        self.stack.clear();
+                        self.selected = self
+                            .device_indices()
+                            .iter()
+                            .position(|i| self.devices[*i].address == output)
+                            .map_or(0, |i| i + 1);
                     }
                     self.choosing_route = false;
                     self.output = output;
@@ -186,11 +209,15 @@ impl Manager {
         self.status.clear();
     }
 
+    fn disconnect_row(&self) -> usize {
+        1 + self.device_indices().len() + usize::from(self.bluetooth_available)
+    }
+
     fn device_indices(&self) -> Vec<usize> {
         self.devices
             .iter()
             .enumerate()
-            .filter(|(_, d)| self.page == Page::Pair || d.paired)
+            .filter(|(_, d)| self.bluetooth_available && (self.page == Page::Pair || d.paired))
             .map(|(i, _)| i)
             .collect()
     }
@@ -204,14 +231,20 @@ impl Manager {
     pub fn rows(&self) -> Vec<String> {
         match self.page {
             Page::Home => {
-                let mut rows = vec![if self.active_device().is_none()
-                    && !(valid_address(&self.output))
-                {
-                    "ACTIVE Internal speaker"
+                let local = if self.wired {
+                    "Wired headphones"
                 } else {
                     "Internal speaker"
-                }
-                .into()];
+                };
+                let mut rows = vec![format!(
+                    "{}{}",
+                    if valid_address(&self.output) {
+                        ""
+                    } else {
+                        "ACTIVE "
+                    },
+                    local
+                )];
                 rows.extend(self.device_indices().iter().map(|i| {
                     format!(
                         "{}DEVICE {}",
@@ -223,11 +256,14 @@ impl Manager {
                         self.devices[*i].name
                     )
                 }));
-                rows.push("Pair audio device".into());
+                if self.bluetooth_available {
+                    rows.push("Pair audio device".into());
+                }
+                rows.push(format!("DISCONNECT {}%", self.disconnect_volume));
                 rows
             }
             Page::Pair => {
-                let mut rows = vec!["Scan for headphones".into()];
+                let mut rows = vec!["Scan for devices".into()];
                 rows.extend(
                     self.device_indices()
                         .iter()
@@ -236,7 +272,7 @@ impl Manager {
                 rows
             }
             Page::Device(_) => vec!["Connect".into(), "Forget".into()],
-            Page::Forget(_) => vec!["Cancel".into(), "Forget headphones".into()],
+            Page::Forget(_) => vec!["Cancel".into(), "Forget device".into()],
         }
     }
 
@@ -260,7 +296,12 @@ impl Manager {
         match action {
             Action::GbaDown(Btn::Up) => self.selected = (self.selected + count - 1) % count,
             Action::GbaDown(Btn::Down) => self.selected = (self.selected + 1) % count,
-            Action::GbaDown(Btn::X) => self.ask("diagnose", None),
+            Action::GbaDown(Btn::Left | Btn::Right)
+                if self.page == Page::Home && self.selected == self.disconnect_row() =>
+            {
+                self.change_disconnect_volume(action == Action::GbaDown(Btn::Right));
+            }
+            Action::GbaDown(Btn::X) if self.bluetooth_available => self.ask("diagnose", None),
             Action::GbaDown(Btn::Y) if self.page == Page::Home => {
                 if let Some(i) = self
                     .selected
@@ -272,10 +313,15 @@ impl Manager {
             }
             Action::GbaDown(Btn::A) => match self.page.clone() {
                 Page::Home => match self.selected {
-                    0 => self.ask("speaker", None),
-                    selected if selected == 1 + self.device_indices().len() => {
+                    0 if self.bluetooth_available => self.ask("speaker", None),
+                    0 => {}
+                    selected
+                        if self.bluetooth_available
+                            && selected == 1 + self.device_indices().len() =>
+                    {
                         self.open(Page::Pair)
                     }
+                    selected if selected == self.disconnect_row() => {}
                     selected => {
                         if let Some(i) = self.device_indices().get(selected - 1) {
                             self.ask("connect", Some(self.devices[*i].address.clone()));
@@ -286,11 +332,7 @@ impl Manager {
                     if self.selected == 0 {
                         self.ask("scan", None);
                     } else if let Some(&i) = self.device_indices().get(self.selected - 1) {
-                        if self.devices[i].paired {
-                            self.ask("connect", Some(self.devices[i].address.clone()));
-                        } else {
-                            self.open(Page::Device(i));
-                        }
+                        self.ask("connect", Some(self.devices[i].address.clone()));
                     }
                 }
                 Page::Device(i) => {
@@ -321,22 +363,35 @@ impl Manager {
         false
     }
 
+    fn change_disconnect_volume(&mut self, increase: bool) {
+        let value = if increase {
+            self.disconnect_volume.saturating_add(5).min(100)
+        } else {
+            self.disconnect_volume.saturating_sub(5)
+        };
+        match save_disconnect_volume(&self.root, value) {
+            Ok(()) => {
+                self.disconnect_volume = value;
+                self.status.clear();
+            }
+            Err(_) => self.status = "Error: Could not save volume setting".into(),
+        }
+    }
+
     pub fn lines(&self) -> Vec<String> {
         let title = match self.page {
             Page::Home | Page::Pair => "",
-            Page::Forget(_) => "Forget headphones?",
+            Page::Forget(_) => "Forget device?",
             Page::Device(i) => self
                 .devices
                 .get(i)
                 .map(|d| d.name.as_str())
-                .unwrap_or("Headphones"),
+                .unwrap_or("Device"),
         };
         let message = if self.status.is_empty() && matches!(self.page, Page::Forget(_)) {
             "You will need to pair this device again.".to_owned()
         } else if self.status.is_empty() && self.disconnect_notice {
-            "Headphones disconnected — choose output".into()
-        } else if self.status.is_empty() && self.page == Page::Pair {
-            "Put headphones in pairing mode".into()
+            "Device disconnected — choose output".into()
         } else {
             self.status.clone()
         };
@@ -366,7 +421,9 @@ impl Manager {
             ));
         }
         lines.push(
-            if self.disconnect_notice && self.page == Page::Home {
+            if self.page == Page::Home && self.selected == self.disconnect_row() {
+                "B Back · Change"
+            } else if self.disconnect_notice && self.page == Page::Home {
                 "A Select"
             } else if self.page == Page::Home
                 && self.selected >= 1
@@ -382,13 +439,32 @@ impl Manager {
     }
 }
 
-pub fn return_to_speaker(root: PathBuf) {
+pub fn fallback_to_local(root: PathBuf, address: String) {
     std::thread::spawn(move || {
-        let result = run(root, "speaker", None);
+        let result = run(root, "fallback", Some(address));
         if result.status.starts_with("Error:") {
             eprintln!("slot: {}", result.status);
         }
     });
+}
+
+pub fn disconnect_volume(root: &std::path::Path) -> u8 {
+    std::fs::read_to_string(root.join("Config/sound.conf"))
+        .ok()
+        .and_then(|s| {
+            s.lines()
+                .find_map(|l| l.strip_prefix("disconnect_volume=")?.parse::<u8>().ok())
+        })
+        .filter(|v| *v <= 100)
+        .unwrap_or(0)
+}
+
+fn save_disconnect_volume(root: &std::path::Path, value: u8) -> std::io::Result<()> {
+    let config = root.join("Config");
+    std::fs::create_dir_all(&config)?;
+    let temp = config.join("sound.conf.tmp");
+    std::fs::write(&temp, format!("disconnect_volume={}\n", value.min(100)))?;
+    std::fs::rename(temp, config.join("sound.conf"))
 }
 
 #[cfg(feature = "device")]
@@ -439,11 +515,11 @@ fn run(root: PathBuf, verb: &str, address: Option<String>) -> ResultMessage {
                 .lines()
                 .find_map(|line| line.strip_prefix("OUTPUT ").map(str::to_owned)),
             status: match verb {
-                "connect" => "Headphones connected",
+                "connect" => "Device connected",
                 "speaker" => "Speaker selected",
-                "forget" => "Headphones forgotten",
+                "forget" => "Device forgotten",
                 "diagnose" => "Saved Bluetooth/latest-report.txt",
-                "scan" => "Scan complete. Select your headphones.",
+                "scan" => "Scan complete.",
                 _ => "Select a menu to continue",
             }
             .into(),
@@ -533,26 +609,6 @@ pub fn screen_face(lines: &[String]) -> UndoFace {
             }
         }
         if i == lines.len() - 1 {
-            if line == "PARENT CODE HINTS" {
-                let hints = [
-                    slot_ui::hint_face("SELECT", "Delete"),
-                    slot_ui::hint_face("START", "Done"),
-                    slot_ui::hint_face("MENU", "Cancel"),
-                ];
-                let gap = slot_ui::LEGEND_GAP as u32;
-                let total = hints.iter().map(|h| h.w).sum::<u32>() + gap * 2;
-                let mut x = (OUT_W - total) / 2;
-                for hint in hints {
-                    blit(&mut rgba, &hint, x, 427);
-                    x += hint.w + gap;
-                }
-                continue;
-            }
-            if line == "CODE HINTS" {
-                let hint = slot_ui::hint_face("MENU", "Cancel");
-                blit(&mut rgba, &hint, (OUT_W - hint.w) / 2, 427);
-                continue;
-            }
             let mut hints = Vec::new();
             if line.contains("B Back") {
                 hints.push(slot_ui::hint_face("B", "Back"));
@@ -571,6 +627,23 @@ pub fn screen_face(lines: &[String]) -> UndoFace {
             for hint in hints {
                 blit(&mut rgba, &hint, x, 427);
                 x += hint.w + gap;
+            }
+            continue;
+        }
+        if let Some(value) = label.strip_prefix("DISCONNECT ") {
+            let name = slot_ui::quick_value_face("Volume on disconnect", true);
+            blit(&mut rgba, &name, 14, top);
+            let value = slot_ui::quick_value_face(value, highlight);
+            if highlight {
+                let left = slot_ui::quick_caret_face(false);
+                let right = slot_ui::quick_caret_face(true);
+                let rx = OUT_W - 32 - right.w;
+                let vx = rx - 14 + 18 - value.w;
+                blit(&mut rgba, &right, rx, top);
+                blit(&mut rgba, &value, vx, top);
+                blit(&mut rgba, &left, vx + 18 - 14 - left.w, top);
+            } else {
+                blit(&mut rgba, &value, OUT_W - 32 + 18 - value.w, top);
             }
             continue;
         }
@@ -688,6 +761,8 @@ mod menu_tests {
     fn menu() -> Manager {
         Manager {
             root: PathBuf::new(),
+            bluetooth_available: true,
+            disconnect_volume: 0,
             page: Page::Home,
             stack: Vec::new(),
             devices: vec![Headphones {
@@ -701,6 +776,7 @@ mod menu_tests {
             output: "speaker".into(),
             pending: None,
             face: None,
+            wired: false,
             disconnect_notice: false,
             route_choice: None,
             choosing_route: false,
@@ -712,11 +788,6 @@ mod menu_tests {
         m.devices[0].paired = false;
         m.selected = 1;
         m.input(Action::GbaDown(Btn::A));
-        assert_eq!(m.page, Page::Pair);
-        m.input(Action::GbaDown(Btn::Down));
-        m.input(Action::GbaDown(Btn::A));
-        assert_eq!(m.page, Page::Device(0));
-        m.input(Action::GbaDown(Btn::B));
         assert_eq!(m.page, Page::Pair);
         m.input(Action::GbaDown(Btn::B));
         assert_eq!(m.page, Page::Home);
@@ -730,7 +801,8 @@ mod menu_tests {
             vec![
                 "ACTIVE Internal speaker",
                 "DEVICE WF-C510",
-                "Pair audio device"
+                "Pair audio device",
+                "DISCONNECT 0%"
             ]
         );
         assert!(m.lines()[0].is_empty());
@@ -781,7 +853,7 @@ mod menu_tests {
         let mut m = menu();
         m.root = root.path().into();
         m.open(Page::Pair);
-        assert_eq!(m.rows(), vec!["Scan for headphones", "DEVICE WF-C510"]);
+        assert_eq!(m.rows(), vec!["Scan for devices", "DEVICE WF-C510"]);
         m.selected = 1;
         m.input(Action::GbaDown(Btn::A));
         assert_eq!(m.page, Page::Pair);
@@ -795,6 +867,107 @@ mod menu_tests {
             std::fs::read_to_string(root.path().join("called")).unwrap(),
             "connect AA:BB:CC:DD:EE:FF"
         );
+    }
+
+    #[test]
+    fn connected_device_returns_to_sound_and_is_selected_and_checked() {
+        let mut m = menu();
+        m.open(Page::Pair);
+        let (tx, rx) = mpsc::channel();
+        m.pending = Some(rx);
+        m.choosing_route = true;
+        let mut devices = m.devices.clone();
+        devices[0].connected = true;
+        tx.send(ResultMessage {
+            output: Some(devices[0].address.clone()),
+            devices,
+            status: "Device connected".into(),
+        })
+        .unwrap();
+        m.poll();
+        assert_eq!(m.page, Page::Home);
+        assert!(m.stack.is_empty());
+        assert_eq!(m.selected, 1);
+        assert_eq!(m.rows()[1], "ACTIVE DEVICE WF-C510");
+        if let Ok(path) = std::env::var("SLOT_SOUND_PREVIEW") {
+            let face = screen_face(&m.lines());
+            let file = std::fs::File::create(path).unwrap();
+            let mut encoder = png::Encoder::new(file, face.w, face.h);
+            encoder.set_color(png::ColorType::Rgba);
+            encoder.set_depth(png::BitDepth::Eight);
+            encoder
+                .write_header()
+                .unwrap()
+                .write_image_data(&face.rgba)
+                .unwrap();
+        }
+        assert!(m.lines()[0].is_empty());
+        assert!(m.lines()[1].is_empty());
+        assert!(m.input(Action::GbaDown(Btn::B)));
+    }
+
+    #[test]
+    fn failed_connection_stays_on_scan_and_preserves_output() {
+        let mut m = menu();
+        m.open(Page::Pair);
+        let (tx, rx) = mpsc::channel();
+        m.pending = Some(rx);
+        m.choosing_route = true;
+        tx.send(ResultMessage {
+            output: None,
+            devices: vec![],
+            status: "Error: unavailable".into(),
+        })
+        .unwrap();
+        m.poll();
+        assert_eq!(m.page, Page::Pair);
+        assert_eq!(m.output, "speaker");
+        assert!(m.route_choice.is_none());
+    }
+
+    #[test]
+    fn local_output_follows_jack_and_does_not_claim_bluetooth_output() {
+        let mut m = menu();
+        m.wired = true;
+        assert_eq!(m.rows()[0], "ACTIVE Wired headphones");
+        m.observe_output(Some("AA:BB:CC:DD:EE:FF"), true);
+        assert_eq!(m.rows()[0], "Wired headphones");
+        assert_eq!(m.rows()[1], "ACTIVE DEVICE WF-C510");
+        m.wired = false;
+        assert_eq!(m.rows()[0], "Internal speaker");
+        m.observe_output(None, false);
+        assert_eq!(m.rows()[0], "ACTIVE Internal speaker");
+        m.open(Page::Pair);
+        assert!(m.lines()[0].is_empty());
+        assert!(m.lines()[1].is_empty());
+        assert_eq!(m.rows()[0], "Scan for devices");
+    }
+
+    #[test]
+    fn local_sound_settings_do_not_expose_bluetooth_when_unavailable() {
+        let root = tempfile::tempdir().unwrap();
+        let mut m = Manager::new(root.path().into(), false);
+        assert_eq!(m.rows(), vec!["ACTIVE Internal speaker", "DISCONNECT 0%"]);
+        assert!(m.pending.is_none());
+        m.selected = 1;
+        for _ in 0..25 {
+            m.input(Action::GbaDown(Btn::Right));
+        }
+        assert_eq!(m.disconnect_volume, 100);
+        assert_eq!(disconnect_volume(root.path()), 100);
+        for _ in 0..25 {
+            m.input(Action::GbaDown(Btn::Left));
+        }
+        assert_eq!(m.disconnect_volume, 0);
+        assert_eq!(disconnect_volume(root.path()), 0);
+        m.input(Action::GbaDown(Btn::Right));
+        assert_eq!(Manager::new(root.path().into(), false).disconnect_volume, 5);
+        std::fs::write(
+            root.path().join("Config/sound.conf"),
+            "disconnect_volume=999",
+        )
+        .unwrap();
+        assert_eq!(disconnect_volume(root.path()), 0);
     }
 
     #[test]
@@ -825,6 +998,13 @@ pub struct Indicator {
 }
 
 impl Indicator {
+    pub fn select(&mut self, address: Option<String>) {
+        self.active = address.is_some();
+        self.output = address.unwrap_or_default();
+        self.pending = None;
+        self.checked = Some(std::time::Instant::now());
+    }
+
     pub fn address(&self) -> Option<String> {
         (!self.output.is_empty()).then(|| self.output.clone())
     }
@@ -911,6 +1091,10 @@ fn connection_present(info: &str) -> bool {
 }
 
 pub fn indicator_face() -> UndoFace {
+    indicator_face_with_ink([246, 244, 239])
+}
+
+pub fn indicator_face_with_ink(ink: [u8; 3]) -> UndoFace {
     let mut face = UndoFace {
         rgba: vec![0; 20 * 20 * 4],
         w: 20,
@@ -929,7 +1113,7 @@ pub fn indicator_face() -> UndoFace {
             let y = y0 + (y1 - y0) * step / steps;
             for dx in 0..2 {
                 let offset = ((y * 20 + x + dx) * 4) as usize;
-                face.rgba[offset..offset + 4].copy_from_slice(&[246, 244, 239, 255]);
+                face.rgba[offset..offset + 4].copy_from_slice(&[ink[0], ink[1], ink[2], 255]);
             }
         }
     }

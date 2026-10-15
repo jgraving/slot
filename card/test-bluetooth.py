@@ -127,6 +127,22 @@ esac
         self.assertNotEqual(self.run_command('supported').returncode, 0)
         self.assertFalse((self.root / 'calls').exists())
 
+    def test_disconnect_fallback_keeps_pairing_preference(self):
+        self.assertEqual(self.run_command('connect', MAC).returncode, 0)
+        self.env['MOCK_CONNECTED'] = 'no'
+        self.assertEqual(self.run_command('fallback', MAC).returncode, 0)
+        self.assertEqual((self.root / 'route').read_text().strip(), '')
+        self.assertEqual((self.root / 'Config/bluetooth-headphones').read_text().strip(), MAC)
+
+    def test_stale_disconnect_cannot_replace_a_new_output_or_reconnected_device(self):
+        self.assertEqual(self.run_command('connect', MAC).returncode, 0)
+        route = (self.root / 'route').read_text()
+        self.assertEqual(self.run_command('fallback', MAC).returncode, 0)
+        self.assertEqual((self.root / 'route').read_text(), route)
+        self.env['MOCK_CONNECTED'] = 'no'
+        self.assertEqual(self.run_command('fallback', '00:11:22:33:44:55').returncode, 0)
+        self.assertEqual((self.root / 'route').read_text(), route)
+
     def test_connect_and_speaker(self):
         result = self.run_command('connect', MAC)
         self.assertEqual(result.returncode, 0, result.stderr)

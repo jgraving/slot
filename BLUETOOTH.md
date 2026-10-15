@@ -1,23 +1,31 @@
 # Bluetooth audio
 
-Open **Bluetooth Audio**, then **Pair audio device**. Put your headphones in
-pairing mode, choose **Scan for headphones**, and select them from the list.
+Open **Sound**, then **Pair audio device**. Put your device in
+pairing mode, choose **Scan for devices**, and select them from the list.
 
-Saved headphones appear on the main audio page. Press Y to connect or forget a
-saved device, B to go back, or MENU to close the audio page. Volume uses slot’s
+Saved devices appear in Sound. After connecting, slot returns to this list and
+marks the selected output with a checkmark. A Bluetooth icon beside the battery
+shows when the selected Bluetooth device is connected. The local output is shown
+as **Wired headphones** when the headphone jack is in use, otherwise **Internal
+speaker**. Press Y to manage a saved device, B to go back, or MENU to close the audio page. Volume uses slot’s
 existing controls. Press X to save a diagnostic report in the SD card’s
 `Bluetooth` folder.
 
-The last selected headphones reconnect when slot starts. Choosing **Internal
-speaker** stops automatic reconnect. If your headphones disconnect, audio stays
-silent until they reconnect or you choose the speaker.
+The last selected Bluetooth device reconnects when slot starts. Selecting the
+local output stops automatic reconnect.
+
+**Volume on disconnect** sets the local output volume when Bluetooth disconnects
+or wired headphones are unplugged. It defaults to **0% (silent)** and changes in
+5% steps. If Bluetooth disconnects while a cable is plugged in, this volume
+applies to the wired headphones. Unplugging a cable while Bluetooth is playing
+does not change the Bluetooth volume.
 
 ## Device support
 
-Bluetooth Audio appears when BaseOS reports Bluetooth hardware and the required
-audio software is installed. Devices without support keep their existing menu.
-The check runs in the background without starting the radio on current BaseOS.
-If the option is missing, the reason is saved in `Logs/bluetooth-support.log`.
+Sound always includes the local output and disconnect-volume setting. Pairing and
+saved Bluetooth devices appear only when Bluetooth support is detected. The
+check runs in the background without starting the radio on current BaseOS.
+If pairing is missing, the reason is saved in `Logs/bluetooth-support.log`.
 
 On BaseOS, slot uses the existing Bluetooth startup script and service when you
 scan or connect. Audio uses BlueALSA and its ALSA plugin. Older BaseOS versions
@@ -28,9 +36,9 @@ Pairing is enabled only during Bluetooth operations and disabled afterwards.
 The adapter is not made discoverable. Manual actions can interrupt an automatic
 reconnect. Failed connections leave the current audio output unchanged.
 
-The earlier version was tested on RG SP. This version still needs testing on the
-device, including pairing, restart, volume, disconnects and lid sleep/wake.
-Other models have not been tested.
+Bluetooth connects on RG SP and RG35XXSP. Audio is currently quieter on RG35XXSP
+with the same device and game; the cause is still being investigated. These menu
+and disconnect-setting changes need device testing.
 
 ## Development checks
 
@@ -41,3 +49,7 @@ Other models have not been tested.
 The helper tests simulate Bluetooth commands to check device detection, pairing,
 connection failures, reconnect and competing operations without needing a radio.
 They do not replace testing on the device.
+
+For unexpectedly quiet audio, connect the device and press X in Sound, then check
+`Bluetooth/latest-report.txt`. It includes slot’s volume settings and read-only
+mixer readings. No gain boost or automatic change to device volume is applied.

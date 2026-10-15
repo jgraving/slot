@@ -174,6 +174,16 @@ report() {
         echo '--- Audio route / saved preference ---'
         [ ! -r "$ROUTE" ] || cat "$ROUTE"
         [ ! -r "$PREF" ] || cat "$PREF"
+        echo '--- slot volume settings ---'
+        if [ -r "$ROOT/Config/slot.state" ]; then
+            grep -E '^(volume|volume_hp|muted|muted_hp)=' "$ROOT/Config/slot.state" || true
+        fi
+        echo '--- Local mixer (read only) ---'
+        timeout 3 amixer scontents 2>&1 || true
+        echo '--- Bluetooth mixer (read only) ---'
+        timeout 3 amixer -D bluealsa scontents 2>&1 || true
+        echo '--- BlueALSA PCM volume properties (read only) ---'
+        timeout 3 dbus-send --system --print-reply --dest=org.bluealsa /org/bluealsa org.bluealsa.Manager1.GetPCMs 2>&1 || true
         echo '--- ALSA outputs ---'
         timeout 3 aplay -L 2>&1 || true
         echo '--- Operation transcript ---'
@@ -399,7 +409,7 @@ trap cleanup 0
 trap 'ERROR="Bluetooth operation interrupted"; exit 1' 1 2 15
 [ "$VERB" = restore ] && [ ! -f "$PREF" ] && { rm -f "$SESSION_LOG"; exit 0; }
 # Read-only operations use their own scratch directory and never hold the radio lock.
-case "$VERB" in connect|forget) valid_mac "$TARGET" || fail 'Invalid Bluetooth address';; esac
+case "$VERB" in connect|forget|fallback) valid_mac "$TARGET" || fail 'Invalid Bluetooth address';; esac
 case "$VERB" in
     list|diagnose) ;;
     *)
@@ -439,6 +449,17 @@ case "$VERB" in
         stop_session
         ;;
     connect) connect; emit_list ;;
+    fallback)
+        STAGE='disconnected device output'
+        # A delayed disconnect report must not replace a newer manual choice.
+        current=$(cat "$ROUTE" 2>/dev/null || true)
+        if [ "$current" = "bluealsa:DEV=$TARGET,PROFILE=a2dp" ]; then
+            info=$(bt info "$TARGET") || true
+            if printf '%s\n' "$info" | grep -q 'Connected: no'; then route ''; fi
+        fi
+        # Keep the saved device for reconnect on the next startup.
+        emit_list
+        ;;
     speaker)
         STAGE='speaker selection'
         route ''
