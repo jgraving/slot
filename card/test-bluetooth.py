@@ -16,6 +16,7 @@ class BluetoothTests(unittest.TestCase):
         bin_dir = self.root / 'bin'
         bin_dir.mkdir()
         (self.root / 'hci0').mkdir()
+        (self.root / 'bluealsa-plugin.so').touch()
         init = bin_dir / 'init'
         init.write_text('#!/bin/sh\nexit 0\n')
         for name in ['init', 'pidof', 'systemctl', 'bluealsa', 'rfkill']:
@@ -61,7 +62,8 @@ esac
         self.env = dict(os.environ, PATH=str(bin_dir) + ':' + os.environ['PATH'],
             SLOT_ROOT=str(self.root), SLOT_AUDIO_ROUTE=str(self.root / 'route'),
             SLOT_BT_LOCK=str(self.root / 'lock'), SLOT_BT_INIT=str(init),
-            SLOT_HCI_PATH=str(self.root / 'hci0'), SLOT_BT_POLL_INTERVAL='0.01', SLOT_BT_SCAN_SECONDS='0', SLOT_BT_LOCK_TRIES='150')
+            SLOT_HCI_PATH=str(self.root / 'hci0'), SLOT_BASEOS_RELEASE=str(self.root / 'baseos-release'),
+            SLOT_BLUEALSA_PLUGIN=str(self.root / 'bluealsa-plugin.so'), SLOT_BT_POLL_INTERVAL='0.01', SLOT_BT_SCAN_SECONDS='0', SLOT_BT_LOCK_TRIES='150')
 
     def tearDown(self):
         self.temp.cleanup()
@@ -79,8 +81,35 @@ esac
         self.assertEqual(calls.strip(), 'show')
         self.env['MOCK_CONTROLLER'] = 'no'
         self.assertNotEqual(self.run_command('supported').returncode, 0)
-        self.env.update(MOCK_CONTROLLER='yes', MOCK_PCM='default')
+        self.env['MOCK_CONTROLLER'] = 'yes'
+        (self.root / 'bluealsa-plugin.so').unlink()
         self.assertNotEqual(self.run_command('supported').returncode, 0)
+
+    def test_clean_baseos_install_does_not_need_running_radio_or_pcm_hint(self):
+        (self.root / 'baseos-release').write_text('BASEOS=1\nBASEOS_TARGET=rg35xxsp\nBASEOS_BLUETOOTH=1\n')
+        self.env.update(MOCK_CONTROLLER='no', MOCK_PCM='default')
+        Path(self.env['SLOT_BT_INIT']).write_text('#!/bin/sh\nexit 1\n')
+        result = self.run_command('supported')
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertFalse((self.root / 'calls').exists())
+        self.assertFalse((self.root / 'route').exists())
+        self.assertIn('radio starts when needed', (self.root / 'Logs/bluetooth-support.log').read_text())
+
+    def test_baseos_without_bluetooth_stays_hidden(self):
+        (self.root / 'baseos-release').write_text('BASEOS_BLUETOOTH=0\n')
+        self.assertNotEqual(self.run_command('supported').returncode, 0)
+        self.assertFalse((self.root / 'calls').exists())
+        self.assertIn('no Bluetooth hardware', (self.root / 'Logs/bluetooth-support.log').read_text())
+
+    def test_hardware_flag_does_not_bypass_missing_audio_software(self):
+        (self.root / 'baseos-release').write_text('BASEOS_BLUETOOTH=1\n')
+        (self.root / 'bluealsa-plugin.so').unlink()
+        self.assertNotEqual(self.run_command('supported').returncode, 0)
+        self.assertIn('plugin is missing', (self.root / 'Logs/bluetooth-support.log').read_text())
+
+    def test_audio_plugin_does_not_require_pcm_listing(self):
+        self.env['MOCK_PCM'] = 'default'
+        self.assertEqual(self.run_command('supported').returncode, 0)
 
     def test_missing_tools_hide_support_without_initializing(self):
         self.env['SLOT_BLUETOOTHCTL'] = str(self.root / 'missing-bluetoothctl')
@@ -97,6 +126,22 @@ esac
         Path(self.env['SLOT_BT_INIT']).write_text('#!/bin/sh\nexit 1\n')
         self.assertNotEqual(self.run_command('supported').returncode, 0)
         self.assertFalse((self.root / 'calls').exists())
+
+    def test_disconnect_fallback_keeps_pairing_preference(self):
+        self.assertEqual(self.run_command('connect', MAC).returncode, 0)
+        self.env['MOCK_CONNECTED'] = 'no'
+        self.assertEqual(self.run_command('fallback', MAC).returncode, 0)
+        self.assertEqual((self.root / 'route').read_text().strip(), '')
+        self.assertEqual((self.root / 'Config/bluetooth-headphones').read_text().strip(), MAC)
+
+    def test_stale_disconnect_cannot_replace_a_new_output_or_reconnected_device(self):
+        self.assertEqual(self.run_command('connect', MAC).returncode, 0)
+        route = (self.root / 'route').read_text()
+        self.assertEqual(self.run_command('fallback', MAC).returncode, 0)
+        self.assertEqual((self.root / 'route').read_text(), route)
+        self.env['MOCK_CONNECTED'] = 'no'
+        self.assertEqual(self.run_command('fallback', '00:11:22:33:44:55').returncode, 0)
+        self.assertEqual((self.root / 'route').read_text(), route)
 
     def test_connect_and_speaker(self):
         result = self.run_command('connect', MAC)

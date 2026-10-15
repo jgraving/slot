@@ -34,6 +34,8 @@ const ALERT_INK: [u8; 3] = [0xf0, 0xb4, 0x3c];
 
 pub struct Frontend {
     bluetooth_tex: Option<TexId>,
+    bluetooth_icon: Option<TexId>,
+    bluetooth_icon_light: Option<bool>,
     bluetooth_lines: Vec<String>,
     session: Session,
     start: Instant,
@@ -158,6 +160,8 @@ impl Frontend {
             .set_power(Power::new(platform, DOZE_TIMEOUT));
         Frontend {
             bluetooth_tex: None,
+            bluetooth_icon: None,
+            bluetooth_icon_light: None,
             bluetooth_lines: Vec::new(),
             session,
             start: now,
@@ -496,6 +500,18 @@ impl Frontend {
     }
 
     pub fn compose(&mut self, compositor: &mut Compositor) {
+        if self.session.app().bluetooth_active() {
+            let light = self.session.app().light();
+            if self.bluetooth_icon_light != Some(light) {
+                let face = crate::bluetooth::indicator_face_with_ink(slot_ui::footer_ink(light));
+                upload(compositor, &mut self.bluetooth_icon, face);
+                self.bluetooth_icon_light = Some(light);
+            }
+            self.session.app_mut().bluetooth_indicator = self.bluetooth_icon;
+        } else {
+            self.session.app_mut().bluetooth_indicator = None;
+        }
+
         if let Some(menu) = &mut self.session.app_mut().bluetooth {
             let lines = menu.lines();
             if lines != self.bluetooth_lines || menu.face.is_none() {

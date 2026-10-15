@@ -237,12 +237,21 @@ impl Session {
     pub fn update(&mut self, dt: f32) {
         if !matches!(self.app.phase(), crate::app::Phase::Doze { .. }) {
             let connected = self.bluetooth_monitor.poll();
-            if let Some(menu) = &mut self.app.bluetooth {
-                menu.observe_output(self.bluetooth_monitor.address().as_deref(), connected);
-            }
+            self.app
+                .bluetooth_state(self.bluetooth_monitor.address(), connected);
         }
 
         self.bridge_link(|app| app.update(dt));
+        if let Some(output) = self
+            .app
+            .bluetooth
+            .as_mut()
+            .and_then(|menu| menu.route_choice.take())
+        {
+            let address = crate::bluetooth::valid_address(&output).then_some(output);
+            self.bluetooth_monitor.select(address.clone());
+            self.app.bluetooth_state(address.clone(), address.is_some());
+        }
         if let Some(emu) = &self.emu {
             emu.set_volume(self.app.output_volume());
         }
