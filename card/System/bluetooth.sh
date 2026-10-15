@@ -22,16 +22,50 @@ attach_adapter() {
         timeout 5 systemctl start bluetooth || return 1
     fi
 }
+audio_plugin_installed() {
+    if [ -n "${SLOT_BLUEALSA_PLUGIN:-}" ]; then
+        [ -r "$SLOT_BLUEALSA_PLUGIN" ]
+        return
+    fi
+    for plugin in /usr/lib/aarch64-linux-gnu/alsa-lib/libasound_module_pcm_bluealsa.so \
+        /usr/lib/alsa-lib/libasound_module_pcm_bluealsa.so \
+        /usr/lib64/alsa-lib/libasound_module_pcm_bluealsa.so; do
+        [ ! -r "$plugin" ] || return 0
+    done
+    return 1
+}
+supported() {
+    release=${SLOT_BASEOS_RELEASE:-/etc/baseos-release}
+    hardware=$(sed -n 's/^BASEOS_BLUETOOTH=//p' "$release" 2>/dev/null || true)
+    echo "Bluetooth hardware flag: ${hardware:-not supplied}"
+    if [ "$hardware" = 0 ]; then
+        echo 'This device has no Bluetooth hardware'
+        return 1
+    fi
+    for tool in "$BT" bluealsa timeout; do
+        command -v "$tool" >/dev/null || { echo "Missing command: $tool"; return 1; }
+    done
+    # aplay -L enumerates audio endpoints, not installed plugin support. It can
+    # omit BlueALSA before the service or headphones exist on a clean install.
+    audio_plugin_installed || { echo 'BlueALSA audio plugin is missing'; return 1; }
+    if [ "$hardware" = 1 ]; then
+        echo 'Bluetooth supported by BaseOS; radio starts when needed'
+        return 0
+    fi
+    # Older BaseOS versions and other systems may not supply a hardware flag.
+    attach_adapter || { echo 'Bluetooth adapter initialization failed'; return 1; }
+    timeout 3 "$BT" show | grep -q '^Controller ' || { echo 'No Bluetooth controller found'; return 1; }
+    echo 'Bluetooth controller and audio plugin detected'
+}
 if [ "$VERB" = supported ]; then
-    # No files, scanning, pairing or audio service are created by this probe.
-    command -v "$BT" >/dev/null || exit 1
-    command -v bluealsa >/dev/null || exit 1
-    command -v timeout >/dev/null || exit 1
-    command -v aplay >/dev/null || exit 1
-    timeout 3 aplay -L 2>/dev/null | grep -qi '^bluealsa' || exit 1
-    attach_adapter >/dev/null 2>&1 || exit 1
-    timeout 3 "$BT" show 2>/dev/null | grep -q '^Controller ' || exit 1
-    exit 0
+    result=0
+    details=$(supported 2>&1) || result=$?
+    # One small report per startup, also available when the menu is hidden.
+    if mkdir -p "$ROOT/Logs" 2>/dev/null; then
+        printf '%s\n' "$details" > "$ROOT/Logs/bluetooth-support.log" 2>/dev/null || true
+    fi
+    printf '%s\n' "$details"
+    exit "$result"
 fi
 STAGE=starting
 ERROR=''

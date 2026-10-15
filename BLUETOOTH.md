@@ -14,14 +14,15 @@ silent until they reconnect or you choose the speaker.
 
 ## Device support
 
-Bluetooth Audio appears only when slot detects a Bluetooth adapter and the
-required audio software. Devices without support keep their existing menu.
-The check runs in the background and does not scan for devices or enable pairing.
+Bluetooth Audio appears when BaseOS reports Bluetooth hardware and the required
+audio software is installed. Devices without support keep their existing menu.
+The check runs in the background without starting the radio on current BaseOS.
+If the option is missing, the reason is saved in `Logs/bluetooth-support.log`.
 
-On BaseOS, slot uses the existing Bluetooth startup script and service. Other
-systems need an adapter that is already available through BlueZ. Audio uses
-BlueALSA and its ALSA plugin. The menu stays hidden if these components are
-missing or fail to start.
+On BaseOS, slot uses the existing Bluetooth startup script and service when you
+scan or connect. Audio uses BlueALSA and its ALSA plugin. Older BaseOS versions
+without the hardware flag fall back to checking for a controller; other systems
+need an adapter that is already available through BlueZ.
 
 Pairing is enabled only during Bluetooth operations and disabled afterwards.
 The adapter is not made discoverable. Manual actions can interrupt an automatic
