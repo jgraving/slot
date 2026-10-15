@@ -268,8 +268,8 @@ pub struct App {
     pub bluetooth: Option<crate::bluetooth::Manager>,
     pub kids: crate::kid_policy::Policy,
     pub kid_menu: Option<crate::kid_menu::Menu>,
-    pub favorite_prompt: Option<bool>,
-    pub favorite_prompt_face: Option<TexId>,
+    pub favorite_prompt: Option<Millis>,
+    pub favorite_prompt_face: Option<(TexId, u32, u32)>,
     kid_error: bool,
     pub bluetooth_indicator: Option<TexId>,
     phase: Phase,
@@ -938,21 +938,6 @@ impl App {
         } else {
             self.refresh_collections();
         }
-    }
-
-    pub fn favorite_prompt_lines(&self) -> Vec<String> {
-        let remove = self.favorite_prompt.unwrap_or(false);
-        vec![
-            "Remove favorite?".into(),
-            self.selected_stem().unwrap_or("").into(),
-            "COMPACT".into(),
-            format!("{} Keep favorite", if !remove { "SELECTED" } else { "ROW" }),
-            format!(
-                "{} Remove favorite",
-                if remove { "SELECTED" } else { "ROW" }
-            ),
-            "B Back   A Select".into(),
-        ]
     }
 
     fn toggle_favorite(&mut self) {
@@ -1875,19 +1860,13 @@ impl App {
         if matches!(self.phase, Phase::Doze { .. }) {
             return;
         }
-        if let Some(remove) = self.favorite_prompt {
+        if self.favorite_prompt.is_some() {
             match action {
-                Action::GbaDown(Btn::Up | Btn::Down) => {
-                    self.favorite_prompt = Some(!remove);
-                    self.favorite_prompt_face = None;
-                }
-                Action::GbaDown(Btn::A) => {
+                Action::GbaDown(Btn::Start) => {
                     self.favorite_prompt = None;
-                    if remove {
-                        self.toggle_favorite();
-                    }
+                    self.toggle_favorite();
                 }
-                Action::GbaDown(Btn::B | Btn::Start) | Action::QuickMenu => {
+                Action::GbaDown(Btn::A | Btn::B | Btn::Y) | Action::QuickMenu => {
                     self.favorite_prompt = None
                 }
                 _ => {}
@@ -1993,8 +1972,7 @@ impl App {
                 _ if self.core_picker.is_some() => self.core_picker_input(action),
                 Action::GbaDown(Btn::Y) => {
                     if self.selected_is_favorite() {
-                        self.favorite_prompt = Some(false);
-                        self.favorite_prompt_face = None;
+                        self.favorite_prompt = Some(now);
                         self.shelf_mut().release_hold();
                         self.play_held = None;
                     } else {
@@ -2990,19 +2968,6 @@ impl App {
             );
             return;
         }
-        if self.favorite_prompt.is_some() && !matches!(self.phase, Phase::Doze { .. }) {
-            if let Some(tex) = self.favorite_prompt_face {
-                out.push(Draw::Tex {
-                    x: 0.0,
-                    y: 0.0,
-                    w: OUT_W as f32,
-                    h: OUT_H as f32,
-                    tex,
-                    alpha: 1.0,
-                });
-            }
-            return;
-        }
         if let Some(menu) = self
             .kid_menu
             .as_ref()
@@ -3087,6 +3052,18 @@ impl App {
                     footer_ink(self.light()),
                     out,
                 );
+                if let (Some(at), Some((tex, w, h))) =
+                    (self.favorite_prompt, self.favorite_prompt_face)
+                {
+                    out.push(Draw::Tex {
+                        x: (OUT_W as f32 - w as f32) / 2.0,
+                        y: 12.0,
+                        w: w as f32,
+                        h: h as f32,
+                        tex,
+                        alpha: (self.now().saturating_sub(at) as f32 / 160.0).min(1.0),
+                    });
+                }
             }
             Phase::About => {
                 self.draw_background(out);

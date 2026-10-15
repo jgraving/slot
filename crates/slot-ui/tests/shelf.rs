@@ -1145,13 +1145,13 @@ fn only_a_clear_cart_has_anything_behind_its_plastic() {
 }
 
 #[test]
-fn removing_a_cartridge_pulls_it_up_before_membership_changes() {
+fn removing_a_cartridge_uses_the_slot_motion_before_membership_changes() {
     let mut s = shelf_with(1);
     let front = TexId::from_raw(500);
     s.set_faces(vec![front]);
     let y = |s: &Shelf| {
         let mut out = Vec::new();
-        s.draw_row(None, 0.0, 0.0, 1.0, &mut out);
+        s.draw(0.0, None, &mut out);
         out.into_iter()
             .find_map(|d| match d {
                 Draw::Tex { tex, y, .. } if tex == front => Some(y),
@@ -1164,10 +1164,10 @@ fn removing_a_cartridge_pulls_it_up_before_membership_changes() {
     for _ in 0..12 {
         s.update(1.0 / 60.0);
     }
-    assert!(y(&s) < start);
+    assert!(y(&s) > start);
     assert_eq!(s.carts.len(), 1);
     assert!(!s.departure_finished());
-    for _ in 0..30 {
+    for _ in 0..36 {
         s.update(1.0 / 60.0);
     }
     assert!(s.departure_finished());
