@@ -504,7 +504,10 @@ impl Shelf {
                 (self.favorites.contains(&key), self.favorite_face),
                 (self.kids.contains(&key), self.kid_face),
             ];
-            let count = marks.iter().filter(|(marked, face)| *marked && face.is_some()).count();
+            let count = marks
+                .iter()
+                .filter(|(marked, face)| *marked && face.is_some())
+                .count();
             let size = 28.0 * scale;
             let gap = 6.0 * scale;
             let total = count as f32 * (size + gap) - gap;

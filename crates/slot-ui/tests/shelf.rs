@@ -36,10 +36,14 @@ fn marks_stay_above_the_front_without_changing_its_geometry() {
     let mut out = Vec::new();
     s.draw_row(None, 0.0, 0.0, 1.0, &mut out);
     let bounds = |face| {
-        out.iter().find_map(|d| match *d {
-            Draw::Tex { tex, x, y, w, h, .. } if tex == face => Some((x, y, w, h)),
-            _ => None,
-        }).unwrap()
+        out.iter()
+            .find_map(|d| match *d {
+                Draw::Tex {
+                    tex, x, y, w, h, ..
+                } if tex == face => Some((x, y, w, h)),
+                _ => None,
+            })
+            .unwrap()
     };
     let (_, y, w, h) = bounds(front);
     assert_eq!((w, h), (slot_ui::CART_W as f32, slot_ui::CART_H as f32));
