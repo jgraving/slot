@@ -87,11 +87,12 @@ when investigating a problem.
 
 ## USB audio
 
-Plug a USB audio device into the handheld’s data/OTG port, then select its USB
-row in Sound. Only USB devices with an ALSA playback endpoint are listed;
-internal audio, HDMI and microphone-only devices are excluded. Plugging one in
-does not interrupt an existing output. Select USB explicitly after plugging it
-back in or restarting.
+Plug a USB audio device into the handheld’s data/OTG port. slot selects it
+when its playback endpoint appears, including when starting with it plugged in.
+A deliberate Sound operation already in progress takes priority. Selecting a
+different output stays in effect until another USB attachment or restart.
+Only USB devices with an ALSA playback endpoint are listed; internal audio,
+HDMI and microphone-only devices are excluded.
 
 USB playback is checked with digital silence before switching, without changing
 hardware mixer gain. USB volume starts at 20% and its volume and mute setting are
@@ -100,6 +101,10 @@ output beside the battery and in the volume indicator, including in-game menus.
 Unplugging USB applies Volume on disconnect before returning to the local output.
 Turning Bluetooth off leaves USB audio playing. No microphone capture is opened.
 
-BaseOS on RG SP detects AB13X USB Audio earbuds; playback and unplug behavior in
-this build still require device testing. USB audio does not require Bluetooth
+AB13X USB Audio earbuds have played on RG SP, but a reported disconnect during
+volume adjustment is still under investigation. The device disappeared from the
+kernel's ALSA inventory. Press X in Sound after a failure to include recent USB
+kernel messages, device power state, stream formats and mixer readings in the
+bounded report. These are read only; slot does not change USB power policy or
+hardware gain. Automatic selection and the updated icons need device testing. USB audio does not require Bluetooth
 hardware. Card IDs are used rather than assuming the USB device is always card 3.

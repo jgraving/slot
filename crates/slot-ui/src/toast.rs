@@ -95,7 +95,7 @@ impl Toast {
         match self {
             Toast::BluetoothConnected => "Bluetooth connected",
             Toast::UsbConnected => "USB audio selected",
-            Toast::UsbDisconnected => "USB audio unplugged",
+            Toast::UsbDisconnected => "USB audio disconnected",
             Toast::BluetoothDisconnected => "Bluetooth disconnected",
             Toast::HeadphonesDisconnected => "Headphones unplugged",
             Toast::StateSaved => "State Saved",

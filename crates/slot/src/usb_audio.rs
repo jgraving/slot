@@ -68,13 +68,36 @@ pub fn discover(root: &Path) -> Vec<Device> {
             if valid_route(&route) {
                 devices.push(Device {
                     route,
-                    name: format!("USB · {description}"),
+                    name: display_name(&description),
                 });
             }
         }
     }
     devices.sort_by(|a, b| a.route.cmp(&b.route));
     devices
+}
+
+// Keep useful model names, removing generic descriptor boilerplate only.
+fn display_name(description: &str) -> String {
+    let words: Vec<_> = description
+        .split_whitespace()
+        .filter(|word| {
+            !["generic", "usb"]
+                .iter()
+                .any(|s| word.eq_ignore_ascii_case(s))
+        })
+        .collect();
+    let name = words.join(" ");
+    let name = if name.is_empty() || name.eq_ignore_ascii_case("audio") {
+        "Audio device".to_owned()
+    } else {
+        name
+    };
+    if name.chars().count() > 28 {
+        format!("{}…", name.chars().take(27).collect::<String>())
+    } else {
+        name
+    }
 }
 
 pub fn devices() -> Vec<Device> {
@@ -100,12 +123,21 @@ pub struct Monitor {
     pub devices: Vec<Device>,
 }
 impl Monitor {
-    pub fn poll(&mut self) {
+    pub fn poll(&mut self) -> Option<Device> {
         if self.checked.is_some_and(|t| t.elapsed().as_secs() < 1) {
-            return;
+            return None;
         }
         self.checked = Some(std::time::Instant::now());
-        self.devices = devices();
+        self.update(devices())
+    }
+
+    fn update(&mut self, devices: Vec<Device>) -> Option<Device> {
+        let inserted = devices
+            .iter()
+            .find(|d| !self.devices.iter().any(|old| old.route == d.route))
+            .cloned();
+        self.devices = devices;
+        inserted
     }
 }
 
@@ -128,6 +160,24 @@ mod tests {
         assert_eq!(found[0].route, "plughw:CARD=Audio3,DEV=0");
         std::fs::rename(root.path().join("card3"), root.path().join("card7")).unwrap();
         assert_eq!(discover(root.path()), found);
+    }
+    #[test]
+    fn names_drop_boilerplate_and_are_bounded() {
+        assert_eq!(display_name("GENERIC USB AB13X USB Audio"), "AB13X Audio");
+        assert_eq!(display_name("GENERIC USB Audio"), "Audio device");
+        assert!(display_name(&"é".repeat(40)).chars().count() <= 28);
+    }
+    #[test]
+    fn insertion_is_once_per_attachment_not_every_poll() {
+        let mut m = Monitor::default();
+        let d = Device {
+            route: "plughw:CARD=Audio,DEV=0".into(),
+            name: "Audio".into(),
+        };
+        assert_eq!(m.update(vec![d.clone()]), Some(d.clone()));
+        assert_eq!(m.update(vec![d.clone()]), None);
+        assert_eq!(m.update(vec![]), None);
+        assert_eq!(m.update(vec![d.clone()]), Some(d));
     }
     #[test]
     fn arbitrary_alsa_plugins_and_malformed_ids_are_rejected() {

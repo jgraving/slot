@@ -246,8 +246,13 @@ fn rasterise(icon: Icon, px: f32) -> Option<Raster> {
     ) {
         let muted = matches!(icon, Icon::BluetoothMuted | Icon::UsbMuted);
         let mut out = vec![0u8; (f.w * f.h) as usize];
-        let height = (f.h as f32 * 0.85) as i32;
-        let width = (f.w as f32 * if muted { 0.55 } else { 0.7 }) as i32;
+        // Use the available height and preserve the symbol's proportions.
+        // The previous 20-unit inset inside another inset made these tiny.
+        let height = f.h as i32 - 2;
+        let available = f.w as i32 - if muted { 10 } else { 3 };
+        let scale = (available as f32 / 15.0).min(height as f32 / 18.0);
+        let width = (15.0 * scale).round() as i32;
+        let height = (18.0 * scale).round() as i32;
         let left = if muted { 0 } else { (f.w as i32 - width) / 2 };
         let top = (f.h as i32 - height) / 2;
         let mut line = |x0: i32, y0: i32, x1: i32, y1: i32| {
@@ -289,10 +294,10 @@ fn rasterise(icon: Icon, px: f32) -> Option<Raster> {
         };
         for &((x0, y0), (x1, y1)) in segments {
             line(
-                left + x0 * width / 20,
-                top + y0 * height / 20,
-                left + x1 * width / 20,
-                top + y1 * height / 20,
+                left + (x0 - 3) * width / 15,
+                top + (y0 - 1) * height / 18,
+                left + (x1 - 3) * width / 15,
+                top + (y1 - 1) * height / 18,
             );
         }
         if muted {

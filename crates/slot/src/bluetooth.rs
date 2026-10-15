@@ -124,6 +124,23 @@ impl Manager {
         }
     }
 
+    pub fn busy(&self) -> bool {
+        self.pending.is_some()
+    }
+
+    pub fn select_usb(&mut self, route: String) {
+        self.ask("usb", Some(route));
+    }
+
+    // An automatic switch can start with the menu closed. Hand its worker to
+    // the visible menu when it opens, so user actions cannot race that switch.
+    pub fn adopt_usb_switch(&mut self, other: &mut Self) {
+        self.pending = other.pending.take();
+        self.choosing_route = other.choosing_route;
+        self.status = std::mem::take(&mut other.status);
+        self.route_choice = other.route_choice.take();
+    }
+
     fn ask(&mut self, verb: &'static str, address: Option<String>) {
         if self.pending.is_some() {
             return;
@@ -276,7 +293,7 @@ impl Manager {
                 }));
                 rows.extend(self.usb_devices.iter().map(|d| {
                     format!(
-                        "{}{}",
+                        "{}USB_DEVICE {}",
                         if d.route == self.output {
                             "ACTIVE "
                         } else {
@@ -546,7 +563,11 @@ fn run_usb(root: PathBuf, route: Option<String>, bluetooth_available: bool) -> R
         }
     }
     let mut result = if bluetooth_available || root.join("Config/bluetooth-headphones").exists() {
-        run(root, "speaker", None)
+        if route.is_some() {
+            run(root, "usb", route.clone())
+        } else {
+            run(root, "speaker", None)
+        }
     } else {
         ResultMessage {
             devices: vec![],
@@ -794,21 +815,33 @@ pub fn screen_face(lines: &[String]) -> UndoFace {
         }
         let active = label.starts_with("ACTIVE ");
         let label = label.strip_prefix("ACTIVE ").unwrap_or(label);
-        let device = label.starts_with("DEVICE ");
-        let label = label.strip_prefix("DEVICE ").unwrap_or(label);
+        let usb = label.starts_with("USB_DEVICE ");
+        let device = usb || label.starts_with("DEVICE ");
+        let label = label
+            .strip_prefix("DEVICE ")
+            .or_else(|| label.strip_prefix("USB_DEVICE "))
+            .unwrap_or(label);
         let inset = if device { 68 } else { 32 };
         let label_w = label_w - (inset - 32);
         if device {
-            blit(&mut rgba, &indicator_face(), 36, top + 12);
+            let icon = if usb {
+                let face = slot_ui::icon_face(slot_ui::Icon::Usb, 22.0, [246, 244, 239]);
+                UndoFace {
+                    rgba: face.rgba,
+                    w: face.w,
+                    h: face.h,
+                }
+            } else {
+                indicator_face()
+            };
+            blit(&mut rgba, &icon, 32, top + 8);
             let is_device = |line: &String| {
                 let label = line
                     .strip_prefix("ROW ")
                     .or_else(|| line.strip_prefix("SELECTED "))
                     .unwrap_or(line);
-                label
-                    .strip_prefix("ACTIVE ")
-                    .unwrap_or(label)
-                    .starts_with("DEVICE ")
+                let label = label.strip_prefix("ACTIVE ").unwrap_or(label);
+                label.starts_with("DEVICE ") || label.starts_with("USB_DEVICE ")
             };
             for (boundary, y) in [
                 (!lines.get(i - 1).is_some_and(is_device), top - 4),
@@ -929,18 +962,43 @@ mod menu_tests {
         }
     }
     #[test]
+    fn opening_sound_adopts_an_automatic_usb_switch() {
+        let mut worker = menu();
+        let (tx, rx) = mpsc::channel();
+        worker.pending = Some(rx);
+        worker.choosing_route = true;
+        worker.status = "Switching output...".into();
+        let mut visible = menu();
+        visible.adopt_usb_switch(&mut worker);
+        assert!(visible.busy());
+        assert!(!worker.busy());
+        tx.send(ResultMessage {
+            devices: vec![],
+            output: Some("plughw:CARD=Audio,DEV=0".into()),
+            status: String::new(),
+        })
+        .unwrap();
+        visible.poll();
+        assert_eq!(
+            visible.route_choice.as_deref(),
+            Some("plughw:CARD=Audio,DEV=0")
+        );
+        assert!(!visible.busy());
+    }
+
+    #[test]
     fn usb_outputs_appear_without_bluetooth_and_show_selected_output() {
         let mut m = menu();
         m.bluetooth_available = false;
         m.usb_devices = vec![crate::usb_audio::Device {
             route: "plughw:CARD=Audio,DEV=0".into(),
-            name: "USB · AB13X USB Audio".into(),
+            name: "AB13X Audio".into(),
         }];
         assert_eq!(
             m.rows(),
             vec![
                 "ACTIVE Internal speaker",
-                "USB · AB13X USB Audio",
+                "USB_DEVICE AB13X Audio",
                 "DISCONNECT 0%"
             ]
         );
