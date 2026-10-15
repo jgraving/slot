@@ -300,6 +300,13 @@ wait_text() {
     n=0
     while ! grep -q "$expected" "$WORK/session-output"; do
         kill -0 "$SESSION_PID" 2>/dev/null || fail 'Bluetooth pairing session stopped'
+        if grep -q 'Failed to connect:' "$WORK/session-output"; then
+            fail 'Bluetooth audio connection failed'
+        fi
+        if grep -q 'Authorize service\|Authorize pairing\|Confirm passkey\|Enter PIN code\|Enter passkey' "$WORK/session-output"; then
+            send no
+            fail 'This device requires pairing confirmation that slot cannot safely provide'
+        fi
         if grep -q 'Failed to register agent\|Failed to request default agent' "$WORK/session-output"; then
             fail 'BlueZ could not register the pairing agent'
         fi
@@ -399,9 +406,26 @@ connect() {
         wait_property Paired 45
         send 'scan off'
     fi
+    # Verify the selected paired device before trusting it. Trust must precede
+    # opening A2DP, otherwise BlueZ may ask our temporary agent to authorize it.
+    STAGE='audio service discovery'
+    n=0
+    while :; do
+        check_cancel
+        info=$(bt info "$TARGET") || true
+        printf '%s\n' "$info" | grep -qi '^[[:space:]]*UUID:.*0000110b-0000-1000-8000-00805f9b34fb' && break
+        n=$((n + 1))
+        [ "$n" -lt 10 ] || fail 'This device does not offer headphone audio (A2DP)'
+        sleep "${SLOT_BT_POLL_INTERVAL:-1}"
+    done
+    check_cancel
+    bt trust "$TARGET" >/dev/null
     STAGE='audio connection'
     if [ -n "$SESSION_PID" ]; then
         send "connect $TARGET"
+        # Connected: yes can describe the pairing link while A2DP is still
+        # negotiating. Keep the agent alive until Connect itself completes.
+        wait_text 'Connection successful' 25
     else
         connection=$(bt connect "$TARGET") || true
         CONNECT_REASON=$(printf '%s\n' "$connection" | sed -n 's/.*Failed to connect: //p' | tail -n 1)
@@ -416,18 +440,6 @@ connect() {
         fi
     fi
     if automatic; then wait_property Connected 8; else wait_property Connected 20; fi
-    STAGE='audio service discovery'
-    n=0
-    while :; do
-        check_cancel
-        info=$(bt info "$TARGET") || true
-        printf '%s\n' "$info" | grep -qi '^[[:space:]]*UUID:.*0000110b-0000-1000-8000-00805f9b34fb' && break
-        n=$((n + 1))
-        [ "$n" -lt 10 ] || fail 'This device does not offer headphone audio (A2DP)'
-        sleep "${SLOT_BT_POLL_INTERVAL:-1}"
-    done
-    check_cancel
-    bt trust "$TARGET" >/dev/null
     mkdir -p "$ROOT/Config"
     rm -f "$OFF"
     printf '%s\n' "$TARGET" > "$PREF.$$"
@@ -454,7 +466,10 @@ case "$VERB" in
                     ;;
                 *) if ! kill -0 "$owner" 2>/dev/null; then rm -rf "$LOCK"; continue; fi ;;
             esac
-            if automatic; then log 'Automatic reconnect skipped: a manual operation is running'; exit 0; fi
+            if automatic || [ "$VERB" = fallback ]; then
+                log 'Background operation skipped: another operation is running'
+                exit 0
+            fi
             lock_verb=$(cat "$LOCK/verb" 2>/dev/null || true)
             if [ "$lock_verb" = restore ] || [ "$lock_verb" = reconnect ]; then
                 log 'Requesting cancellation of automatic reconnect'

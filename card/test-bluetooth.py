@@ -38,6 +38,13 @@ case "$*" in
        default-agent) echo 'Default agent request successful';;
        'scan on') echo 'Discovery started';;
        pair*) if [ "${MOCK_AUTH_PROMPT:-no}" = yes ]; then echo "[agent] Authorize pairing (yes/no):"; elif [ "${MOCK_PAIR_FAIL:-no}" = yes ]; then echo 'Failed to pair: org.bluez.Error.AuthenticationFailed'; else touch "$SLOT_ROOT/paired"; echo 'Pairing successful'; fi;;
+       connect*)
+         if [ "${MOCK_REQUIRE_TRUST:-no}" = yes ] && [ ! -f "$SLOT_ROOT/trusted" ]; then echo 'Failed to connect: org.bluez.Error.Rejected';
+         else
+           sleep "${MOCK_AUDIO_DELAY:-0}"
+           touch "$SLOT_ROOT/audio-ready"
+           echo 'Connection successful'
+         fi;;
        quit) exit 0;;
      esac
    done;;
@@ -47,6 +54,7 @@ case "$*" in
    count=$(cat "$SLOT_ROOT/show-count" 2>/dev/null || echo 0)
    count=$((count + 1)); echo "$count" > "$SLOT_ROOT/show-count"
    if [ "$count" -gt "${MOCK_SOURCE_DELAY:-0}" ]; then echo 'UUID: Audio Source (0000110a-0000-1000-8000-00805f9b34fb)'; touch "$SLOT_ROOT/source-ready"; fi;;
+ trust*) touch "$SLOT_ROOT/trusted";;
  'power off') touch "$SLOT_ROOT/powered-off";;
  'power on') rm -f "$SLOT_ROOT/powered-off";;
  connect*)
@@ -374,6 +382,30 @@ esac
         self.assertEqual(self.run_command('diagnose').returncode, 0)
         self.assertLessEqual((logs / 'latest-report.txt').stat().st_size, 131072)
         self.assertFalse(list(self.root.glob('lock.work.*')))
+
+    def test_pairing_waits_for_audio_connect_before_closing_agent(self):
+        self.env.update(MOCK_PAIRED='no', MOCK_AUDIO_DELAY='0.12', MOCK_REQUIRE_TRUST='yes')
+        result = self.run_command('connect', MAC)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue((self.root / 'audio-ready').exists(), 'must not stop the agent while Connect is pending')
+        calls = (self.root / 'calls').read_text().splitlines()
+        self.assertLess(calls.index('trust ' + MAC), calls.index('session connect ' + MAC))
+        self.assertEqual((self.root / 'route').read_text().strip(), 'bluealsa:DEV=' + MAC + ',PROFILE=a2dp')
+
+    def test_automatic_fallback_never_cancels_a_running_reconnect(self):
+        lock = self.root / 'lock'
+        lock.mkdir()
+        (lock / 'pid').write_text(str(os.getpid()))
+        (lock / 'verb').write_text('reconnect')
+        route = self.root / 'route'
+        route.write_text('bluealsa:DEV=' + MAC + ',PROFILE=a2dp')
+        self.env['MOCK_CONNECTED'] = 'no'
+        result = self.run_command('fallback', MAC)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse((lock / 'cancel').exists())
+        self.assertEqual(route.read_text(), 'bluealsa:DEV=' + MAC + ',PROFILE=a2dp')
+        calls = (self.root / 'calls').read_text() if (self.root / 'calls').exists() else ''
+        self.assertNotIn('disconnect ' + MAC, calls)
 
 if __name__ == '__main__':
     unittest.main()
