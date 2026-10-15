@@ -126,7 +126,7 @@ impl Manager {
         if self.pending.is_some() {
             return;
         }
-        self.choosing_route = matches!(verb, "speaker" | "connect");
+        self.choosing_route = matches!(verb, "speaker" | "connect" | "off");
         let root = self.root.clone();
         let (tx, rx) = mpsc::channel();
         self.pending = Some(rx);
@@ -143,6 +143,7 @@ impl Manager {
             "connect" => "Pairing and connecting...",
             "forget" => "Forgetting device...",
             "speaker" => "Switching output...",
+            "off" => "Turning Bluetooth off...",
             "diagnose" => "Saving report...",
             _ => "",
         }
@@ -260,6 +261,16 @@ impl Manager {
                     rows.push("Pair audio device".into());
                 }
                 rows.push(format!("DISCONNECT {}%", self.disconnect_volume));
+                if self.bluetooth_available {
+                    rows.push(
+                        if self.root.join("Config/bluetooth-off").exists() {
+                            "Bluetooth off"
+                        } else {
+                            "Turn Bluetooth off"
+                        }
+                        .into(),
+                    );
+                }
                 rows
             }
             Page::Pair => {
@@ -322,6 +333,11 @@ impl Manager {
                         self.open(Page::Pair)
                     }
                     selected if selected == self.disconnect_row() => {}
+                    selected
+                        if self.bluetooth_available && selected == self.disconnect_row() + 1 =>
+                    {
+                        self.ask("off", None)
+                    }
                     selected => {
                         if let Some(i) = self.device_indices().get(selected - 1) {
                             self.ask("connect", Some(self.devices[*i].address.clone()));
@@ -487,7 +503,7 @@ fn run(root: PathBuf, verb: &str, address: Option<String>) -> ResultMessage {
     let result = command.output();
     let fallback = match &result {
         Ok(o)
-            if verb != "restore"
+            if !matches!(verb, "restore" | "reconnect")
                 && !o.status.success()
                 && !String::from_utf8_lossy(&o.stderr)
                     .contains("REPORT Bluetooth/latest-error.txt") =>
@@ -499,7 +515,7 @@ fn run(root: PathBuf, verb: &str, address: Option<String>) -> ResultMessage {
                 String::from_utf8_lossy(&o.stderr)
             ))
         }
-        Err(e) if verb != "restore" => Some(format!(
+        Err(e) if !matches!(verb, "restore" | "reconnect") => Some(format!(
             "Operation: {verb}\nCould not start Bluetooth helper: {e}"
         )),
         _ => None,
@@ -522,6 +538,7 @@ fn run(root: PathBuf, verb: &str, address: Option<String>) -> ResultMessage {
             status: match verb {
                 "connect" => "Device connected",
                 "speaker" => "Speaker selected",
+                "off" => "Bluetooth off",
                 "forget" => "Device forgotten",
                 "diagnose" => "Saved Bluetooth/latest-report.txt",
                 "scan" => "Scan complete.",
@@ -791,6 +808,47 @@ mod menu_tests {
         }
     }
     #[test]
+    fn off_is_available_only_with_bluetooth_and_reflects_the_saved_state() {
+        let root = tempfile::tempdir().unwrap();
+        let mut m = menu();
+        m.root = root.path().to_owned();
+        assert_eq!(m.rows().last().unwrap(), "Turn Bluetooth off");
+        std::fs::create_dir(root.path().join("Config")).unwrap();
+        std::fs::write(root.path().join("Config/bluetooth-off"), "").unwrap();
+        assert_eq!(m.rows().last().unwrap(), "Bluetooth off");
+        m.bluetooth_available = false;
+        assert!(!m.rows().iter().any(|r| r.contains("Bluetooth off")));
+    }
+
+    #[test]
+    fn reconnect_is_slow_bounded_and_respects_off_and_manual_output() {
+        assert_eq!(
+            [0, 1, 2, 3, 100].map(|n| retry_delay(n).as_secs()),
+            [5, 15, 30, 60, 60]
+        );
+        let root = tempfile::tempdir().unwrap();
+        std::fs::create_dir(root.path().join("System")).unwrap();
+        std::fs::write(root.path().join("System/bluetooth.sh"), "").unwrap();
+        std::fs::create_dir(root.path().join("Config")).unwrap();
+        let mut retry = Reconnect::default();
+        retry.checked = Some(std::time::Instant::now() - std::time::Duration::from_secs(100));
+        retry.poll(root.path(), false);
+        assert!(retry.pending.is_none(), "no selection means no reconnect");
+        std::fs::write(
+            root.path().join("Config/bluetooth-headphones"),
+            "AA:BB:CC:DD:EE:FF",
+        )
+        .unwrap();
+        std::fs::write(root.path().join("Config/bluetooth-off"), "").unwrap();
+        retry.checked = Some(std::time::Instant::now() - std::time::Duration::from_secs(100));
+        retry.poll(root.path(), false);
+        assert!(retry.pending.is_none(), "off overrides a stale selection");
+        retry.failures = 10;
+        retry.poll(root.path(), true);
+        assert_eq!(retry.failures, 0);
+    }
+
+    #[test]
     fn pairing_is_separate_and_back_restores_the_parent() {
         let mut m = menu();
         m.devices[0].paired = false;
@@ -810,7 +868,8 @@ mod menu_tests {
                 "ACTIVE Internal speaker",
                 "DEVICE WF-C510",
                 "Pair audio device",
-                "DISCONNECT 0%"
+                "DISCONNECT 0%",
+                "Turn Bluetooth off"
             ]
         );
         assert!(m.lines()[0].is_empty());
@@ -996,6 +1055,63 @@ mod menu_tests {
     }
 }
 
+/// Retry only the saved choice. No discovery, new pairing, or UI-thread commands.
+#[derive(Default)]
+pub struct Reconnect {
+    checked: Option<std::time::Instant>,
+    pending: Option<Receiver<()>>,
+    failures: u32,
+}
+
+impl Reconnect {
+    pub fn poll(&mut self, root: &std::path::Path, connected: bool) {
+        if let Some(rx) = &self.pending {
+            if !matches!(rx.try_recv(), Err(mpsc::TryRecvError::Empty)) {
+                self.pending = None;
+            }
+        }
+        let now = std::time::Instant::now();
+        if connected {
+            self.failures = 0;
+            self.checked = Some(now);
+            return;
+        }
+        let delay = retry_delay(self.failures);
+        let Some(checked) = self.checked else {
+            self.checked = Some(now);
+            return;
+        };
+        if self.pending.is_some() || now.duration_since(checked) < delay {
+            return;
+        }
+        self.checked = Some(now);
+        if root.join("Config/bluetooth-off").exists()
+            || !root.join("Config/bluetooth-headphones").is_file()
+            || !root.join("System/bluetooth.sh").is_file()
+        {
+            self.failures = 0;
+            return;
+        }
+        self.failures = self.failures.saturating_add(1);
+        let root = root.to_owned();
+        let (tx, rx) = mpsc::channel();
+        self.pending = Some(rx);
+        std::thread::spawn(move || {
+            let _ = run(root, "reconnect", None);
+            let _ = tx.send(());
+        });
+    }
+}
+
+fn retry_delay(failures: u32) -> std::time::Duration {
+    std::time::Duration::from_secs(match failures {
+        0 => 5,
+        1 => 15,
+        2 => 30,
+        _ => 60,
+    })
+}
+
 /// Read-only connection checks; never starts the radio or changes audio routing.
 #[derive(Default)]
 pub struct Indicator {
@@ -1168,7 +1284,12 @@ pub fn probe(root: &std::path::Path) -> Option<Receiver<bool>> {
             .is_ok_and(|o| o.status.success());
         let _ = tx.send(supported);
         if supported {
-            let result = run(root, "restore", None);
+            let verb = if root.join("Config/bluetooth-off").exists() {
+                "off"
+            } else {
+                "restore"
+            };
+            let result = run(root, verb, None);
             if result.status.starts_with("Error:") {
                 eprintln!("slot: headphone reconnect unavailable");
             }

@@ -9,6 +9,8 @@ LOCK=${SLOT_BT_LOCK:-/run/slot-bluetooth.lock}
 LOGDIR="$ROOT/Bluetooth"
 VERB=${1:-}
 TARGET=${2:-}
+OFF="$ROOT/Config/bluetooth-off"
+automatic() { [ "$VERB" = restore ] || [ "$VERB" = reconnect ]; }
 # BaseOS owns hardware attachment. Other systems must already expose a BlueZ
 # controller; never run the vendor recovery commands against an unrelated stack.
 INIT=${SLOT_BT_INIT:-/mnt/vendor/ctrl/setBluetooth.sh}
@@ -78,12 +80,14 @@ WORK="$LOCK.work.$$"
 mkdir -p "$WORK"
 mkdir -p "$LOGDIR"
 SESSION_LOG="$LOGDIR/operation-$(date -u '+%Y%m%d-%H%M%S')-$$.log"
+# Periodic retries must not write a new report to the SD card every time.
+[ "$VERB" != reconnect ] || SESSION_LOG="$WORK/operation.log"
 : > "$SESSION_LOG"
 log() { printf '%s %s\n' "$(date -u '+%H:%M:%S')" "$*" >> "$SESSION_LOG"; }
 valid_mac() { printf '%s\n' "$1" | LC_ALL=C grep -Eq '^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$'; }
 raw_name() { printf '%s\n' "$1" | LC_ALL=C grep -Eq '^([0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}$|^[0-9A-Fa-f]{12}$'; }
 check_cancel() {
-    if [ "$VERB" = restore ] && [ "$OWNED" = 1 ] && [ -f "$LOCK/cancel" ]; then
+    if automatic && [ "$OWNED" = 1 ] && [ -f "$LOCK/cancel" ]; then
         CANCELLED=1
         log 'Automatic reconnect cancelled by a manual action'
         exit 0
@@ -215,7 +219,7 @@ report() {
 cleanup() {
     rc=$?
     trap - 0 1 2 15
-    if [ "$VERB" = restore ] && [ "$OWNED" = 1 ] && [ -f "$LOCK/cancel" ]; then
+    if automatic && [ "$OWNED" = 1 ] && [ -f "$LOCK/cancel" ]; then
         CANCELLED=1
         rc=0
         log 'Automatic reconnect cancelled by a manual action'
@@ -233,7 +237,7 @@ cleanup() {
     if [ "$OWNED" = 1 ] && [ "$(cat "$LOCK/pid" 2>/dev/null)" = "$$" ]; then rm -rf "$LOCK"; fi
     if [ "$rc" -ne 0 ]; then
         [ -n "$ERROR" ] || ERROR="Bluetooth failed at $STAGE (exit $rc)"
-        if [ "$VERB" = restore ]; then report restore >&2 || true; else report error >&2 || true; fi
+        if [ "$VERB" = reconnect ]; then :; elif automatic; then report restore >&2 || true; else report error >&2 || true; fi
     fi
     rm -rf "$WORK"
     exit "$rc"
@@ -266,8 +270,10 @@ start() {
     done
     bt power on >/dev/null
     bt show | grep -q 'Powered: yes' || fail 'Bluetooth adapter did not power on'
+    if ! automatic; then rm -f "$OFF"; fi
     bt discoverable off >/dev/null
-    bt pairable on >/dev/null
+    # Pairable controls incoming requests; explicit outgoing pairing still works.
+    bt pairable off >/dev/null
     if ! pidof bluealsa >/dev/null 2>&1; then
         bluealsa -p a2dp-source --initial-volume=100 < /dev/null >> "$SESSION_LOG" 2>&1 &
         n=0
@@ -296,13 +302,19 @@ start_session() {
     STAGE='pairing agent registration'
     mkfifo "$WORK/input"
     : > "$WORK/session-output"
-    "$BT" --agent NoInputNoOutput < "$WORK/input" > "$WORK/session-output" 2>&1 &
+    if [ "$VERB" = connect ]; then
+        "$BT" --agent NoInputNoOutput < "$WORK/input" > "$WORK/session-output" 2>&1 &
+    else
+        "$BT" < "$WORK/input" > "$WORK/session-output" 2>&1 &
+    fi
     SESSION_PID=$!
     exec 3> "$WORK/input"
     SESSION_OPEN=1
-    wait_text 'Agent registered' 12
-    send default-agent
-    wait_text 'Default agent request successful' 10
+    if [ "$VERB" = connect ]; then
+        wait_text 'Agent registered' 12
+        send default-agent
+        wait_text 'Default agent request successful' 10
+    fi
     STAGE='headphone discovery'
     send 'menu scan'
     send 'transport bredr'
@@ -314,8 +326,6 @@ wait_property() {
     property=$1
     limit=$2
     n=0
-    pin_sent=0
-    auth_sent=0
     while :; do
         check_cancel
         info=$(bt info "$TARGET") || true
@@ -325,14 +335,11 @@ wait_property() {
                 reason=$(sed -n 's/.*Failed to pair: //p' "$WORK/session-output" | tail -n 1)
                 fail "Pairing failed: $reason"
             fi
-            # Sony documents 0000 if these headphones request a legacy PIN.
-            if [ "$pin_sent" = 0 ] && grep -q 'Enter PIN code\|Enter passkey' "$WORK/session-output"; then
-                send 0000
-                pin_sent=1
-            fi
-            if [ "$auth_sent" = 0 ] && grep -q 'Authorize service\|Authorize pairing' "$WORK/session-output"; then
-                send yes
-                auth_sent=1
+            # bluetoothctl prompts do not identify the requesting device reliably.
+            # Never auto-approve an ambiguous request or guess a legacy PIN.
+            if grep -q 'Authorize service\|Authorize pairing\|Confirm passkey\|Enter PIN code\|Enter passkey' "$WORK/session-output"; then
+                send no
+                fail 'This device requires pairing confirmation that slot cannot safely provide'
             fi
         fi
         n=$((n + 1))
@@ -375,7 +382,7 @@ connect() {
     check_cancel
     info=$(bt info "$TARGET") || true
     if ! printf '%s\n' "$info" | grep -q 'Paired: yes'; then
-        [ "$VERB" != restore ] || fail 'Saved headphones need to be paired again'
+        ! automatic || fail 'Saved headphones need to be paired again'
         start_session
         STAGE=pairing
         send "pair $TARGET"
@@ -383,7 +390,6 @@ connect() {
         send 'scan off'
     fi
     STAGE='audio connection'
-    bt trust "$TARGET" >/dev/null
     if [ -n "$SESSION_PID" ]; then
         send "connect $TARGET"
     else
@@ -399,7 +405,7 @@ connect() {
             CONNECT_REASON=$(printf '%s\n' "$connection" | sed -n 's/.*Failed to connect: //p' | tail -n 1)
         fi
     fi
-    if [ "$VERB" = restore ]; then wait_property Connected 8; else wait_property Connected 20; fi
+    if automatic; then wait_property Connected 8; else wait_property Connected 20; fi
     STAGE='audio service discovery'
     n=0
     while :; do
@@ -411,7 +417,9 @@ connect() {
         sleep "${SLOT_BT_POLL_INTERVAL:-1}"
     done
     check_cancel
+    bt trust "$TARGET" >/dev/null
     mkdir -p "$ROOT/Config"
+    rm -f "$OFF"
     printf '%s\n' "$TARGET" > "$PREF.$$"
     mv -f "$PREF.$$" "$PREF"
     route "bluealsa:DEV=$TARGET,PROFILE=a2dp"
@@ -419,7 +427,7 @@ connect() {
 }
 trap cleanup 0
 trap 'ERROR="Bluetooth operation interrupted"; exit 1' 1 2 15
-[ "$VERB" = restore ] && [ ! -f "$PREF" ] && { rm -f "$SESSION_LOG"; exit 0; }
+automatic && { [ ! -f "$PREF" ] || [ -f "$OFF" ]; } && { rm -f "$SESSION_LOG"; exit 0; }
 # Read-only operations use their own scratch directory and never hold the radio lock.
 case "$VERB" in connect|forget|fallback) valid_mac "$TARGET" || fail 'Invalid Bluetooth address';; esac
 case "$VERB" in
@@ -436,8 +444,9 @@ case "$VERB" in
                     ;;
                 *) if ! kill -0 "$owner" 2>/dev/null; then rm -rf "$LOCK"; continue; fi ;;
             esac
-            if [ "$VERB" = restore ]; then log 'Automatic reconnect skipped: a manual operation is running'; exit 0; fi
-            if [ "$(cat "$LOCK/verb" 2>/dev/null)" = restore ]; then
+            if automatic; then log 'Automatic reconnect skipped: a manual operation is running'; exit 0; fi
+            lock_verb=$(cat "$LOCK/verb" 2>/dev/null || true)
+            if [ "$lock_verb" = restore ] || [ "$lock_verb" = reconnect ]; then
                 log 'Requesting cancellation of automatic reconnect'
                 touch "$LOCK/cancel" 2>/dev/null || true
             fi
@@ -455,6 +464,7 @@ case "$VERB" in
     list) emit_list ;;
     scan)
         start
+        rm -f "$OFF"
         start_session
         sleep "${SLOT_BT_SCAN_SECONDS:-12}"
         emit_list
@@ -471,6 +481,22 @@ case "$VERB" in
         fi
         # Keep the saved device for reconnect on the next startup.
         emit_list
+        ;;
+    off)
+        STAGE='Bluetooth off'
+        mkdir -p "$ROOT/Config"
+        : > "$OFF"
+        rm -f "$PREF"
+        route ''
+        # Do not start services merely to shut them down.
+        timeout 3 "$BT" pairable off >/dev/null 2>&1 || true
+        timeout 3 "$BT" discoverable off >/dev/null 2>&1 || true
+        timeout 3 "$BT" power off >/dev/null 2>&1 || true
+        rfkill block bluetooth >> "$SESSION_LOG" 2>&1 || fail 'Could not disable Bluetooth'
+        if timeout 3 "$BT" show 2>/dev/null | grep -q 'Powered: yes'; then
+            fail 'Bluetooth is still powered on'
+        fi
+        printf 'OUTPUT speaker\n'
         ;;
     speaker)
         STAGE='speaker selection'
@@ -490,6 +516,11 @@ case "$VERB" in
         emit_list
         ;;
     diagnose) report report ;;
-    restore) TARGET=$(cat "$PREF"); connect ;;
+    restore|reconnect)
+        # Recheck under the lock: a queued manual action may have changed the choice.
+        [ ! -f "$OFF" ] && [ -f "$PREF" ] || exit 0
+        TARGET=$(cat "$PREF")
+        connect
+        ;;
     *) fail 'Unknown Bluetooth operation' ;;
 esac

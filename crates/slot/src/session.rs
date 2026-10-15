@@ -20,6 +20,7 @@ use crate::prefetch::Prefetch;
 
 pub struct Session {
     bluetooth_monitor: crate::bluetooth::Indicator,
+    bluetooth_reconnect: crate::bluetooth::Reconnect,
     root: PathBuf,
     app: App,
     emu: Option<EmuHandle>,
@@ -43,6 +44,7 @@ impl Session {
     pub fn boot_with(root: PathBuf, sink: Box<dyn AudioSink>) -> Self {
         let mut session = Session {
             bluetooth_monitor: Default::default(),
+            bluetooth_reconnect: Default::default(),
             app: App::boot(&root),
             root,
             emu: None,
@@ -239,6 +241,7 @@ impl Session {
             let connected = self.bluetooth_monitor.poll();
             self.app
                 .bluetooth_state(self.bluetooth_monitor.address(), connected);
+            self.bluetooth_reconnect.poll(&self.root, connected);
         }
 
         self.bridge_link(|app| app.update(dt));

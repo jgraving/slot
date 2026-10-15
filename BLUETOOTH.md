@@ -11,8 +11,12 @@ speaker**. Press Y to manage a saved device, B to go back, or MENU to close the 
 existing controls. Press X to save a diagnostic report in the SD card’s
 `Bluetooth` folder.
 
-The last selected Bluetooth device reconnects when slot starts. Selecting the
-local output stops automatic reconnect.
+The last selected Bluetooth device reconnects when slot starts and is retried
+if it disconnects while slot is awake. Retry delays increase from 5 to 15, 30,
+then 60 seconds; reconnect never scans for or pairs a new device. Selecting the
+local output stops automatic reconnect. **Turn Bluetooth off** also powers off
+and blocks the radio, and stays off after restarting. Pairings are kept. Select
+a saved device or scan for devices to turn Bluetooth back on.
 
 **Volume on disconnect** sets the local output volume when Bluetooth disconnects
 or wired headphones are unplugged. It defaults to **0% (silent)** and changes in
@@ -40,9 +44,15 @@ scan or connect. Audio uses BlueALSA and its ALSA plugin. Older BaseOS versions
 without the hardware flag fall back to checking for a controller; other systems
 need an adapter that is already available through BlueZ.
 
-Pairing is enabled only during Bluetooth operations and disabled afterwards.
-The adapter is not made discoverable. Manual actions can interrupt an automatic
-reconnect. Failed connections leave the current audio output unchanged.
+Incoming pairing and discoverability stay disabled. New pairing is initiated
+only for a device selected in Sound. The temporary agent does not auto-approve
+ambiguous authorization prompts or guess legacy PINs; devices requiring those
+prompts are rejected with an error. A device is trusted only after its audio
+service has been verified. Manual actions can interrupt automatic reconnect.
+Failed connections leave the current audio output unchanged.
+
+These controls reduce unnecessary exposure; they do not replace BaseOS security
+updates or disable unrelated system Bluetooth services.
 
 Bluetooth connects on RG SP and RG35XXSP. Audio is currently quieter on RG35XXSP
 with the same device and game; the cause is still being investigated. These menu

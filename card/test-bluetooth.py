@@ -30,23 +30,25 @@ class BluetoothTests(unittest.TestCase):
         bt.write_text('''#!/bin/sh
 printf '%s\\n' "$*" >> "$SLOT_ROOT/calls"
 case "$*" in
- '--agent NoInputNoOutput')
+ ''|'--agent NoInputNoOutput')
    echo 'Agent registered'
    while read -r command; do
      printf 'session %s\\n' "$command" >> "$SLOT_ROOT/calls"
      case "$command" in
        default-agent) echo 'Default agent request successful';;
        'scan on') echo 'Discovery started';;
-       pair*) if [ "${MOCK_PAIR_FAIL:-no}" = yes ]; then echo 'Failed to pair: org.bluez.Error.AuthenticationFailed'; else touch "$SLOT_ROOT/paired"; echo 'Pairing successful'; fi;;
+       pair*) if [ "${MOCK_AUTH_PROMPT:-no}" = yes ]; then echo "[agent] Authorize pairing (yes/no):"; elif [ "${MOCK_PAIR_FAIL:-no}" = yes ]; then echo 'Failed to pair: org.bluez.Error.AuthenticationFailed'; else touch "$SLOT_ROOT/paired"; echo 'Pairing successful'; fi;;
        quit) exit 0;;
      esac
    done;;
  *show*)
    [ "${MOCK_CONTROLLER:-yes}" = yes ] || exit 1
-   echo "Controller AA:BB:CC:DD:EE:00"; echo "Powered: yes"
+   echo "Controller AA:BB:CC:DD:EE:00"; if [ -f "$SLOT_ROOT/powered-off" ]; then echo "Powered: no"; else echo "Powered: yes"; fi
    count=$(cat "$SLOT_ROOT/show-count" 2>/dev/null || echo 0)
    count=$((count + 1)); echo "$count" > "$SLOT_ROOT/show-count"
    if [ "$count" -gt "${MOCK_SOURCE_DELAY:-0}" ]; then echo 'UUID: Audio Source (0000110a-0000-1000-8000-00805f9b34fb)'; touch "$SLOT_ROOT/source-ready"; fi;;
+ 'power off') touch "$SLOT_ROOT/powered-off";;
+ 'power on') rm -f "$SLOT_ROOT/powered-off";;
  connect*)
    if [ "${MOCK_REQUIRE_READY:-no}" = yes ] && [ ! -f "$SLOT_ROOT/source-ready" ]; then echo 'Failed to connect: org.bluez.Error.Failed br-connection-profile-unavailable'; exit 1; fi
    if [ "${MOCK_CONNECT_ERROR:-}" != '' ]; then echo "Failed to connect: $MOCK_CONNECT_ERROR"; exit 1; fi
@@ -277,6 +279,73 @@ esac
     def test_restore_without_preference_does_not_start_radio(self):
         self.assertEqual(self.run_command('restore').returncode, 0)
         self.assertFalse((self.root / 'calls').exists())
+
+    def test_incoming_pairing_stays_disabled_for_scan_connect_and_restore(self):
+        for verb, args in [('scan', []), ('connect', [MAC]), ('restore', [])]:
+            result = self.run_command(verb, *args)
+            self.assertEqual(result.returncode, 0, result.stderr)
+        calls = (self.root / 'calls').read_text()
+        self.assertNotIn('pairable on', calls)
+        self.assertNotIn('discoverable on', calls)
+        self.assertNotIn('session default-agent', calls)
+
+    def test_ambiguous_authorization_is_rejected_and_never_trusted(self):
+        self.env.update(MOCK_PAIRED='no', MOCK_AUTH_PROMPT='yes')
+        result = self.run_command('connect', MAC)
+        self.assertNotEqual(result.returncode, 0)
+        calls = (self.root / 'calls').read_text()
+        self.assertNotIn('session yes', calls)
+        self.assertNotIn('session 0000', calls)
+        self.assertNotIn('trust ' + MAC, calls)
+        self.assertFalse((self.root / 'route').exists())
+
+    def test_automatic_reconnect_never_re_pairs_and_does_not_write_reports(self):
+        (self.root / 'Config').mkdir()
+        (self.root / 'Config/bluetooth-headphones').write_text(MAC)
+        self.env['MOCK_PAIRED'] = 'no'
+        result = self.run_command('reconnect')
+        self.assertNotEqual(result.returncode, 0)
+        calls = (self.root / 'calls').read_text()
+        self.assertNotIn('--agent', calls)
+        self.assertNotIn('session pair', calls)
+        self.assertEqual(list((self.root / 'Bluetooth').iterdir()), [])
+
+    def test_off_clears_reconnect_choice_and_stays_off_until_explicit_use(self):
+        self.assertEqual(self.run_command('connect', MAC).returncode, 0)
+        result = self.run_command('off')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue((self.root / 'Config/bluetooth-off').exists())
+        self.assertFalse((self.root / 'Config/bluetooth-headphones').exists())
+        self.assertEqual((self.root / 'route').read_text().strip(), '')
+        calls = (self.root / 'calls').read_text()
+        for verb in ['restore', 'reconnect']:
+            self.assertEqual(self.run_command(verb).returncode, 0)
+        self.assertEqual((self.root / 'calls').read_text(), calls)
+        self.assertEqual(self.run_command('connect', MAC).returncode, 0)
+        self.assertFalse((self.root / 'Config/bluetooth-off').exists())
+
+    def test_rejected_non_audio_device_is_never_trusted(self):
+        self.env['MOCK_UUID'] = '00001124-0000-1000-8000-00805f9b34fb'
+        self.assertNotEqual(self.run_command('connect', MAC).returncode, 0)
+        self.assertNotIn('trust ' + MAC, (self.root / 'calls').read_text())
+
+    def test_off_cancels_an_in_flight_periodic_reconnect(self):
+        (self.root / 'Config').mkdir()
+        (self.root / 'Config/bluetooth-headphones').write_text(MAC)
+        env = dict(self.env, MOCK_CONNECTED='no', SLOT_BT_POLL_INTERVAL='0.05')
+        worker = subprocess.Popen(['sh', str(SCRIPT), 'reconnect'], env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        try:
+            deadline = time.monotonic() + 2
+            while not (self.root / 'lock/verb').exists() and time.monotonic() < deadline: time.sleep(0.01)
+            self.assertEqual((self.root / 'lock/verb').read_text().strip(), 'reconnect')
+            result = self.run_command('off')
+            self.assertEqual(result.returncode, 0, result.stderr)
+            worker.communicate(timeout=3)
+            self.assertTrue((self.root / 'Config/bluetooth-off').exists())
+            self.assertFalse((self.root / 'Config/bluetooth-headphones').exists())
+            self.assertEqual((self.root / 'route').read_text().strip(), '')
+        finally:
+            if worker.poll() is None: worker.kill(); worker.communicate()
 
 if __name__ == '__main__':
     unittest.main()
