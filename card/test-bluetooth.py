@@ -23,6 +23,9 @@ class BluetoothTests(unittest.TestCase):
             p = bin_dir / name
             p.write_text('#!/bin/sh\nexit 0\n')
             p.chmod(0o755)
+        rfkill = bin_dir / 'rfkill'
+        rfkill.write_text('#!/bin/sh\nprintf "%s\\n" "$*" >> "$SLOT_ROOT/rfkill-calls"\ncase "$*" in "block bluetooth") touch "$SLOT_ROOT/transport-lost";; esac\n')
+        rfkill.chmod(0o755)
         aplay = bin_dir / 'aplay'
         aplay.write_text('#!/bin/sh\necho "${MOCK_PCM:-bluealsa}"\n')
         aplay.chmod(0o755)
@@ -64,13 +67,22 @@ case "$*" in
    probe=$((probe + 1)); echo "$probe" > "$SLOT_ROOT/controller-probes"
    [ "$probe" -gt "${MOCK_CONTROLLER_DELAY:-0}" ] || exit 1
    [ "${MOCK_CONTROLLER:-yes}" = yes ] || exit 1
+   if [ -f "$SLOT_ROOT/power-requested" ]; then
+     power_probe=$(cat "$SLOT_ROOT/power-probes" 2>/dev/null || echo 0)
+     power_probe=$((power_probe + 1)); echo "$power_probe" > "$SLOT_ROOT/power-probes"
+     if [ "$power_probe" -gt "${MOCK_POWER_DELAY:-0}" ]; then rm -f "$SLOT_ROOT/powered-off" "$SLOT_ROOT/power-requested"; fi
+   fi
    echo "Controller AA:BB:CC:DD:EE:00"; if [ -f "$SLOT_ROOT/powered-off" ]; then echo "Powered: no"; else echo "Powered: yes"; fi
    count=$(cat "$SLOT_ROOT/show-count" 2>/dev/null || echo 0)
    count=$((count + 1)); echo "$count" > "$SLOT_ROOT/show-count"
    if [ "$count" -gt "${MOCK_SOURCE_DELAY:-0}" ]; then echo 'UUID: Audio Source (0000110a-0000-1000-8000-00805f9b34fb)'; touch "$SLOT_ROOT/source-ready"; fi;;
  trust*) touch "$SLOT_ROOT/trusted";;
  'power off') touch "$SLOT_ROOT/powered-off";;
- 'power on') rm -f "$SLOT_ROOT/powered-off";;
+ 'power on')
+   [ ! -f "$SLOT_ROOT/transport-lost" ] || exit 0
+   if [ "${MOCK_POWER_DELAY:-0}" -gt 0 ]; then
+     touch "$SLOT_ROOT/powered-off" "$SLOT_ROOT/power-requested"
+   else rm -f "$SLOT_ROOT/powered-off"; fi;;
  connect*)
    if [ "${MOCK_REQUIRE_READY:-no}" = yes ] && [ ! -f "$SLOT_ROOT/source-ready" ]; then echo 'Failed to connect: org.bluez.Error.Failed br-connection-profile-unavailable'; exit 1; fi
    if [ "${MOCK_CONNECT_ERROR:-}" != '' ]; then echo "Failed to connect: $MOCK_CONNECT_ERROR"; exit 1; fi
@@ -299,6 +311,28 @@ esac
         result = self.run_command('speaker')
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertFalse((self.root / 'lock').exists())
+
+    def test_off_on_keeps_uart_transport_alive_and_connects_again(self):
+        self.assertEqual(self.run_command('connect', MAC).returncode, 0)
+        self.assertEqual(self.run_command('off').returncode, 0)
+        self.assertTrue((self.root / 'powered-off').exists())
+        self.assertFalse((self.root / 'transport-lost').exists())
+        self.env['MOCK_POWER_DELAY'] = '3'
+        result = self.run_command('on')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse((self.root / 'powered-off').exists())
+        self.assertEqual(self.run_command('connect', MAC).returncode, 0)
+        self.assertIn(MAC, (self.root / 'route').read_text())
+
+    def test_power_on_timeout_does_not_persist_enabled(self):
+        (self.root / 'Config').mkdir()
+        (self.root / 'Config/bluetooth-off').write_text('')
+        self.env['MOCK_POWER_DELAY'] = '1000'
+        result = self.run_command('on')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('did not power on', result.stderr)
+        self.assertFalse((self.root / 'Config/bluetooth-enabled').exists())
+        self.assertTrue((self.root / 'Config/bluetooth-off').exists())
 
     def test_explicit_on_remembers_enabled_without_scanning_or_changing_output(self):
         config = self.root / 'Config'

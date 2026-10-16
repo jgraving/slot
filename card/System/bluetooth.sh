@@ -203,6 +203,15 @@ report() {
         if [ -r "$ROOT/Config/slot.state" ]; then
             grep -E '^(volume|volume_hp|volume_bt|volume_usb|muted|muted_hp|muted_bt|muted_usb)=' "$ROOT/Config/slot.state" || true
         fi
+        echo '--- Bluetooth power state (read only) ---'
+        for flag in "$OFF" "$ENABLED"; do
+            if [ -f "$flag" ]; then echo "$(basename "$flag"): present"; else echo "$(basename "$flag"): absent"; fi
+        done
+        timeout 3 rfkill list bluetooth 2>&1 || true
+        if [ "$VERB" = diagnose ]; then
+            echo '--- Bluetooth kernel messages (last 80 matching lines) ---'
+            dmesg 2>/dev/null | grep -iE 'bluetooth|hci[0-9]|hci_uart|rtk|rfkill' | tail -n 80 || true
+        fi
         echo '--- Local mixer (read only) ---'
         timeout 3 amixer scontents 2>&1 || true
         echo '--- Bluetooth mixer (read only) ---'
@@ -308,8 +317,15 @@ start() {
         [ "$ready" -lt 20 ] && [ "$(date +%s)" -lt "$deadline" ] || fail 'Bluetooth adapter did not appear'
         sleep "${SLOT_BT_POLL_INTERVAL:-1}"
     done
-    bt power on >/dev/null
-    bt show | grep -q '^[[:space:]]*Powered: yes[[:space:]]*$' || fail 'Bluetooth adapter did not power on'
+    bt power on >/dev/null || true
+    ready=0
+    deadline=$(( $(date +%s) + 20 ))
+    while ! bt show | grep -q '^[[:space:]]*Powered: yes[[:space:]]*$'; do
+        check_cancel
+        ready=$((ready + 1))
+        [ "$ready" -lt 20 ] && [ "$(date +%s)" -lt "$deadline" ] || fail 'Bluetooth did not power on. Shut down fully, then power on.'
+        sleep "${SLOT_BT_POLL_INTERVAL:-1}"
+    done
     if ! automatic; then
         mkdir -p "$ROOT/Config"
         : > "$ENABLED"
@@ -576,11 +592,20 @@ case "$VERB" in
         # Do not start services merely to shut them down.
         timeout 3 "$BT" pairable off >/dev/null 2>&1 || true
         timeout 3 "$BT" discoverable off >/dev/null 2>&1 || true
-        timeout 3 "$BT" power off >/dev/null 2>&1 || true
-        rfkill block bluetooth >> "$SESSION_LOG" 2>&1 || fail 'Could not disable Bluetooth'
-        if timeout 3 "$BT" show 2>/dev/null | grep -q '^[[:space:]]*Powered: yes[[:space:]]*$'; then
-            fail 'Bluetooth is still powered on'
-        fi
+        # BlueZ owns the live UART controller. rfkill may remove chip power
+        # while hciattach still holds the initialized transport, breaking On.
+        # Keep the transport attached and disable the radio through BlueZ only.
+        bt power off >/dev/null || true
+        ready=0
+        deadline=$(( $(date +%s) + 10 ))
+        while :; do
+            adapter=$(bt show) || true
+            if ! printf '%s\n' "$adapter" | grep -q '^Controller '; then break; fi
+            if printf '%s\n' "$adapter" | grep -q '^[[:space:]]*Powered: no[[:space:]]*$'; then break; fi
+            ready=$((ready + 1))
+            [ "$ready" -lt 10 ] && [ "$(date +%s)" -lt "$deadline" ] || fail 'Bluetooth is still powered on'
+            sleep "${SLOT_BT_POLL_INTERVAL:-1}"
+        done
         printf 'OUTPUT %s\n' "$output"
         ;;
     usb)

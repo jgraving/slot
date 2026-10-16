@@ -115,3 +115,5 @@ hardware gain. Automatic selection and the updated icons need device testing. US
 hardware. Card IDs are used rather than assuming the USB device is always card 3.
 
 Bluetooth defaults to Off on a fresh setup. The Bluetooth row uses left/right to switch On or Off; selecting Pair audio device enables it automatically. Explicit On/Off is remembered, and existing saved-headphone setups retain startup reconnect. USB outputs use the same headphone symbols as the audio jack.
+
+Bluetooth Off now uses BlueZ power control without rfkill-blocking the attached UART. On waits for the powered state with a bounded timeout. If the controller stays off, the menu asks for a full shutdown and power-on; this recovery hint is not shown for ordinary headphone connection failures. On-demand reports include Bluetooth kernel messages and rfkill state.
