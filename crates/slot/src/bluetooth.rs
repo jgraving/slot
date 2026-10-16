@@ -97,6 +97,7 @@ pub struct Manager {
     output: String,
     pending: Option<Receiver<ResultMessage>>,
     pub face: Option<TexId>,
+    pub progress_face: Option<TexId>,
     pub wired: bool,
     pub bluetooth_available: bool,
     pub disconnect_volume: u8,
@@ -122,6 +123,7 @@ impl Manager {
             output: "speaker".into(),
             pending: None,
             face: None,
+            progress_face: None,
             wired: false,
             disconnect_notice: false,
             route_choice: None,
@@ -488,6 +490,8 @@ impl Manager {
         let title = "";
         let message = if self.forget_confirmation.is_some() {
             "CONFIRM_FORGET".to_owned()
+        } else if self.busy() {
+            String::new()
         } else if self.status.is_empty() && self.disconnect_notice {
             "Device disconnected — choose output".into()
         } else {
@@ -1015,6 +1019,7 @@ mod menu_tests {
             output: "speaker".into(),
             pending: None,
             face: None,
+            progress_face: None,
             wired: false,
             disconnect_notice: false,
             route_choice: None,
@@ -1022,6 +1027,35 @@ mod menu_tests {
             forget_confirmation: None,
         }
     }
+    #[test]
+    fn busy_work_uses_progress_without_hiding_failures_or_moving_rows() {
+        let mut m = menu();
+        let idle = m.lines();
+        let (tx, rx) = mpsc::channel();
+        m.pending = Some(rx);
+        for status in [
+            "Scanning…",
+            "Connecting...",
+            "Turning Bluetooth on...",
+            "Saving report...",
+        ] {
+            m.status = status.into();
+            let busy = m.lines();
+            assert!(busy[1].is_empty());
+            assert_eq!(&busy[3..], &idle[3..]);
+        }
+        tx.send(ResultMessage {
+            devices: None,
+            output: None,
+            status: "Error: Bluetooth could not connect".into(),
+        })
+        .unwrap();
+        m.poll();
+        assert!(!m.busy());
+        assert!(m.lines()[1].starts_with("Error:"));
+        assert_eq!(&m.lines()[3..], &idle[3..]);
+    }
+
     #[test]
     fn opening_sound_adopts_an_automatic_usb_switch() {
         let mut worker = menu();
@@ -1825,4 +1859,32 @@ pub fn probe(root: &std::path::Path) -> Option<Receiver<bool>> {
         }
     });
     Some(rx)
+}
+
+/// Small antialiased progress ring. Frames are cached once by the frontend;
+/// animation never rerasterizes the full menu or delays its worker.
+pub fn progress_face(frame: usize) -> UndoFace {
+    let (w, h) = (32, 32);
+    let mut rgba = vec![0; (w * h * 4) as usize];
+    let turn = std::f32::consts::TAU;
+    let angle = (frame % 12) as f32 * turn / 12.;
+    for y in 0..h {
+        for x in 0..w {
+            let mut alpha = 0.;
+            for sy in 0..4 {
+                for sx in 0..4 {
+                    let dx = x as f32 + (sx as f32 + 0.5) / 4. - 16.;
+                    let dy = y as f32 + (sy as f32 + 0.5) / 4. - 16.;
+                    let r = (dx * dx + dy * dy).sqrt();
+                    if (10.5..13.).contains(&r) {
+                        let trail = (angle - dy.atan2(dx)).rem_euclid(turn) / turn;
+                        alpha += 0.16 + 0.84 * (1. - trail).powi(3);
+                    }
+                }
+            }
+            let at = ((y * w + x) * 4) as usize;
+            rgba[at..at + 4].copy_from_slice(&[246, 244, 239, (alpha * 255. / 16.).round() as u8]);
+        }
+    }
+    UndoFace { rgba, w, h }
 }

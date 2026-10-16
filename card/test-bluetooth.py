@@ -481,6 +481,14 @@ esac
         self.assertNotIn('power off', (self.root / 'calls').read_text())
         self.assertNotIn('remove ' + MAC, (self.root / 'calls').read_text())
 
+    def test_manual_reports_keep_one_previous_output_snapshot(self):
+        self.assertEqual(self.run_command('diagnose').returncode, 0)
+        first = (self.root / 'Bluetooth/latest-report.txt').read_bytes()
+        (self.root / 'route').write_text('plughw:CARD=Headset,DEV=0\n')
+        self.assertEqual(self.run_command('diagnose').returncode, 0)
+        self.assertEqual((self.root / 'Bluetooth/previous-report.txt').read_bytes(), first)
+        self.assertIn('plughw:CARD=Headset,DEV=0', (self.root / 'Bluetooth/latest-report.txt').read_text())
+
     def test_diagnostics_include_usb_volume_and_kernel_section(self):
         (self.root / 'Config').mkdir(exist_ok=True)
         (self.root / 'Config/slot.state').write_text('volume_usb=35\nmuted_usb=0\nprivate_setting=secret\n')

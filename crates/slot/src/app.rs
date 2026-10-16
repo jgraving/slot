@@ -3176,6 +3176,16 @@ impl App {
                     alpha: 1.0,
                 });
             }
+            if let Some(tex) = menu.progress_face {
+                out.push(Draw::Tex {
+                    x: self.canvas().centred(32.),
+                    y: 24.,
+                    w: 32.,
+                    h: 32.,
+                    tex,
+                    alpha: 1.,
+                });
+            }
             self.hud.draw(self.canvas(), self.now(), out);
             return;
         }

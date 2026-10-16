@@ -258,6 +258,11 @@ report() {
         echo '--- slot audio / application log (last 120 lines) ---'
         [ ! -r "$ROOT/Logs/slot.log" ] || tail -n 120 "$ROOT/Logs/slot.log"
     } 2>&1 | { head -c 131072; cat >/dev/null; } > "$tmp"
+    # Keep just one previous manual snapshot for comparing two audio outputs.
+    if [ "$kind" = report ] && [ -f "$file" ]; then
+        cp "$file" "$LOGDIR/previous-report.txt.$$"
+        mv -f "$LOGDIR/previous-report.txt.$$" "$LOGDIR/previous-report.txt"
+    fi
     cp "$tmp" "$file.$$"
     mv -f "$file.$$" "$file"
     printf 'REPORT Bluetooth/latest-%s.txt\n' "$kind"

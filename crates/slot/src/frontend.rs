@@ -33,6 +33,7 @@ const ALERT_INK: [u8; 3] = [0xf0, 0xb4, 0x3c];
 
 pub struct Frontend {
     bluetooth_tex: Option<TexId>,
+    bluetooth_spinner: Vec<TexId>,
     audio_icon: Option<TexId>,
     hud_audio_icon: Option<TexId>,
     audio_icon_key: Option<(u8, bool)>,
@@ -160,6 +161,7 @@ impl Frontend {
             .set_power(Power::new(platform, DOZE_TIMEOUT));
         Frontend {
             bluetooth_tex: None,
+            bluetooth_spinner: Vec::new(),
             audio_icon: None,
             hud_audio_icon: None,
             audio_icon_key: None,
@@ -546,8 +548,31 @@ impl Frontend {
             self.session.app_mut().hud_audio_indicator = None;
         }
 
+        let sound_busy = self
+            .session
+            .app()
+            .bluetooth
+            .as_ref()
+            .is_some_and(|m| m.busy());
+        if sound_busy && self.bluetooth_spinner.is_empty() {
+            for frame in 0..12 {
+                self.bluetooth_spinner.push(upload(
+                    compositor,
+                    &mut None,
+                    crate::bluetooth::progress_face(frame),
+                ));
+            }
+        }
+        let progress = if sound_busy {
+            self.bluetooth_spinner
+                .get((self.start.elapsed().as_millis() / 80 % 12) as usize)
+                .copied()
+        } else {
+            None
+        };
         let sound_footer_ink = slot_ui::footer_ink(self.session.app().light());
         if let Some(menu) = &mut self.session.app_mut().bluetooth {
+            menu.progress_face = progress;
             let lines = menu.lines();
             if lines != self.bluetooth_lines || menu.face.is_none() {
                 menu.face = Some(upload(

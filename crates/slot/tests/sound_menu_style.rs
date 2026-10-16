@@ -99,3 +99,14 @@ fn device_icons_have_equal_visible_heights_and_the_check_uses_the_value_edge() {
     assert!((right(92) as i32 - right(144) as i32).abs() <= 1);
     assert!((right(92) as i32 - right(196) as i32).abs() <= 1);
 }
+
+#[test]
+fn progress_ring_animates_inside_a_fixed_small_transparent_box() {
+    let first = slot::bluetooth::progress_face(0);
+    let next = slot::bluetooth::progress_face(1);
+    assert_eq!((first.w, first.h), (32, 32));
+    assert_ne!(first.rgba, next.rgba);
+    assert_eq!(first.rgba, slot::bluetooth::progress_face(12).rgba);
+    assert_eq!(first.rgba[((16 * 32 + 16) * 4 + 3) as usize], 0);
+    assert!(first.rgba.chunks_exact(4).any(|p| p[3] > 0 && p[3] < 255));
+}
