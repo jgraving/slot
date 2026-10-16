@@ -244,3 +244,28 @@ fn departure_moves_every_cartridge_layer_up_and_shrinks_to_insertion_size() {
         }
     }
 }
+
+#[test]
+fn next_favorite_moves_into_place_during_departure_including_last_and_two_carts() {
+    for count in [2, 3, 4] {
+        for selected in 0..count {
+            let carts: Vec<_> = (0..count).map(|i| { let mut c = cart(Platform::Gba); c.stem = i.to_string(); c }).collect();
+            let mut shelf = Shelf::new(carts);
+            shelf.set_faces((0..count).map(|i| TexId::from_raw(300 + i)).collect());
+            shelf.select(selected);
+            let next = if selected + 1 < count { selected + 1 } else { selected - 1 };
+            let tex = TexId::from_raw(300 + next);
+            let mut distance = f32::MAX;
+            for progress in [0.0, 0.5, 1.0] {
+                let mut draws = vec![];
+                shelf.draw_departing(Canvas::FRAMED, progress, None, &mut draws);
+                let nearest = draws.iter().filter(|d| matches!(d, Draw::Tex { tex: t, .. } if *t == tex))
+                    .map(|d| { let (x, _, w, _, _) = quad(d); (x + w / 2.0 - Canvas::FRAMED.w / 2.0).abs() })
+                    .fold(f32::MAX, f32::min);
+                assert!(nearest < distance);
+                if progress == 1.0 { close(nearest, 0.0); }
+                distance = nearest;
+            }
+        }
+    }
+}
