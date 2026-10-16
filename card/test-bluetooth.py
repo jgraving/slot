@@ -330,7 +330,7 @@ esac
         self.env['MOCK_POWER_DELAY'] = '1000'
         result = self.run_command('on')
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn('did not power on', result.stderr)
+        self.assertIn('Bluetooth couldn’t start. Turn the handheld off, then on.', result.stderr)
         self.assertFalse((self.root / 'Config/bluetooth-enabled').exists())
         self.assertTrue((self.root / 'Config/bluetooth-off').exists())
 

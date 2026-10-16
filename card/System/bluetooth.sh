@@ -323,7 +323,7 @@ start() {
     while ! bt show | grep -q '^[[:space:]]*Powered: yes[[:space:]]*$'; do
         check_cancel
         ready=$((ready + 1))
-        [ "$ready" -lt 20 ] && [ "$(date +%s)" -lt "$deadline" ] || fail 'Bluetooth did not power on. Shut down fully, then power on.'
+        [ "$ready" -lt 20 ] && [ "$(date +%s)" -lt "$deadline" ] || fail "Bluetooth couldn’t start. Turn the handheld off, then on."
         sleep "${SLOT_BT_POLL_INTERVAL:-1}"
     done
     if ! automatic; then
