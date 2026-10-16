@@ -3149,6 +3149,23 @@ impl App {
             .as_ref()
             .filter(|_| !matches!(self.phase, Phase::Doze { .. }))
         {
+            match &self.phase {
+                Phase::Playing { cart } => {
+                    self.push_game(out);
+                    out.push(Draw::Rect {
+                        x: 0.0,
+                        y: 0.0,
+                        w: self.canvas().w,
+                        h: OUT_H as f32 - MOUTH_H,
+                        colour: [0.0, 0.0, 0.0, 0.65],
+                    });
+                    self.draw_seated_mouth(cart, out);
+                }
+                _ => {
+                    slot_ui::draw_menu_ground(self.canvas(), self.menu_ground(), out);
+                    draw_empty_slot(self.canvas(), self.slot_faces, out);
+                }
+            }
             if let Some(tex) = menu.face {
                 out.push(Draw::Tex {
                     x: 0.0,

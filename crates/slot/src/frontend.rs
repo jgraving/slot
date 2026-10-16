@@ -546,13 +546,14 @@ impl Frontend {
             self.session.app_mut().hud_audio_indicator = None;
         }
 
+        let sound_footer_ink = slot_ui::footer_ink(self.session.app().light());
         if let Some(menu) = &mut self.session.app_mut().bluetooth {
             let lines = menu.lines();
             if lines != self.bluetooth_lines || menu.face.is_none() {
                 menu.face = Some(upload(
                     compositor,
                     &mut self.bluetooth_tex,
-                    crate::bluetooth::screen_face(&lines),
+                    crate::bluetooth::screen_face_with_ink(&lines, sound_footer_ink),
                 ));
                 self.bluetooth_lines = lines;
             }

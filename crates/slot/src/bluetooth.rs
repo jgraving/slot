@@ -758,12 +758,11 @@ fn run(_root: PathBuf, _verb: &str, _address: Option<String>) -> ResultMessage {
 }
 
 pub fn screen_face(lines: &[String]) -> UndoFace {
-    let bg = slot_ui::opening().map(|c| (c * 255.0) as u8);
-    let selected = slot_ui::edge().map(|c| (c * 255.0) as u8);
+    screen_face_with_ink(lines, slot_ui::footer_ink(false))
+}
+
+pub fn screen_face_with_ink(lines: &[String], footer_ink: [u8; 3]) -> UndoFace {
     let mut rgba = vec![0u8; (OUT_W * OUT_H * 4) as usize];
-    for p in rgba.chunks_exact_mut(4) {
-        p.copy_from_slice(&bg);
-    }
     let Some(font) = slot_ui::text::label_font() else {
         return UndoFace {
             rgba,
@@ -771,7 +770,7 @@ pub fn screen_face(lines: &[String]) -> UndoFace {
             h: OUT_H,
         };
     };
-    let label_w = OUT_W - 64;
+    let label_w = OUT_W - 96;
     let compact = lines.get(2).is_some_and(|line| line == "COMPACT");
     let clean = lines.iter().take(3).all(String::is_empty);
     let row_count = lines.len().saturating_sub(4) as u32;
@@ -798,43 +797,53 @@ pub fn screen_face(lines: &[String]) -> UndoFace {
                 line.strip_prefix("SELECTED ")
                     .or_else(|| line.strip_prefix("ROW "))
                     .unwrap_or(line),
-                row_top + (i as u32 - 3) * 52,
-                44,
+                row_top + (i as u32 - 3) * 52 + 4,
+                40u32,
                 30.0,
                 1,
                 line.starts_with("SELECTED "),
             ),
         };
+        let row = i >= 3 && i != lines.len() - 1;
+        let ink = if row && !highlight {
+            [0x9a, 0x9a, 0xa4]
+        } else {
+            [246, 244, 239]
+        };
         if highlight {
-            for y in top..top + h {
-                for x in 0..OUT_W {
-                    let o = ((y * OUT_W + x) * 4) as usize;
-                    rgba[o..o + 4].copy_from_slice(&selected);
-                }
-            }
+            let pointer = slot_ui::quick_pointer_face();
+            blit(&mut rgba, &pointer, 18, top.saturating_sub(4));
         }
         if i == lines.len() - 1 {
-            let mut hints = Vec::new();
-            if line.contains("B Back") {
-                hints.push(slot_ui::hint_face("B", "Back"));
-            }
-            hints.push(if line.contains("Change") {
-                slot_ui::arrows_hint_face("Change")
-            } else {
-                slot_ui::hint_face("A", "Select")
-            });
-            if line.contains("Y Manage") {
-                hints.push(slot_ui::hint_face("Y", "Manage"));
-            }
-            if line.contains("X Save report") {
-                hints.push(slot_ui::hint_face("X", "Save report"));
-            }
-            let gap = slot_ui::LEGEND_GAP as u32;
-            let total = hints.iter().map(|h| h.w).sum::<u32>() + gap * (hints.len() as u32 - 1);
-            let mut x = (OUT_W - total) / 2;
-            for hint in hints {
-                blit(&mut rgba, &hint, x, 427);
-                x += hint.w + gap;
+            let faces = slot_ui::sound_button_legends(footer_ink);
+            let left: Vec<_> = [
+                line.contains("B Back").then_some(0),
+                line.contains("X Save report").then_some(1),
+            ]
+            .into_iter()
+            .flatten()
+            .collect();
+            let right: Vec<_> = [
+                line.contains("Y Manage").then_some(2),
+                Some(if line.contains("Change") { 4 } else { 3 }),
+            ]
+            .into_iter()
+            .flatten()
+            .collect();
+            for (indices, right) in [(&left, false), (&right, true)] {
+                let seen = |i: usize| faces[i].w.saturating_sub(slot_ui::HINT_EDGE);
+                let gap = 16;
+                let total = indices.iter().map(|&i| seen(i)).sum::<u32>()
+                    + gap * indices.len().saturating_sub(1) as u32;
+                let mut x = if right {
+                    OUT_W.saturating_sub(total)
+                } else {
+                    0
+                };
+                for &i in indices {
+                    blit(&mut rgba, &faces[i], x, OUT_H - slot_ui::MOUTH_H as u32);
+                    x += seen(i) + gap;
+                }
             }
             continue;
         }
@@ -843,8 +852,8 @@ pub fn screen_face(lines: &[String]) -> UndoFace {
             .map(|v| ("Volume on disconnect", v))
             .or_else(|| label.strip_prefix("BLUETOOTH ").map(|v| ("Bluetooth", v)))
         {
-            let name = slot_ui::quick_value_face(name, true);
-            blit(&mut rgba, &name, 14, top);
+            let name = slot_ui::quick_value_face(name, highlight);
+            blit(&mut rgba, &name, 64 - slot_ui::MENU_PAD, top);
             let value = slot_ui::quick_value_face(value, highlight);
             if highlight {
                 let left = slot_ui::quick_caret_face(false);
@@ -867,8 +876,14 @@ pub fn screen_face(lines: &[String]) -> UndoFace {
             .strip_prefix("DEVICE ")
             .or_else(|| label.strip_prefix("USB_DEVICE "))
             .unwrap_or(label);
-        let inset = if device { 68 } else { 32 };
-        let label_w = label_w - (inset - 32);
+        let inset = if !row {
+            48
+        } else if device {
+            100
+        } else {
+            64
+        };
+        let label_w = label_w - if device { 36 } else { 0 };
         if device {
             let face = slot_ui::icon_face(
                 if usb {
@@ -877,7 +892,7 @@ pub fn screen_face(lines: &[String]) -> UndoFace {
                     slot_ui::Icon::Bluetooth
                 },
                 24.0,
-                [246, 244, 239],
+                ink,
             );
             let icon = UndoFace {
                 rgba: face.rgba,
@@ -887,35 +902,16 @@ pub fn screen_face(lines: &[String]) -> UndoFace {
             blit(
                 &mut rgba,
                 &icon,
-                32 + 32u32.saturating_sub(icon.w) / 2,
+                64 + 28u32.saturating_sub(icon.w) / 2,
                 top + h.saturating_sub(icon.h) / 2,
             );
-            let is_device = |line: &String| {
-                let label = line
-                    .strip_prefix("ROW ")
-                    .or_else(|| line.strip_prefix("SELECTED "))
-                    .unwrap_or(line);
-                let label = label.strip_prefix("ACTIVE ").unwrap_or(label);
-                label.starts_with("DEVICE ") || label.starts_with("USB_DEVICE ")
-            };
-            for (boundary, y) in [
-                (!lines.get(i - 1).is_some_and(is_device), top - 4),
-                (!lines.get(i + 1).is_some_and(is_device), top + 48),
-            ] {
-                if boundary {
-                    for x in 32..OUT_W - 32 {
-                        let at = ((y * OUT_W + x) * 4) as usize;
-                        rgba[at..at + 4].copy_from_slice(&[40, 40, 46, 255]);
-                    }
-                }
-            }
         }
         let layout = slot_ui::text::fit(
             font,
             label,
             (label_w - if active { 44 } else { 0 }) as f32,
             max_lines,
-            if device { 26.0 } else { px },
+            px,
             18.0,
         );
         let row = i >= 3 && i != lines.len() - 1;
@@ -933,22 +929,20 @@ pub fn screen_face(lines: &[String]) -> UndoFace {
             label_w
         };
         if active {
-            draw_check(&mut rgba, OUT_W - 56, top + h / 2);
+            draw_check(&mut rgba, OUT_W - 56, top + h / 2, ink);
         }
         let mut face = vec![0u8; (face_w * h * 4) as usize];
-        slot_ui::text::draw_centred(&mut face, face_w, h, &layout, [246, 244, 239]);
-        for y in 0..h {
-            for x in 0..face_w {
-                let src = ((y * face_w + x) * 4) as usize;
-                let dst = (((top + y) * OUT_W + x + inset) * 4) as usize;
-                let alpha = u32::from(face[src + 3]);
-                for c in 0..3 {
-                    rgba[dst + c] = ((u32::from(face[src + c]) * alpha
-                        + u32::from(rgba[dst + c]) * (255 - alpha))
-                        / 255) as u8;
-                }
-            }
-        }
+        slot_ui::text::draw_centred(&mut face, face_w, h, &layout, ink);
+        blit(
+            &mut rgba,
+            &UndoFace {
+                rgba: face,
+                w: face_w,
+                h,
+            },
+            inset,
+            top,
+        );
     }
     UndoFace {
         rgba,
@@ -958,32 +952,38 @@ pub fn screen_face(lines: &[String]) -> UndoFace {
 }
 
 fn blit(dst: &mut [u8], face: &UndoFace, left: u32, top: u32) {
-    for y in 0..face.h {
-        for x in 0..face.w {
+    for y in 0..face.h.min(OUT_H.saturating_sub(top)) {
+        for x in 0..face.w.min(OUT_W.saturating_sub(left)) {
             let src = ((y * face.w + x) * 4) as usize;
             let dest = (((top + y) * OUT_W + left + x) * 4) as usize;
-            let alpha = u32::from(face.rgba[src + 3]);
-            for c in 0..3 {
-                dst[dest + c] = ((u32::from(face.rgba[src + c]) * alpha
-                    + u32::from(dst[dest + c]) * (255 - alpha))
-                    / 255) as u8;
+            let a = u32::from(face.rgba[src + 3]);
+            let behind = u32::from(dst[dest + 3]) * (255 - a) / 255;
+            let alpha = a + behind;
+            if alpha == 0 {
+                continue;
             }
+            for c in 0..3 {
+                dst[dest + c] = ((u32::from(face.rgba[src + c]) * a
+                    + u32::from(dst[dest + c]) * behind)
+                    / alpha) as u8;
+            }
+            dst[dest + 3] = alpha as u8;
         }
     }
 }
 
-fn draw_check(dst: &mut [u8], x: u32, y: u32) {
+fn draw_check(dst: &mut [u8], x: u32, y: u32, ink: [u8; 3]) {
     // Draw the mark directly: the original slot label font has no check glyph.
     for i in 0..10 {
         for thickness in 0..3 {
             let offset = (((y - 3 + i + thickness) * OUT_W + x + i) * 4) as usize;
-            dst[offset..offset + 4].copy_from_slice(&[246, 244, 239, 255]);
+            dst[offset..offset + 4].copy_from_slice(&[ink[0], ink[1], ink[2], 255]);
         }
     }
     for i in 0..19 {
         for thickness in 0..3 {
             let offset = (((y + 6 - i + thickness) * OUT_W + x + 9 + i) * 4) as usize;
-            dst[offset..offset + 4].copy_from_slice(&[246, 244, 239, 255]);
+            dst[offset..offset + 4].copy_from_slice(&[ink[0], ink[1], ink[2], 255]);
         }
     }
 }
