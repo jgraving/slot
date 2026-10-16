@@ -1,8 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="324" height="102" viewBox="286 140 324 102">
 <title>GBA SP power switch slider</title>
 <defs>
- <linearGradient id="cap" x1="0.0%" y1="0.0%" x2="8.0%" y2="100.0%"><stop offset="0.0%" stop-color="#59595c"/><stop offset="8.0%" stop-color="#444447"/><stop offset="65.0%" stop-color="#39393c"/><stop offset="100.0%" stop-color="#2d2d30"/></linearGradient>
- <linearGradient id="grip" x1="0.0%" y1="0.0%" x2="20.0%" y2="100.0%"><stop offset="0.0%" stop-color="#67676a"/><stop offset="10.0%" stop-color="#545457"/><stop offset="48.0%" stop-color="#4e4e51"/><stop offset="90.0%" stop-color="#414144"/><stop offset="100.0%" stop-color="#656568"/></linearGradient>
+ <linearGradient id="cap" x1="0.0%" y1="0.0%" x2="8.0%" y2="100.0%"><stop offset="0.0%" stop-color="#89898e"/><stop offset="8.0%" stop-color="#74747a"/><stop offset="65.0%" stop-color="#69696f"/><stop offset="100.0%" stop-color="#57575d"/></linearGradient>
+ <linearGradient id="grip" x1="0.0%" y1="0.0%" x2="20.0%" y2="100.0%"><stop offset="0.0%" stop-color="#a0a0a6"/><stop offset="10.0%" stop-color="#88888e"/><stop offset="48.0%" stop-color="#828288"/><stop offset="90.0%" stop-color="#75757b"/><stop offset="100.0%" stop-color="#95959b"/></linearGradient>
 </defs>
 <g id="slider" transform="translate(0 0)">
  <path d="M288 144h322v96H288z" fill="#151518"/>

@@ -23,10 +23,10 @@ fn click_occurs_once_at_the_off_detent_without_extending_shutdown() {
 fn switch_click_is_short_stereo_and_has_no_clipped_samples() {
     for rate in [32768, 44100, 48000] {
         let samples = Sfx::PowerSwitch.render(rate);
-        assert_eq!(samples.len(), (rate as f32 * 0.028) as usize * 2);
+        assert_eq!(samples.len(), (rate as f32 * 0.060) as usize * 2);
         assert!(samples.chunks_exact(2).all(|p| p[0] == p[1]));
         let peak = samples.iter().map(|v| v.unsigned_abs()).max().unwrap();
-        assert!((1000..24000).contains(&peak));
+        assert!((3000..32000).contains(&peak));
         assert!(samples.first().unwrap().abs() < 10);
         assert!(samples.last().unwrap().abs() < 10);
     }
@@ -38,5 +38,31 @@ fn switch_click_is_short_stereo_and_has_no_clipped_samples() {
             .flat_map(i16::to_le_bytes)
             .collect();
         std::fs::write(path, pcm).unwrap();
+    }
+}
+
+#[test]
+fn shutdown_click_reaches_the_output_before_poweroff_and_respects_mute() {
+    use slot::{
+        audio::{AudioSink, StubSink},
+        session::Session,
+    };
+    for muted in [false, true] {
+        let d = common::tmp_root_with_carts(&["Alpha"]);
+        common::clocked(d.path());
+        let mut sink = StubSink::new();
+        sink.open(48000).unwrap();
+        let probe = sink.clone();
+        let mut session = Session::boot_with(d.path().to_path_buf(), Box::new(sink));
+        if muted {
+            session.app_mut().apply(Action::MuteToggle);
+        }
+        session.app_mut().apply(Action::PowerHold);
+        for _ in 0..46 {
+            session.update(0.010);
+        }
+        assert!(!session.app().ready_to_power_off());
+        let samples = probe.device_read(2880);
+        assert_eq!(samples.iter().any(|v| *v != 0), !muted);
     }
 }

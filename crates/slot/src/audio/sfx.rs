@@ -22,7 +22,7 @@ impl Sfx {
 
     pub fn tail(self) -> f32 {
         let pcm = match self {
-            Sfx::PowerSwitch => return 0.028,
+            Sfx::PowerSwitch => return 0.060,
             Sfx::Insert => INSERT,
             Sfx::Eject => EJECT,
             Sfx::Cartridge(_) => return 0.028,
@@ -123,7 +123,7 @@ fn power_click(rate: u32) -> Vec<i16> {
         return Vec::new();
     }
     let (duration, pitch, gain, taps): (f32, f32, f32, &[(f32, f32)]) =
-        (0.028, 1.0, 0.38, &[(0.0, 1.0), (0.004, 0.22)]);
+        (0.060, 1.0, 0.90, &[(0.0, 1.0), (0.012, 0.55)]);
     let mut rng = 0x724a_35b1u32;
     let mut low = 0.0f32;
     let mut out = Vec::with_capacity((duration * rate as f32) as usize * 2);
