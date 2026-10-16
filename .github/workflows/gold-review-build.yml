@@ -19,7 +19,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: bf083321a259115122595ed33a12b2bbfc938233
+          ref: 45642c510f24674faca0b1d2ee5206356843a237
 
       - name: Install zip, cmake and Task
         run: |
@@ -31,6 +31,11 @@ jobs:
 
       - name: Build the tree
         run: task dist:device OUT="slot-gold-pr34"
+
+      - name: Check sticker filtering and placement
+        run: |
+          cargo test -p slot-ui --test favorite
+          cargo test -p slot-ui --lib favorite_filter_tests
 
       - name: Check what is about to ship
         run: |
@@ -57,9 +62,9 @@ jobs:
         run: |
           set -eu
           out="slot-gold-pr34"
-          printf 'Source: bf083321a259115122595ed33a12b2bbfc938233\n' > "$out/System/gold-sticker-build.txt"
-          zip="slot-gold-System-bf08332.zip"
-          (cd "$out" && zip -qry "../$zip" System && zip -qry ../slot-gold-install-bf08332.zip .)
+          printf 'Source: 45642c510f24674faca0b1d2ee5206356843a237\n' > "$out/System/gold-sticker-build.txt"
+          zip="slot-gold-System-45642c5.zip"
+          (cd "$out" && zip -qry "../$zip" System && zip -qry ../slot-gold-install-45642c5.zip .)
           echo "zip=$zip" >> "$GITHUB_OUTPUT"
 
       - uses: actions/upload-artifact@v7
@@ -67,5 +72,5 @@ jobs:
           name: ${{ steps.package.outputs.zip }}
           path: |
             ${{ steps.package.outputs.zip }}
-            slot-gold-install-bf08332.zip
+            slot-gold-install-45642c5.zip
           if-no-files-found: error
