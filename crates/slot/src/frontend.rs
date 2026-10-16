@@ -380,6 +380,8 @@ impl Frontend {
         let shadow = cart(faces.chip_shadow);
         let mut up = |f: UndoFace| (compositor.create_texture(f.w, f.h, &f.rgba), f.w, f.h);
         let lines = faces.shutdown.into_iter().map(&mut up).collect();
+        let power_switch =
+            [false, true].map(|light| slot_ui::power_switch_faces(light).map(|face| up(face).0));
         let labels = faces
             .quick_labels
             .into_iter()
@@ -430,6 +432,7 @@ impl Frontend {
         let app = self.session.app_mut();
         app.set_link_badge_faces(link_badges);
         app.set_shutdown_faces(lines);
+        app.set_power_switch_faces(power_switch);
         app.set_quick_menu_faces(QuickMenuFaces {
             labels,
             pointer,

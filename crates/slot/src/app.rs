@@ -319,6 +319,7 @@ pub struct App {
     refused_from: Option<f32>,
     alert_face: Option<TexId>,
     shutdown_faces: Vec<(TexId, u32, u32)>,
+    power_switch_faces: Option<[[TexId; 2]; 2]>,
     core_picker: Option<CorePicker>,
     core_board_face: Option<TexId>,
     core_interior_face: Option<TexId>,
@@ -492,6 +493,7 @@ impl App {
             refused_from: None,
             alert_face: None,
             shutdown_faces: Vec::new(),
+            power_switch_faces: None,
             core_picker: None,
             core_board_face: None,
             core_interior_face: None,
@@ -3152,6 +3154,19 @@ impl App {
                 h: OUT_H as f32,
                 colour: [0.0, 0.0, 0.0, 1.0],
             });
+            if self.powering_off {
+                if let Some(faces) = self.power_switch_faces {
+                    let remaining = self.act_at.saturating_sub(self.now());
+                    let elapsed = slot_ui::POWER_SWITCH_MS.saturating_sub(remaining);
+                    slot_ui::draw_power_switch(
+                        self.canvas(),
+                        elapsed as f32 / slot_ui::POWER_SWITCH_MS as f32,
+                        faces[usize::from(self.light())],
+                        out,
+                    );
+                    return;
+                }
+            }
             let which = if self.restarting {
                 PowerChoice::Restart
             } else {
@@ -3601,6 +3616,10 @@ impl App {
 
     pub fn set_alert_face(&mut self, face: TexId) {
         self.alert_face = Some(face);
+    }
+
+    pub fn set_power_switch_faces(&mut self, faces: [[TexId; 2]; 2]) {
+        self.power_switch_faces = Some(faces);
     }
 
     pub fn set_shutdown_faces(&mut self, faces: Vec<(TexId, u32, u32)>) {
@@ -4476,7 +4495,7 @@ impl App {
         self.close_game_menu();
         self.remember_shelf();
         self.powering_off = true;
-        self.act_at = self.now() + SHUTDOWN_SHOW_MS;
+        self.act_at = self.now() + slot_ui::POWER_SWITCH_MS;
         self.set_led(LedState::Off);
     }
 
