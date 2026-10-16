@@ -26,7 +26,7 @@ jobs:
           set -eu
           sed -i '/bullseye-security/d' /etc/apt/sources.list
           apt-get -o Acquire::Check-Valid-Until=false update
-          apt-get install -y --no-install-recommends zip cmake
+          apt-get install -y --no-install-recommends zip cmake libasound2
           curl -fsSL https://taskfile.dev/install.sh | sh -s -- -b /usr/local/bin
 
       - name: Build the tree
