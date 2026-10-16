@@ -476,6 +476,10 @@ esac
         self.assertIn('OUTPUT ' + route, result.stdout)
         self.assertFalse((self.root / 'Config/bluetooth-headphones').exists())
         self.assertIn('disconnect ' + MAC, (self.root / 'calls').read_text())
+        self.assertIn('DEVICES\n', result.stdout)
+        self.assertIn('DEVICE ' + MAC, result.stdout)
+        self.assertNotIn('power off', (self.root / 'calls').read_text())
+        self.assertNotIn('remove ' + MAC, (self.root / 'calls').read_text())
 
     def test_diagnostics_include_usb_volume_and_kernel_section(self):
         (self.root / 'Config').mkdir(exist_ok=True)

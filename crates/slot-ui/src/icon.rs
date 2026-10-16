@@ -499,3 +499,59 @@ mod mute_tests {
         }
     }
 }
+
+/// Device rows use equal ink heights, independent of each glyph's font padding.
+pub fn sound_device_icon(icon: Icon, ink: [u8; 3]) -> crate::UndoFace {
+    let bounds = |r: &Raster| {
+        let points: Vec<_> = r
+            .cov
+            .iter()
+            .enumerate()
+            .filter(|(_, a)| **a > 0)
+            .map(|(i, _)| (i as u32 % r.w, i as u32 / r.w))
+            .collect();
+        (
+            points.iter().map(|p| p.0).min().unwrap_or(0),
+            points.iter().map(|p| p.0).max().unwrap_or(0),
+            points.iter().map(|p| p.1).min().unwrap_or(0),
+            points.iter().map(|p| p.1).max().unwrap_or(0),
+        )
+    };
+    let Some(reference) = raster(Icon::Headphones, 24.) else {
+        return crate::UndoFace {
+            rgba: vec![],
+            w: 0,
+            h: 0,
+        };
+    };
+    let Some(source) = raster(icon, 96.) else {
+        return crate::UndoFace {
+            rgba: vec![],
+            w: 0,
+            h: 0,
+        };
+    };
+    let (_, _, rt, rb) = bounds(&reference);
+    let (l, r, t, b) = bounds(&source);
+    let h = rb - rt + 1;
+    let scale = (b - t + 1) as f32 / h as f32;
+    let w = ((r - l + 1) as f32 / scale).ceil() as u32;
+    let mut rgba = vec![0; (w * h * 4) as usize];
+    for y in 0..h {
+        for x in 0..w {
+            let mut alpha = 0u32;
+            for sy in 0..4 {
+                for sx in 0..4 {
+                    let bx = l + ((x as f32 + (sx as f32 + 0.5) / 4.) * scale) as u32;
+                    let by = t + ((y as f32 + (sy as f32 + 0.5) / 4.) * scale) as u32;
+                    if bx <= r && by <= b {
+                        alpha += source.cov[(by * source.w + bx) as usize] as u32;
+                    }
+                }
+            }
+            let at = ((y * w + x) * 4) as usize;
+            rgba[at..at + 4].copy_from_slice(&[ink[0], ink[1], ink[2], ((alpha + 8) / 16) as u8]);
+        }
+    }
+    crate::UndoFace { rgba, w, h }
+}

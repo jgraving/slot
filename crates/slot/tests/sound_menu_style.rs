@@ -7,10 +7,10 @@ fn sound_uses_the_shared_pointer_over_a_transparent_menu_background() {
         "",
         "",
         "COMPACT",
-        "ROW Internal speaker",
+        "ROW SPEAKER_DEVICE Internal speaker",
         "SELECTED DEVICE Headphones",
         "ROW BLUETOOTH On",
-        "B Back · A Select · Y Manage · X Save report",
+        "B Back · A Connect · Y Forget",
     ]
     .map(str::to_owned);
     let face = screen_face(&lines);
@@ -31,7 +31,7 @@ fn sound_uses_the_shared_pointer_over_a_transparent_menu_background() {
     assert!(face.rgba.chunks_exact(4).any(|p| p == [154, 154, 164, 255]));
     // The central slot opening remains clear between the two footer groups.
     for y in 422..480 {
-        for x in 300..420 {
+        for x in 300..400 {
             assert_eq!(face.rgba[((y * OUT_W + x) * 4 + 3) as usize], 0);
         }
     }
@@ -49,10 +49,53 @@ fn long_device_names_and_statuses_fit_without_overflowing_the_screen() {
         "ROW DISCONNECT 100%",
         "ROW BLUETOOTH Off",
         "ROW More devices",
-        "B Back · Change · X Save report",
+        "B Back · Change",
     ]
     .map(str::to_owned);
     let face = screen_face(&lines);
     assert_eq!(face.rgba.len(), (face.w * face.h * 4) as usize);
     assert!(face.rgba.chunks_exact(4).any(|p| p[3] > 0));
+}
+
+#[test]
+fn device_icons_have_equal_visible_heights_and_the_check_uses_the_value_edge() {
+    use slot_ui::{sound_device_icon, Icon};
+    let bounds = |face: &slot_ui::UndoFace| {
+        let points: Vec<_> = face
+            .rgba
+            .chunks_exact(4)
+            .enumerate()
+            .filter(|(_, p)| p[3] > 32)
+            .map(|(i, _)| i as u32 / face.w)
+            .collect();
+        (*points.iter().min().unwrap(), *points.iter().max().unwrap())
+    };
+    let hp = sound_device_icon(Icon::Headphones, [255; 3]);
+    for icon in [Icon::Bluetooth, Icon::Volume] {
+        let face = sound_device_icon(icon, [255; 3]);
+        assert_eq!(face.h, hp.h);
+        let (a, b) = bounds(&face);
+        let (c, d) = bounds(&hp);
+        assert!(((b - a) as i32 - (d - c) as i32).abs() <= 1);
+    }
+    let lines = [
+        "",
+        "",
+        "COMPACT",
+        "ROW ACTIVE SPEAKER_DEVICE Internal speaker",
+        "ROW DISCONNECT 0%",
+        "ROW BLUETOOTH On",
+        "B Back · A Select",
+    ]
+    .map(str::to_owned);
+    let face = screen_face(&lines);
+    let right = |top| {
+        (600..720)
+            .filter(|&x| (top..top + 40).any(|y| face.rgba[((y * 720 + x) * 4 + 3) as usize] > 127))
+            .max()
+            .unwrap()
+    };
+    assert_eq!(right(92), 687);
+    assert!((right(92) as i32 - right(144) as i32).abs() <= 1);
+    assert!((right(92) as i32 - right(196) as i32).abs() <= 1);
 }

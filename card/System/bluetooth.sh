@@ -420,11 +420,13 @@ wait_property() {
 emit_list() {
     STAGE='device list'
     all=$(bt devices) || {
-        if [ "$VERB" = list ]; then
+        if [ "$VERB" = list ] || [ "$VERB" = usb ]; then
             log 'Device list unavailable before radio startup; scan will initialize it'
-            all=''
+            [ "$VERB" != usb ] || printf 'OUTPUT %s\n' "$TARGET"
+            return 0
         else fail 'Could not read Bluetooth devices'; fi
     }
+    printf 'DEVICES\n'
     printf '%s\n' "$all" | while read -r kind address name; do
         [ "$kind" = Device ] || continue
         valid_mac "$address" || continue
@@ -439,7 +441,12 @@ emit_list() {
         printf 'STATE %s %s %s\n' "$address" "$paired" "$connected"
     done
     selected=''
-    [ ! -r "$ROUTE" ] || selected=$(sed -n 's/^bluealsa:DEV=\([^,]*\),PROFILE=a2dp$/\1/p' "$ROUTE")
+    [ ! -r "$ROUTE" ] || selected=$(cat "$ROUTE")
+    case "$selected" in
+        bluealsa:DEV=*,PROFILE=a2dp) selected=${selected#bluealsa:DEV=}; selected=${selected%,PROFILE=a2dp} ;;
+        plughw:CARD=*,DEV=*) ;;
+        *) selected='' ;;
+    esac
     printf 'OUTPUT %s\n' "${selected:-speaker}"
 }
 wait_audio_transport() {
@@ -619,7 +626,8 @@ case "$VERB" in
         rm -f "$PREF"
         route "$output"
         if valid_mac "$old_device"; then bt disconnect "$old_device" >/dev/null || true; fi
-        printf 'OUTPUT %s\n' "$output"
+        # Read paired devices without powering the radio off or starting a scan.
+        emit_list
         ;;
     speaker)
         STAGE='speaker selection'

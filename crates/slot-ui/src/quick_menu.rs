@@ -583,13 +583,13 @@ pub fn quick_legend_faces(ink: [u8; 3]) -> [UndoFace; 5] {
 }
 
 /// Sound uses the same bitmap buttons and typography as the other menus.
-/// Back and Report go on the left; Manage and Select/Change on the right.
+/// Back goes on the left; Forget and Connect/Select/Change on the right.
 pub fn sound_button_legends(ink: [u8; 3]) -> [UndoFace; 5] {
     let ink = Some(ink);
     [
         with_hint(button_face(ButtonLegend::B), "Back", ink, true),
-        with_hint(button_face(ButtonLegend::X), "Report", ink, true),
-        with_hint(button_face(ButtonLegend::Y), "Manage", ink, false),
+        with_hint(button_face(ButtonLegend::A), "Connect", ink, false),
+        with_hint(button_face(ButtonLegend::Y), "Forget", ink, false),
         with_hint(button_face(ButtonLegend::A), "Select", ink, false),
         with_hint(
             button_pair(ButtonLegend::Left, ButtonLegend::Right),
@@ -598,6 +598,21 @@ pub fn sound_button_legends(ink: [u8; 3]) -> [UndoFace; 5] {
             false,
         ),
     ]
+}
+
+pub fn sound_forget_confirmation() -> UndoFace {
+    with_hint(
+        button_face(ButtonLegend::Y),
+        "Press again to forget",
+        Some(MENU_INK),
+        true,
+    )
+}
+
+pub fn quick_text_centre() -> f32 {
+    text::label_font()
+        .map(|f| cap_centre(f, MENU_H))
+        .unwrap_or(MENU_H as f32 / 2.)
 }
 
 /// Cancel, Swap, Choose. Swap keeps the button before the word, the way the old arrows did.
