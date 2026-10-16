@@ -13,6 +13,8 @@ mod cart;
 mod clock;
 mod draw;
 mod footer;
+mod favorite_remove;
+pub use favorite_remove::{draw_favorite_remove, favorite_remove_face, FAVORITE_REMOVE_MS};
 mod hud;
 mod icon;
 mod link_art;

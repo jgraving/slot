@@ -299,12 +299,22 @@ impl Rack {
 const RECENTS_AT: usize = 0;
 const FAVORITES_AT: usize = 1;
 
+struct FavoriteRemoval {
+    platform: Platform,
+    stem: String,
+    shelf: usize,
+    since: Millis,
+    released: bool,
+}
+
 pub struct App {
     phase: Phase,
     shelves: Vec<(Rack, Shelf)>,
     shelf_at: usize,
     orphaned: Vec<TexId>,
     play_held: Option<Millis>,
+    favorite_removal: Option<FavoriteRemoval>,
+    favorite_remove_face: Option<(TexId, u32, u32)>,
     held_dir: Option<(Btn, Millis, usize)>,
     refusal: Option<Refusal>,
     refused_from: Option<f32>,
@@ -469,6 +479,8 @@ impl App {
             shelf_at,
             orphaned: Vec::new(),
             play_held: None,
+            favorite_removal: None,
+            favorite_remove_face: None,
             held_dir: None,
             refusal: None,
             refused_from: None,
@@ -1802,6 +1814,14 @@ impl App {
     }
 
     pub fn apply(&mut self, action: Action) {
+        // Key-up events do not cancel the prompt; a distinct second Y press is required.
+        match action {
+            Action::GbaUp(Btn::Y) => {
+                if let Some(pending) = &mut self.favorite_removal { pending.released = true; }
+            }
+            Action::GbaDown(Btn::Y) | Action::GbaUp(_) => {}
+            _ => self.favorite_removal = None,
+        }
         self.track_held_dir(action);
         match action {
             Action::LidClose => return self.doze(),
@@ -2406,6 +2426,9 @@ impl App {
 
     pub fn update(&mut self, dt: f32) {
         self.clock += dt as f64 * 1000.0;
+        if self.favorite_removal.is_some() && !self.favorite_removal_pending() {
+            self.favorite_removal = None;
+        }
         if self.name_pending && self.shelf_platform.face.is_some() {
             self.name_pending = false;
             self.shelf_named = Some(self.now());
@@ -2791,11 +2814,47 @@ impl App {
         }
     }
 
+    pub fn favorite_removal_pending(&self) -> bool {
+        self.favorite_removal.as_ref().is_some_and(|p| {
+            matches!(self.phase, Phase::Shelf)
+                && self.core_picker.is_none()
+                && p.shelf == self.shelf_at
+                && self.now().saturating_sub(p.since) < slot_ui::FAVORITE_REMOVE_MS
+                && self.shelf().carts.get(self.shelf().index)
+                    .is_some_and(|c| c.platform == p.platform && c.stem == p.stem)
+        })
+    }
+
+    pub fn set_favorite_remove_face(&mut self, tex: TexId, w: u32, h: u32) {
+        self.favorite_remove_face = Some((tex, w, h));
+    }
+
+    fn draw_favorite_removal(&self, out: &mut Vec<Draw>) {
+        if !self.favorite_removal_pending() { return; }
+        let (Some(pending), Some(face)) = (&self.favorite_removal, self.favorite_remove_face) else { return; };
+        let (cw, ch) = slot_ui::cart_box(pending.platform);
+        let (x, scale) = self.shelf().selected_at(self.canvas());
+        let (w, h) = (cw as f32 * scale, ch as f32 * scale);
+        let body = slot_ui::Placed { x, y: slot_ui::foot_y(ch as f32) - h, w, h };
+        slot_ui::draw_favorite_remove(self.canvas(), body, face, self.now().saturating_sub(pending.since), out);
+    }
+
     fn toggle_favorite(&mut self) {
         let Some(cart) = self.shelf().carts.get(self.shelf().index) else {
             return;
         };
         let (platform, stem) = (cart.platform, cart.stem.clone());
+        if self.state.is_favorite(platform, &stem) {
+            if self.favorite_removal_pending() {
+                if !self.favorite_removal.as_ref().is_some_and(|p| p.released) { return; }
+            } else {
+                self.favorite_removal = Some(FavoriteRemoval {
+                    platform, stem, shelf: self.shelf_at, since: self.now(), released: false,
+                });
+                return;
+            }
+        }
+        self.favorite_removal = None;
         self.state.toggle_favorite(platform, &stem);
         let shelf_at = self.shelf_at;
         self.restock_favorites();
@@ -3017,6 +3076,7 @@ impl App {
                         );
                     }
                 }
+                self.draw_favorite_removal(out);
                 draw_footer(
                     self.canvas(),
                     self.battery,
