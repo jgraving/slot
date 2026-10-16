@@ -20,11 +20,11 @@
     <clipPath id="clip"><use href="#star"/></clipPath>
     <filter id="grain"><feTurbulence baseFrequency=".7 .35" numOctaves="2" seed="17" type="fractalNoise"/><feColorMatrix type="saturate" values="0"/><feComposite in2="SourceGraphic" operator="in"/><feBlend in2="SourceGraphic" mode="soft-light"/></filter>
   </defs>
-  <use href="#star" fill="#291702" stroke="#291702" stroke-width="10" stroke-linejoin="round" opacity=".32" transform="translate(0 2)" filter="url(#shadow)"/>
+  <use href="#star" fill="#291702" stroke="#291702" stroke-width="16" stroke-linejoin="round" opacity=".32" transform="translate(0 2)" filter="url(#shadow)"/>
   <!-- A warm paper backing reads as a real die-cut sticker. The fine dark
        cut edge separates it from pale labels; the paper rim lifts it off dark ones. -->
-  <use href="#star" fill="url(#paper)" stroke="#65543b" stroke-width="10" stroke-linejoin="round"/>
-  <use href="#star" fill="url(#paper)" stroke="url(#paper)" stroke-width="8" stroke-linejoin="round"/>
+  <use href="#star" fill="url(#paper)" stroke="#493c2b" stroke-width="16" stroke-linejoin="round"/>
+  <use href="#star" fill="url(#paper)" stroke="url(#paper)" stroke-width="12" stroke-linejoin="round"/>
   <use href="#star" fill="url(#gold)" stroke="#94763d" stroke-width="1.3" stroke-linejoin="round"/>
   <g clip-path="url(#clip)">
     <use href="#star" fill="url(#gold)" filter="url(#grain)" opacity=".22"/>
