@@ -1560,7 +1560,7 @@ impl Indicator {
     pub fn address(&self) -> Option<String> {
         (!self.output.is_empty()).then(|| self.output.clone())
     }
-    pub fn poll(&mut self, watching: bool) -> bool {
+    pub fn poll(&mut self, _watching: bool) -> bool {
         if let Some(rx) = &self.pending {
             match rx.try_recv() {
                 Ok((address, connected)) => {
@@ -1591,9 +1591,12 @@ impl Indicator {
             self.active = false;
             return false;
         }
-        if self.checked.is_some_and(|t| {
-            t.elapsed() < std::time::Duration::from_secs(if watching { 30 } else { 2 })
-        }) {
+        // Keep a short read-only fallback even with a listener: a missed signal
+        // must not leave the game on a disconnected output for 30 seconds.
+        if self
+            .checked
+            .is_some_and(|t| t.elapsed() < std::time::Duration::from_secs(2))
+        {
             return self.active;
         }
         self.checked = Some(std::time::Instant::now());

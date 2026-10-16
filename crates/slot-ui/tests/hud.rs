@@ -294,3 +294,31 @@ fn bluetooth_volume_is_distinct_from_wired_and_retains_mute_mark() {
     hud.set_bluetooth(true);
     assert_eq!(hud.glyph(), Icon::Brightness);
 }
+
+#[test]
+fn muted_headphones_render_at_native_width_without_stretching() {
+    let mut hud = Hud::new();
+    hud.set_icons(
+        Icon::ALL
+            .iter()
+            .enumerate()
+            .map(|(i, _)| TexId::from_raw(i + 1))
+            .collect(),
+    );
+    hud.set_headphones(true);
+    hud.show(HudKind::Volume, 0, false, 0);
+    let face = icon_face(Icon::HeadphonesMuted, HUD_ICON_PX, [255; 3]);
+    let mut out = Vec::new();
+    hud.draw(Canvas::FRAMED, 0, &mut out);
+    let (x, w, h) = out
+        .iter()
+        .find_map(|d| match d {
+            Draw::Tex { x, w, h, .. } => Some((*x, *w, *h)),
+            _ => None,
+        })
+        .unwrap();
+    assert_eq!((w, h), (face.w as f32, face.h as f32));
+    assert!(out.iter().any(
+        |d| matches!(d, Draw::Rect {x: bar_x, w: bar_w, ..} if *bar_w == 320. && *bar_x > x + w)
+    ));
+}

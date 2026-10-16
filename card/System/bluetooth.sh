@@ -495,8 +495,8 @@ connect() {
     else
         connection=$(bt connect "$TARGET") || true
         CONNECT_REASON=$(printf '%s\n' "$connection" | sed -n 's/.*Failed to connect: //p' | tail -n 1)
-        if printf '%s\n' "$CONNECT_REASON" | grep -q 'br-connection-profile-unavailable'; then
-            # The source UUID may appear just before its codec endpoints are ready.
+        if printf '%s\n' "$CONNECT_REASON" | grep -Eq 'br-connection-(profile-unavailable|unknown)'; then
+            # Retry one transient endpoint/controller race without disturbing USB.
             wait_audio_ready
             check_cancel
             sleep "${SLOT_BT_POLL_INTERVAL:-1}"
@@ -505,6 +505,8 @@ connect() {
             CONNECT_REASON=$(printf '%s\n' "$connection" | sed -n 's/.*Failed to connect: //p' | tail -n 1)
         fi
     fi
+    # An explicit Connect rejection is final after the bounded retry.
+    [ -z "$CONNECT_REASON" ] || fail "Connection failed: $CONNECT_REASON"
     if automatic; then wait_property Connected 8; else wait_property Connected 20; fi
     wait_audio_transport
     check_cancel

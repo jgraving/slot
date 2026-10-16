@@ -303,7 +303,7 @@ impl Hud {
     fn draw_bar(&self, canvas: Canvas, alpha: f32, offset: f32, out: &mut Vec<Draw>) {
         let x = canvas.centred(BAR_W);
         if let Some(tex) = self.icon() {
-            let (w, h) = icon_box(HUD_ICON_PX);
+            let (w, h) = crate::icon::glyph_box(self.glyph(), HUD_ICON_PX);
             out.push(Draw::Tex {
                 x: x - ICON_GAP - w as f32,
                 y: offset + (PLATE_H - h as f32) / 2.0,

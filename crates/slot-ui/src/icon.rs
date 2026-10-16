@@ -129,7 +129,7 @@ pub fn icon_face(icon: Icon, px: f32, colour: [u8; 3]) -> CartFace {
     };
     if matches!(
         icon,
-        Icon::Bluetooth | Icon::BluetoothMuted | Icon::Usb | Icon::UsbMuted
+        Icon::Bluetooth | Icon::BluetoothMuted | Icon::HeadphonesMuted | Icon::Usb | Icon::UsbMuted
     ) {
         // Keep the common icon box, but no black halo on these fine strokes.
         let (w, h) = (r.w + 2 * HALO_PX, r.h + 2 * HALO_PX);
@@ -260,6 +260,9 @@ fn raster(icon: Icon, px: f32) -> Option<Arc<Raster>> {
 fn rasterise(icon: Icon, px: f32) -> Option<Raster> {
     let font = symbols_font()?;
     let f = frame(font, px);
+    if matches!(icon, Icon::BluetoothMuted | Icon::HeadphonesMuted) {
+        return muted_audio_raster(icon, px);
+    }
     if matches!(
         icon,
         Icon::Bluetooth | Icon::BluetoothMuted | Icon::Usb | Icon::UsbMuted
@@ -283,6 +286,71 @@ fn rasterise(icon: Icon, px: f32) -> Option<Raster> {
         w: f.w,
         h: f.h,
     })
+}
+
+// Keep the device symbol full-size and copy the speaker's exact mute mark.
+// Call rasterise directly: the cache mutex is already held here.
+fn muted_audio_raster(icon: Icon, px: f32) -> Option<Raster> {
+    let speaker = rasterise(Icon::VolumeMuted, px)?;
+    let base = rasterise(
+        if icon == Icon::BluetoothMuted {
+            Icon::Bluetooth
+        } else {
+            Icon::Headphones
+        },
+        px,
+    )?;
+    let font = symbols_font()?;
+    let f = frame(font, px);
+    let m = font.metrics(Icon::VolumeMuted.glyph(), px);
+    // Separate font contours: speaker ends at 972/2048, X starts at 1188/2048.
+    let split = (m.xmin - f.left) as u32 + (m.width as u32 * 1080 / 2048);
+    let bounds = |r: &Raster, start: u32| {
+        let points: Vec<_> = r
+            .cov
+            .iter()
+            .enumerate()
+            .filter(|(i, a)| **a > 0 && *i as u32 % r.w >= start)
+            .map(|(i, _)| (i as u32 % r.w, i as u32 / r.w))
+            .collect();
+        (
+            points.iter().map(|p| p.0).min().unwrap(),
+            points.iter().map(|p| p.0).max().unwrap(),
+            points.iter().map(|p| p.1).min().unwrap(),
+            points.iter().map(|p| p.1).max().unwrap(),
+        )
+    };
+    let (bl, br, bt, bb) = bounds(&base, 0);
+    let (ml, mr, mt, mb) = bounds(&speaker, split);
+    let gap = (px / 12.).round().max(1.) as u32;
+    let content_w = br - bl + 1 + gap + mr - ml + 1;
+    let w = base.w.max(content_w + 2);
+    let mut out = Raster {
+        cov: vec![0; (w * base.h) as usize],
+        w,
+        h: base.h,
+    };
+    let x0 = (w - content_w) / 2;
+    let mark_y = ((bt + bb) as i32 - (mt + mb) as i32) / 2;
+    for y in 0..base.h {
+        for x in bl..=br {
+            out.cov[(y * w + x0 + x - bl) as usize] = base.cov[(y * base.w + x) as usize];
+        }
+        let dy = y as i32 + mark_y;
+        if dy >= 0 && dy < out.h as i32 {
+            for x in ml..=mr {
+                out.cov[(dy as u32 * w + x0 + br - bl + 1 + gap + x - ml) as usize] =
+                    speaker.cov[(y * speaker.w + x) as usize];
+            }
+        }
+    }
+    Some(out)
+}
+
+pub(crate) fn glyph_box(icon: Icon, px: f32) -> (u32, u32) {
+    raster(icon, px)
+        .map(|r| (r.w + 2 * HALO_PX, r.h + 2 * HALO_PX))
+        .unwrap_or((0, 0))
 }
 
 // Rasterize in a square design space with uniform scaling and round strokes.
@@ -379,4 +447,55 @@ pub(crate) fn symbols_font() -> Option<&'static Font> {
     static FONT: OnceLock<Option<Font>> = OnceLock::new();
     FONT.get_or_init(|| Font::from_bytes(SYMBOLS_TTF, FontSettings::default()).ok())
         .as_ref()
+}
+
+#[cfg(test)]
+mod mute_tests {
+    use super::*;
+    fn ink(r: &Raster, start: u32, end: u32) -> (Vec<u8>, u32, u32) {
+        let points: Vec<_> = (start..end)
+            .flat_map(|x| (0..r.h).map(move |y| (x, y)))
+            .filter(|&(x, y)| r.cov[(y * r.w + x) as usize] > 0)
+            .collect();
+        let l = points.iter().map(|p| p.0).min().unwrap();
+        let rr = points.iter().map(|p| p.0).max().unwrap();
+        let t = points.iter().map(|p| p.1).min().unwrap();
+        let b = points.iter().map(|p| p.1).max().unwrap();
+        (
+            (t..=b)
+                .flat_map(|y| (l..=rr).map(move |x| r.cov[(y * r.w + x) as usize]))
+                .collect(),
+            t,
+            b,
+        )
+    }
+    fn gap(r: &Raster) -> u32 {
+        (0..r.w)
+            .rev()
+            .find(|&x| {
+                (0..r.h).all(|y| r.cov[(y * r.w + x) as usize] == 0)
+                    && (x + 1..r.w).any(|rx| (0..r.h).any(|y| r.cov[(y * r.w + rx) as usize] > 0))
+            })
+            .unwrap()
+    }
+    #[test]
+    fn mute_marks_match_speaker_without_shrinking_device_symbols() {
+        for px in [20., 24., 32., 40.] {
+            let speaker = rasterise(Icon::VolumeMuted, px).unwrap();
+            let mark = ink(&speaker, gap(&speaker) + 1, speaker.w).0;
+            for (muted, base) in [
+                (Icon::BluetoothMuted, Icon::Bluetooth),
+                (Icon::HeadphonesMuted, Icon::Headphones),
+            ] {
+                let r = rasterise(muted, px).unwrap();
+                let base = rasterise(base, px).unwrap();
+                let split = gap(&r);
+                let left = ink(&r, 0, split);
+                let right = ink(&r, split + 1, r.w);
+                assert_eq!(right.0, mark);
+                assert_eq!(left.0, ink(&base, 0, base.w).0);
+                assert!(((left.1 + left.2) as i32 - (right.1 + right.2) as i32).abs() <= 2);
+            }
+        }
+    }
 }

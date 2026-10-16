@@ -86,7 +86,7 @@ case "$*" in
  connect*)
    if [ "${MOCK_REQUIRE_READY:-no}" = yes ] && [ ! -f "$SLOT_ROOT/source-ready" ]; then echo 'Failed to connect: org.bluez.Error.Failed br-connection-profile-unavailable'; exit 1; fi
    if [ "${MOCK_CONNECT_ERROR:-}" != '' ]; then echo "Failed to connect: $MOCK_CONNECT_ERROR"; exit 1; fi
-   if [ "${MOCK_PROFILE_ONCE:-no}" = yes ] && [ ! -f "$SLOT_ROOT/connect-retried" ]; then touch "$SLOT_ROOT/connect-retried"; echo 'Failed to connect: org.bluez.Error.Failed br-connection-profile-unavailable'; exit 1; fi;;
+   if [ "${MOCK_PROFILE_ONCE:-no}" = yes ] && [ ! -f "$SLOT_ROOT/connect-retried" ]; then touch "$SLOT_ROOT/connect-retried"; echo "Failed to connect: org.bluez.Error.Failed ${MOCK_RETRY_REASON:-br-connection-profile-unavailable}"; exit 1; fi;;
  *devices*) echo 'Device AA:BB:CC:DD:EE:FF My headphones'; echo 'Device 00:11:22:33:44:55 00-11-22-33-44-55';;
  *info*)
    [ "${MOCK_ALIAS:-}" = "" ] || echo "Alias: $MOCK_ALIAS"
@@ -253,6 +253,26 @@ esac
         result = self.run_command('connect', MAC)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual((self.root / 'calls').read_text().splitlines().count('connect ' + MAC), 2)
+
+    def test_usb_to_bluetooth_retries_transient_controller_error(self):
+        self.env.update(MOCK_PROFILE_ONCE='yes', MOCK_RETRY_REASON='br-connection-unknown')
+        (self.root / 'route').write_text('plughw:CARD=Headset,DEV=0\n')
+        result = self.run_command('connect', MAC)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual((self.root / 'calls').read_text().splitlines().count('connect ' + MAC), 2)
+        self.assertIn('bluealsa:', (self.root / 'route').read_text())
+
+    def test_rejected_bluetooth_keeps_usb_and_does_not_poll_connection(self):
+        self.env.update(MOCK_CONNECT_ERROR='org.bluez.Error.Failed br-connection-unknown', MOCK_CONNECTED='no')
+        usb = 'plughw:CARD=Headset,DEV=0\n'
+        (self.root / 'route').write_text(usb)
+        result = self.run_command('connect', MAC)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual((self.root / 'route').read_text(), usb)
+        calls = (self.root / 'calls').read_text().splitlines()
+        self.assertEqual(calls.count('connect ' + MAC), 2)
+        # Diagnostics may read info once; no 20-iteration Connected wait.
+        self.assertLess(calls.count('info ' + MAC), 5)
 
     def test_list_and_diagnostics_do_not_remove_or_wait_for_another_lock(self):
         lock = self.root / 'lock'; lock.mkdir()

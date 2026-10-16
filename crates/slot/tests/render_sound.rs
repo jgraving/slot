@@ -22,6 +22,7 @@ fn render_sound_icons() {
         Icon::Headphones,
         Icon::BluetoothMuted,
         Icon::HeadphonesMuted,
+        Icon::VolumeMuted,
     ]
     .into_iter()
     .enumerate()
