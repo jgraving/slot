@@ -257,8 +257,10 @@ impl Frontend {
         let tex = compositor.create_texture(back.w, back.h, &back.rgba);
         self.session.app_mut().set_clock_back_face((tex, back.w));
         let star = slot_ui::star_face(slot_ui::STAR_SCALE, slot_ui::STAR_INK);
-        let id = compositor.create_texture_nearest(star.w, star.h, &star.rgba);
-        self.session.app_mut().set_star_face(id, star.w, star.h);
+        let id = compositor.create_texture(star.w, star.h, &star.rgba);
+        self.session
+            .app_mut()
+            .set_star_face(id, star.w, star.h);
         let shadow = cart_shadow();
         let id = compositor.create_texture(shadow.w, shadow.h, &shadow.rgba);
         self.session.app_mut().set_cart_shadow(id);

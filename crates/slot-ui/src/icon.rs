@@ -172,43 +172,81 @@ impl Badge {
     }
 }
 
-const STAR: [&str; 9] = [
-    "....#....",
-    "...###...",
-    "...###...",
-    "#########",
-    ".#######.",
-    "..#####..",
-    "..#####..",
-    ".###.###.",
-    ".##...##.",
-];
-
+/// Antialiased foil artwork; rendered once when textures are loaded.
 pub fn star_face(scale: u32, colour: [u8; 3]) -> CartFace {
-    let (gw, gh) = (STAR[0].len() as i32, STAR.len() as i32);
-    let ink = |x: i32, y: i32| {
-        (0..gw).contains(&x)
-            && (0..gh).contains(&y)
-            && STAR[y as usize].as_bytes()[x as usize] == b'#'
-    };
-    let (w, h) = ((gw + 2) as u32 * scale, (gh + 2) as u32 * scale);
-    let mut rgba = vec![0u8; (w * h * 4) as usize];
-    for py in 0..h {
-        for px in 0..w {
-            let (x, y) = ((px / scale) as i32 - 1, (py / scale) as i32 - 1);
-            let rim = [(0, -1), (0, 1), (-1, 0), (1, 0)]
-                .iter()
-                .any(|(dx, dy)| ink(x + dx, y + dy));
-            let c = match (ink(x, y), rim) {
-                (true, _) => [colour[0], colour[1], colour[2], 255],
-                (false, true) => [HALO[0], HALO[1], HALO[2], 255],
-                _ => continue,
-            };
-            let o = ((py * w + px) * 4) as usize;
-            rgba[o..o + 4].copy_from_slice(&c);
+    let w = 11 * scale.max(1);
+    let svg = include_str!("../assets/favorite-star.svg").replace(
+        "#f6c32c",
+        &format!("#{:02x}{:02x}{:02x}", colour[0], colour[1], colour[2]),
+    );
+    // Average full pixel coverage before upload: GL_LINEAR only samples four
+    // texels and cannot reliably minify a 4x texture's narrow sticker border.
+    let hi = crate::art::render_svg(&svg, w * 4, w * 4).expect("embedded favorite star SVG");
+    let rgba = prefilter_star(&hi, w);
+    CartFace { rgba, w, h: w }
+}
+
+fn prefilter_star(src: &[u8], w: u32) -> Vec<u8> {
+    let mut out = vec![0; (w * w * 4) as usize];
+    for y in 0..w {
+        for x in 0..w {
+            let mut alpha = 0u32;
+            let mut colour = [0u32; 3];
+            for dy in 0..4 {
+                for dx in 0..4 {
+                    let i = (((y * 4 + dy) * w * 4 + x * 4 + dx) * 4) as usize;
+                    let a = src[i + 3] as u32;
+                    alpha += a;
+                    for c in 0..3 {
+                        colour[c] += src[i + c] as u32 * a;
+                    }
+                }
+            }
+            let i = ((y * w + x) * 4) as usize;
+            if alpha > 0 {
+                for c in 0..3 {
+                    out[i + c] = ((colour[c] + alpha / 2) / alpha) as u8;
+                }
+            }
+            out[i + 3] = ((alpha + 8) / 16) as u8;
         }
     }
-    CartFace { rgba, w, h }
+    // Preserve edge colour when linear filtering blends with transparent pixels.
+    let pixels = out.clone();
+    for y in 0..w as i32 {
+        for x in 0..w as i32 {
+            let i = ((y * w as i32 + x) * 4) as usize;
+            if pixels[i + 3] != 0 {
+                continue;
+            }
+            for (dx, dy) in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
+                let (xx, yy) = (x + dx, y + dy);
+                if xx < 0 || yy < 0 || xx >= w as i32 || yy >= w as i32 {
+                    continue;
+                }
+                let j = ((yy * w as i32 + xx) * 4) as usize;
+                if pixels[j + 3] > 0 {
+                    out[i..i + 3].copy_from_slice(&pixels[j..j + 3]);
+                    break;
+                }
+            }
+        }
+    }
+    out
+}
+
+#[cfg(test)]
+mod favorite_filter_tests {
+    #[test]
+    fn averages_coverage_without_darkening_translucent_edges() {
+        let mut src = vec![0u8; 4 * 4 * 4];
+        src[..4].copy_from_slice(&[240, 220, 180, 255]);
+        assert_eq!(super::prefilter_star(&src, 1), vec![240, 220, 180, 16]);
+        for p in src.chunks_exact_mut(4) {
+            p.copy_from_slice(&[170, 130, 65, 255]);
+        }
+        assert_eq!(super::prefilter_star(&src, 1), vec![170, 130, 65, 255]);
+    }
 }
 
 pub fn badge_face(badge: Badge, px: f32, colour: [u8; 3]) -> CartFace {
