@@ -1,7 +1,5 @@
 <div align="center">
 
-> This fork adds Bluetooth headphone audio for RG SP on BaseOS. See [Bluetooth installation and controls](BLUETOOTH.md). Updates must be merged into the existing `System` folder so emulator files are retained.
-
 <img src=".github/resources/banner.png" width="100%" alt="slot. A bespoke, Game Boy-centric frontend for the Anbernic RG SP.">
 
 <a href="LICENSE"><img src="https://img.shields.io/github/license/BrandonKowalski/slot?style=for-the-badge&labelColor=242429&color=4d4d57" height="36" alt="License"></a>
@@ -52,10 +50,7 @@ Release notes can be found in the [changelog](CHANGELOG.md).
 | Anbernic RG35XXSP  | Yes                        | 1.5.0         |
 | Anbernic 35XX Plus | Yes                        | 1.5.0         |
 | Anbernic RG28XX    | Yes                        | 1.6.0         |
-
-RG28XX support was contributed by [GamerAnim](https://github.com/GamerAnim). Its panel is mounted
-portrait, so slot turns the picture onto it. If it comes out upside down, add `export SLOT_ROTATE=ccw`
-to `System/launch_frontend.sh`.
+| Anbernic RG35XX-H  | Yes                        | 1.7.0         |
 
 If you have one of the untested devices, or have tried slot on a device not listed,
 please [open an issue on GitHub](https://github.com/BrandonKowalski/slot/issues) and let me know how it went.
@@ -64,12 +59,18 @@ please [open an issue on GitHub](https://github.com/BrandonKowalski/slot/issues)
 
 # AI Disclosure
 
-The Rust frontend was put together by Claude Opus. I reviewed everything that was
-produced. All documentation is 100% free-range, meatbag prose.
+The Rust frontend, and the SVGs on [slot-cfw.fyi](https://slot-cfw.fyi), were put together by Claude.
+I reviewed everything that was produced. All documentation is 100% free-range, meatbag prose.
 
-The project is extremely low stakes. I wanted a bespoke frontend for my RG SP and thought
-that something that evokes the feeling of using my GBA SP as a kid would be pretty neat.
+My goal with this project was to recreate the feeling of playing my GBA SP in the back seat as a kid,
+but with a few modern creature comforts.
 
-Use it, don't use it, I don't care.
+Nothing about this project is exciting or groundbreaking from a technological perspective, and as a
+result, I delegated the glue code. mGBA and gpSP have been around forever and are the true stars of
+this show. The incredible skeuomorphic art is the work of [Markus](https://github.com/MarkusMaribu), an
+artist who saw the bare-bones version and offered to dress it up.
+
+I understand if my use of AI is a dealbreaker for you. Just know it's the least interesting part of
+what's here.
 
 Figured I should share the end result of all the wasted water. ✌🏻

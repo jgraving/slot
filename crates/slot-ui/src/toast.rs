@@ -1,4 +1,4 @@
-use slot_gfx::{OUT_H, OUT_W};
+use slot_gfx::{Canvas, OUT_H};
 use slot_store::GbPalette;
 
 use crate::hud::{HUD_INK, PLATE_H};
@@ -8,13 +8,11 @@ use crate::CartFace;
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum Toast {
-    NightOn,
-    NightOff,
+    BluetoothConnected,
+    BluetoothDisconnected,
+    UsbConnected,
+    UsbDisconnected,
     HeadphonesDisconnected,
-    DeepSleepWake,
-    SleepUnavailable,
-    FavoriteAdded,
-    FavoriteRemoved,
     StateSaved,
     StateLoaded,
     NeedsGpsp,
@@ -34,14 +32,12 @@ pub enum Toast {
 }
 
 impl Toast {
-    const FIXED: [Toast; 22] = [
-        Toast::NightOn,
-        Toast::NightOff,
+    const FIXED: [Toast; 20] = [
+        Toast::BluetoothConnected,
+        Toast::BluetoothDisconnected,
+        Toast::UsbConnected,
+        Toast::UsbDisconnected,
         Toast::HeadphonesDisconnected,
-        Toast::DeepSleepWake,
-        Toast::SleepUnavailable,
-        Toast::FavoriteAdded,
-        Toast::FavoriteRemoved,
         Toast::StateSaved,
         Toast::StateLoaded,
         Toast::NeedsGpsp,
@@ -73,6 +69,17 @@ impl Toast {
         }
     }
 
+    pub fn audio_change(self) -> bool {
+        matches!(
+            self,
+            Toast::BluetoothConnected
+                | Toast::BluetoothDisconnected
+                | Toast::HeadphonesDisconnected
+                | Toast::UsbConnected
+                | Toast::UsbDisconnected
+        )
+    }
+
     pub fn alarm(self) -> bool {
         self == Toast::CardUnwritable
     }
@@ -86,13 +93,11 @@ impl Toast {
 
     pub fn text(self) -> &'static str {
         match self {
-            Toast::DeepSleepWake => "Deep sleep: Power wakes",
-            Toast::SleepUnavailable => "Deep sleep unavailable",
-            Toast::NightOn => "Night mode",
-            Toast::NightOff => "Day mode",
-            Toast::HeadphonesDisconnected => "Device disconnected · Volume 0%",
-            Toast::FavoriteAdded => "Favorite added",
-            Toast::FavoriteRemoved => "Favorite removed",
+            Toast::BluetoothConnected => "Bluetooth connected",
+            Toast::UsbConnected => "USB audio selected",
+            Toast::UsbDisconnected => "USB audio disconnected",
+            Toast::BluetoothDisconnected => "Bluetooth disconnected",
+            Toast::HeadphonesDisconnected => "Headphones unplugged",
             Toast::StateSaved => "State Saved",
             Toast::StateLoaded => "State Loaded",
             Toast::NeedsGpsp => "Please switch to gpSP",
@@ -142,14 +147,7 @@ fn setting(toast: Toast) -> Setting {
             middle: OUT_H as f32 / 2.0,
         },
         false => Setting {
-            w: if matches!(
-                toast,
-                Toast::HeadphonesDisconnected | Toast::DeepSleepWake | Toast::SleepUnavailable
-            ) {
-                420
-            } else {
-                TOAST_W
-            },
+            w: if toast.audio_change() { 320 } else { TOAST_W },
             h: TOAST_H,
             px: TOAST_PX,
             min_px: TOAST_MIN_PX,
@@ -158,11 +156,11 @@ fn setting(toast: Toast) -> Setting {
     }
 }
 
-pub fn toast_rect(toast: Toast) -> (f32, f32, f32, f32) {
+pub fn toast_rect(canvas: Canvas, toast: Toast) -> (f32, f32, f32, f32) {
     let (w, h) = toast_box(toast);
     let (w, h) = (w as f32, h as f32);
     let middle = setting(toast).middle;
-    ((OUT_W as f32 - w) / 2.0, middle - h / 2.0, w, h)
+    (canvas.centred(w), middle - h / 2.0, w, h)
 }
 
 pub fn toast_box(toast: Toast) -> (u32, u32) {

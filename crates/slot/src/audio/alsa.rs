@@ -6,6 +6,7 @@ use std::time::{Duration, Instant};
 
 use libloading::Library;
 
+use super::pacer::Pacer;
 use super::ring::Ring;
 use super::silence::Silence;
 use super::sink::{AudioError, AudioSink};
@@ -30,6 +31,9 @@ pub fn requested_device() -> Option<String> {
 
 fn parse_device(text: &str) -> Option<String> {
     let name = text.trim();
+    if crate::usb_audio::valid_route(name) {
+        return Some(name.to_owned());
+    }
     let address = name
         .strip_prefix("bluealsa:DEV=")?
         .strip_suffix(",PROFILE=a2dp")?;
@@ -45,18 +49,12 @@ fn parse_device(text: &str) -> Option<String> {
     Some(format!("plug:SLAVE='{name}'"))
 }
 
-fn quiet_at_boot() -> bool {
-    let root = std::env::var_os("SLOT_ROOT").unwrap_or_else(|| "/mnt/sdcard".into());
-    std::fs::read_to_string(std::path::PathBuf::from(root).join("Config/comfort.txt"))
-        .is_ok_and(|s| s.lines().any(|l| l == "quiet=1"))
-}
-
-fn candidates(requested: Option<&str>, quiet: bool) -> impl Iterator<Item = &str> {
-    requested.into_iter().chain(
-        DEVICES
-            .into_iter()
-            .filter(move |_| requested.is_none() || !quiet),
-    )
+// A selected headset never falls back to the speaker. Selecting Internal speaker
+// explicitly clears the route, including when headphones go out of range.
+fn candidates(requested: Option<&str>) -> impl Iterator<Item = &str> {
+    requested
+        .into_iter()
+        .chain(DEVICES.into_iter().filter(move |_| requested.is_none()))
 }
 
 const DEVICES: [&str; 4] = ["plug:default", "default", "plughw:0,0", "hw:0,0"];
@@ -119,8 +117,7 @@ impl Alsa {
     fn open_pcm(&self, rate: u32) -> Result<(*mut c_void, String), AudioError> {
         let mut last = AudioError::NoDevice;
         let requested = requested_device();
-        let quiet = crate::comfort::QUIET_AUDIO.load(Ordering::Relaxed) || quiet_at_boot();
-        for name in candidates(requested.as_deref(), quiet) {
+        for name in candidates(requested.as_deref()) {
             let Ok(cname) = CString::new(name) else {
                 continue;
             };
@@ -270,10 +267,9 @@ impl Playback {
         let span = Duration::from_secs_f64(PERIOD_FRAMES as f64 / self.rate as f64);
         let mut silence = Silence::new(RELEASE_AFTER);
         let mut route_check = Instant::now();
+        let mut pace = Pacer::new(span);
         while !stop.load(Ordering::Relaxed) {
-            if crate::comfort::QUIET_AUDIO.load(Ordering::Relaxed)
-                && self.route.as_ref().is_some_and(|r| *r != self.actual)
-            {
+            if self.route.as_ref().is_some_and(|r| *r != self.actual) {
                 self.release();
             }
             if route_check.elapsed() >= Duration::from_millis(200) {
@@ -309,12 +305,13 @@ impl Playback {
             }
             match self.pcm {
                 Some(pcm) => {
+                    pace.reset();
                     if !self.write(pcm, &buf) {
                         self.release();
                         std::thread::sleep(Duration::from_millis(200));
                     }
                 }
-                None => std::thread::sleep(span),
+                None => std::thread::sleep(pace.wait(Instant::now())),
             }
         }
     }
@@ -377,14 +374,16 @@ mod tests {
     #[test]
     fn quiet_headphone_failure_has_no_speaker_candidate() {
         assert_eq!(
-            candidates(Some("headset"), true).collect::<Vec<_>>(),
+            candidates(Some("headset")).collect::<Vec<_>>(),
             vec!["headset"]
         );
-        assert_eq!(candidates(None, true).collect::<Vec<_>>(), DEVICES);
-        assert_eq!(
-            candidates(Some("headset"), false).count(),
-            DEVICES.len() + 1
-        );
+        assert_eq!(candidates(None).collect::<Vec<_>>(), DEVICES);
+    }
+    #[test]
+    fn usb_playback_resamples_without_implicit_speaker_fallback() {
+        let route = "plughw:CARD=Audio,DEV=0";
+        assert_eq!(parse_device(route), Some(route.into()));
+        assert_eq!(candidates(Some(route)).collect::<Vec<_>>(), vec![route]);
     }
     #[test]
     fn headphone_route_wraps_bluealsa_for_resampling_and_rejects_other_pcm_names() {

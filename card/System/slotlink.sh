@@ -1,6 +1,5 @@
 #!/bin/sh
 set -u
-umask 077
 
 NET="${AGS_NET_SYS:-/sys/class/net}"
 RUN="${AGS_RUN:-/run}"
@@ -95,8 +94,7 @@ link_wait() {
 }
 
 link_host() {
-	[ -f "$RUN/slot-offline-ready" ] || return 1
-	echo "$PPID" > "$LINK_MARK"
+	echo "$$" > "$LINK_MARK"
 	trace "host: asked"
 	link_clear
 	wifi_up
@@ -146,8 +144,7 @@ link_sta_conf() {
 }
 
 link_join() {
-	[ -f "$RUN/slot-offline-ready" ] || return 1
-	echo "$PPID" > "$LINK_MARK"
+	echo "$$" > "$LINK_MARK"
 	trace "join: asked"
 	link_clear
 	wifi_up
@@ -185,28 +182,26 @@ link_down() {
 	trace "down"
 	link_clear
 	$IP link set wlan1 down 2>/dev/null || true
-	$IP addr flush dev wlan0 2>/dev/null || true
-	$IP link set wlan0 down 2>/dev/null || true
-	rfkill block wifi 2>/dev/null || true
 	rmdir "$RUN/wpa_ap" 2>/dev/null || true
 	/bin/rm -f "$LINK_MARK"
 	return 0
 }
 
-# Opening the link menu must not enable Wi-Fi. Only host/join may do so.
+link_warm() {
+	trace "warm"
+	wifi_up
+	[ -d "$NET/wlan0" ] || return 1
+	wait_dev wlan1 4
+}
+
 case "${1:-} ${2:-}" in
-"link host"|"link join")
-    trap 'link_down; exit 1' HUP INT TERM
-    if [ "$2" = host ]; then link_host; else link_join; fi
-    result=$?
-    [ "$result" = 0 ] || link_down
-    exit "$result"
-    ;;
+"link host") link_host ;;
+"link join") link_join ;;
 "link down") link_down ;;
-"link warm") exit 0 ;;
-"link cool") [ -f "$LINK_MARK" ] || link_down ;;
+"link warm") link_warm ;;
+"link cool") exit 0 ;;
 *)
-    echo "usage: slotlink.sh link [host|join|down|warm|cool]" >&2
-    exit 2
-    ;;
+	echo "usage: slotlink.sh link [host|join|down|warm|cool]" >&2
+	exit 2
+	;;
 esac
