@@ -70,7 +70,9 @@ pub use plate::{
     HINT_H, LEGEND_GAP, TITLE_H, TITLE_LINE_H, TITLE_W,
 };
 pub use polaroids::{photo_face, PhotoFace, Polaroids, DOT, LEGEND, PHOTO_H, PHOTO_W};
-pub use power_menu::{menu_face, PowerChoice, MENU_PAD};
+pub use power_menu::{
+    draw_power_switch, menu_face, power_switch_faces, PowerChoice, MENU_PAD, POWER_SWITCH_MS,
+};
 pub use quick_menu::{
     core_button_legends, draw_menu_ground, link_button_legends, quick_caret_face, quick_label_face,
     quick_legend_faces, quick_pointer_face, quick_row_top, quick_value_face, QuickMenu,

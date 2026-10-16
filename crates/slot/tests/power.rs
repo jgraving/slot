@@ -216,7 +216,7 @@ fn a_dozing_device_powers_off_by_itself_rather_than_waiting_for_the_lid() {
     );
     assert!(
         a.ready_to_power_off(),
-        "the shutdown screen has had its 250 ms and the machine is still not allowed to stop"
+        "the shutdown screen has had its 600 ms and the machine is still not allowed to stop"
     );
 }
 
@@ -407,4 +407,25 @@ fn a_shut_lid_over_a_session_takes_its_network_down_too() {
         "the session's own network must come down before the driver does: {jobs:?}"
     );
     assert!(jobs.contains(&RadioJob::Cool));
+}
+
+#[test]
+fn switch_is_presented_until_its_stroke_and_fade_finish() {
+    let d = tmp_root_with_carts(&["Emerald"]);
+    let mut a = app_playing_in(d.path(), "Emerald");
+    let faces = [slot_gfx::TexId::from_raw(701), slot_gfx::TexId::from_raw(702)];
+    a.set_power_switch_faces([faces; 2]);
+    a.apply(Action::PowerHold);
+    let start = a.now();
+    let mut out = Vec::new();
+    a.draw(&mut out);
+    assert_eq!(out.len(), 3, "black ground, housing and slider only");
+    assert!(matches!(out[1], Draw::Tex { tex, alpha: 1.0, .. } if tex == faces[0]));
+    a.tick_ms(start + slot_ui::POWER_SWITCH_MS - 1);
+    assert!(!a.ready_to_power_off());
+    a.tick_ms(start + slot_ui::POWER_SWITCH_MS);
+    assert!(a.ready_to_power_off());
+    out.clear();
+    a.draw(&mut out);
+    assert!(matches!(out[2], Draw::Tex { alpha: 0.0, .. }));
 }
