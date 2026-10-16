@@ -13,7 +13,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: e2dc0cbaa2e09665cb2b2cf4461d18fccdc4ccb3
+          ref: 53826cea089fb2ef23e2a0f6f393e43c35364e27
       - name: Favorite behavior and nearby UI regressions
         run: |
           cargo test -p slot --no-default-features --test favorites --test last_shelf --test quick_menu
@@ -24,7 +24,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: e2dc0cbaa2e09665cb2b2cf4461d18fccdc4ccb3
+          ref: 53826cea089fb2ef23e2a0f6f393e43c35364e27
       - name: Recorder dependencies
         run: |
           command -v ffmpeg || brew install ffmpeg
@@ -33,6 +33,8 @@ jobs:
       - name: Record actual app input and OpenGL output
         run: |
           mkdir -p preview-frames
+          # Lossless encoder avoids compression shimmer in otherwise static GIF regions.
+          sed -i '' 's/"-crf", "20"/"-crf", "0"/' crates/slot/examples/record.rs
           cargo run -p slot --example favorite_remove_fixture -- /tmp/favorites-preview
           cargo run -p slot --example record -- /tmp/favorites-preview previews/favorite-remove.script favorite-remove.mp4
           ffmpeg -v error -i favorite-remove.mp4 -vf fps=20 preview-frames/%04d.png
