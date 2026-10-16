@@ -129,7 +129,7 @@ impl SlotChrome<'_> {
         let (cw, ch) = cart_box(self.cart.platform);
         let (cw, ch) = (cw as f32, ch as f32);
 
-        let scale = self.scale.clamp(0.0, 1.0);
+        let scale = self.scale.clamp(0.0, crate::shelf::shelf_scale(self.cart.platform));
         let (w0, h0) = (cw * scale, ch * scale);
         let (sw, sh) = seated_box(self.cart.platform);
         let (sw, sh) = (sw as f32, sh as f32);

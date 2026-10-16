@@ -116,22 +116,16 @@ fn alpha(face: &CartFace, x: u32, y: u32) -> u8 {
 
 #[test]
 fn the_open_cart_starts_as_the_shelf_cart_and_lands_where_the_mockup_has_it() {
-    assert_eq!(
-        shelf_cart(Canvas::FRAMED),
-        Placed {
-            x: 180.0,
-            y: 134.0,
-            w: 360.0,
-            h: 212.0
-        }
-    );
+    let shelf = shelf_cart(Canvas::FRAMED);
+    assert_eq!((shelf.x, shelf.y, shelf.w), (153.0, 118.0, 414.0));
+    assert!((shelf.h - 243.8).abs() < 0.001);
     assert_eq!(
         board_at(Canvas::FRAMED, 0.0),
         board_in(shelf_cart(Canvas::FRAMED))
     );
     assert_eq!(
-        board_at(Canvas::FRAMED, 0.0).x,
-        board_at(Canvas::FRAMED, 1.0).x,
+        board_at(Canvas::FRAMED, 0.0).x + board_at(Canvas::FRAMED, 0.0).w / 2.0,
+        board_at(Canvas::FRAMED, 1.0).x + board_at(Canvas::FRAMED, 1.0).w / 2.0,
         "the board slid sideways while it opened"
     );
     assert_eq!(

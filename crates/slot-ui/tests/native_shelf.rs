@@ -58,3 +58,19 @@ fn a_native_wallpaper_is_the_centre_of_the_framed_one() {
     assert!(out.iter().any(|d| matches!(*d,
         Draw::Part { w, tex, uv, .. } if tex == ground && w == 640.0 && uv == NATIVE.window(720.0))));
 }
+
+#[test]
+fn larger_carts_fit_between_header_and_slot_on_native_panels() {
+    for platform in [Platform::Gba, Platform::Gb, Platform::Gbc] {
+        let mut cart = carts(&["Preview"]).remove(0);
+        cart.platform = platform;
+        let shelf = Shelf::new(vec![cart]);
+        let (x, scale) = shelf.selected_at(NATIVE);
+        let (cw, ch) = slot_ui::cart_box(platform);
+        let (w, h) = (cw as f32 * scale, ch as f32 * scale);
+        let y = slot_ui::foot_y(ch as f32) - h;
+        assert!(w > cw as f32);
+        assert!(x >= 0.0 && x + w <= NATIVE.w);
+        assert!(y >= 24.0 && y + h <= 422.0, "{platform:?}: {y}..{}",y+h);
+    }
+}
