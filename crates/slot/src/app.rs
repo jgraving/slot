@@ -4854,7 +4854,7 @@ mod bluetooth_tests {
         app.disconnect_volume = 10;
         app.usb_state(true, false);
         assert_eq!(app.volume(), 20);
-        assert_eq!(app.hud_icon(), Icon::Usb);
+        assert_eq!(app.hud_icon(), Icon::Headphones);
         *app.level_mut() = 45;
         *app.muted_mut() = true;
         app.usb_state(false, true);

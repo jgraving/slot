@@ -10,6 +10,7 @@ LOGDIR="$ROOT/Bluetooth"
 VERB=${1:-}
 TARGET=${2:-}
 OFF="$ROOT/Config/bluetooth-off"
+ENABLED="$ROOT/Config/bluetooth-enabled"
 automatic() { [ "$VERB" = restore ] || [ "$VERB" = reconnect ]; }
 # BaseOS owns hardware attachment. Other systems must already expose a BlueZ
 # controller; never run the vendor recovery commands against an unrelated stack.
@@ -309,7 +310,11 @@ start() {
     done
     bt power on >/dev/null
     bt show | grep -q '^[[:space:]]*Powered: yes[[:space:]]*$' || fail 'Bluetooth adapter did not power on'
-    if ! automatic; then rm -f "$OFF"; fi
+    if ! automatic; then
+        mkdir -p "$ROOT/Config"
+        : > "$ENABLED"
+        rm -f "$OFF"
+    fi
     bt discoverable off >/dev/null
     # Pairable controls incoming requests; explicit outgoing pairing still works.
     bt pairable off >/dev/null
@@ -537,6 +542,7 @@ esac
 log "slot Bluetooth v3.1: verb=$VERB target=$TARGET"
 case "$VERB" in
     list) emit_list ;;
+    on) start; emit_list ;;
     scan)
         start
         rm -f "$OFF"
@@ -561,7 +567,7 @@ case "$VERB" in
         STAGE='Bluetooth off'
         mkdir -p "$ROOT/Config"
         : > "$OFF"
-        rm -f "$PREF"
+        rm -f "$PREF" "$ENABLED"
         current=$(cat "$ROUTE" 2>/dev/null || true)
         case "$current" in
             plughw:CARD=*,DEV=*) output=$current ;;

@@ -300,6 +300,19 @@ esac
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertFalse((self.root / 'lock').exists())
 
+    def test_explicit_on_remembers_enabled_without_scanning_or_changing_output(self):
+        config = self.root / 'Config'
+        config.mkdir(exist_ok=True)
+        (config / 'bluetooth-off').write_text('')
+        result = self.run_command('on')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue((config / 'bluetooth-enabled').exists())
+        self.assertFalse((config / 'bluetooth-off').exists())
+        calls = (self.root / 'calls').read_text()
+        self.assertNotIn('scan on', calls)
+        self.assertNotIn('session pair ', calls)
+        self.assertFalse((config / 'bluetooth-headphones').exists())
+
     def test_restore_without_preference_does_not_start_radio(self):
         self.assertEqual(self.run_command('restore').returncode, 0)
         self.assertFalse((self.root / 'calls').exists())

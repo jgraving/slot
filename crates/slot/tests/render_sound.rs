@@ -9,9 +9,10 @@ fn render_sound_icons() {
         "Sound",
         "",
         "COMPACT",
-        "SELECTED ACTIVE DEVICE Bluetooth headphones",
+        "ROW ACTIVE DEVICE Bluetooth headphones",
         "ROW USB_DEVICE USB headphones",
-        "ROW Volume on disconnect",
+        "ROW DISCONNECT 0%",
+        "SELECTED BLUETOOTH Off",
         "B Back   A Select   X Save report",
     ]
     .map(str::to_owned);

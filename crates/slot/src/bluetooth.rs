@@ -57,6 +57,22 @@ pub fn valid_address(address: &str) -> bool {
             .all(|p| p.len() == 2 && p.bytes().all(|b| b.is_ascii_hexdigit()))
 }
 
+fn bluetooth_enabled(root: &std::path::Path) -> bool {
+    !root.join("Config/bluetooth-off").exists()
+        && (root.join("Config/bluetooth-enabled").exists()
+            || root.join("Config/bluetooth-headphones").exists())
+}
+
+fn startup_verb(root: &std::path::Path) -> &'static str {
+    if !bluetooth_enabled(root) {
+        "off"
+    } else if root.join("Config/bluetooth-headphones").exists() {
+        "restore"
+    } else {
+        "on"
+    }
+}
+
 struct ResultMessage {
     devices: Vec<Headphones>,
     status: String,
@@ -163,6 +179,7 @@ impl Manager {
             "forget" => "Forgetting device...",
             "speaker" | "local" | "usb" => "Switching output...",
             "off" => "Turning Bluetooth off...",
+            "on" => "Turning Bluetooth on...",
             "diagnose" => "Saving report...",
             _ => "",
         }
@@ -307,14 +324,14 @@ impl Manager {
                 }
                 rows.push(format!("DISCONNECT {}%", self.disconnect_volume));
                 if self.bluetooth_available {
-                    rows.push(
-                        if self.root.join("Config/bluetooth-off").exists() {
-                            "Bluetooth off"
+                    rows.push(format!(
+                        "BLUETOOTH {}",
+                        if bluetooth_enabled(&self.root) {
+                            "On"
                         } else {
-                            "Turn Bluetooth off"
+                            "Off"
                         }
-                        .into(),
-                    );
+                    ));
                 }
                 rows
             }
@@ -357,6 +374,13 @@ impl Manager {
             {
                 self.change_disconnect_volume(action == Action::GbaDown(Btn::Right));
             }
+            Action::GbaDown(Btn::Left | Btn::Right)
+                if self.page == Page::Home
+                    && self.bluetooth_available
+                    && self.selected == self.disconnect_row() + 1 =>
+            {
+                self.toggle_bluetooth();
+            }
             Action::GbaDown(Btn::X) if self.bluetooth_available => self.ask("diagnose", None),
             Action::GbaDown(Btn::Y) if self.page == Page::Home => {
                 if let Some(i) = self
@@ -376,13 +400,16 @@ impl Manager {
                             && selected
                                 == 1 + self.device_indices().len() + self.usb_devices.len() =>
                     {
-                        self.open(Page::Pair)
+                        self.open(Page::Pair);
+                        if !bluetooth_enabled(&self.root) {
+                            self.ask("on", None);
+                        }
                     }
                     selected if selected == self.disconnect_row() => {}
                     selected
                         if self.bluetooth_available && selected == self.disconnect_row() + 1 =>
                     {
-                        self.ask("off", None)
+                        self.toggle_bluetooth()
                     }
                     selected
                         if selected > self.device_indices().len()
@@ -434,6 +461,17 @@ impl Manager {
             _ => {}
         }
         false
+    }
+
+    fn toggle_bluetooth(&mut self) {
+        self.ask(
+            if bluetooth_enabled(&self.root) {
+                "off"
+            } else {
+                "on"
+            },
+            None,
+        );
     }
 
     fn change_disconnect_volume(&mut self, increase: bool) {
@@ -494,7 +532,10 @@ impl Manager {
             ));
         }
         lines.push(
-            if self.page == Page::Home && self.selected == self.disconnect_row() {
+            if self.page == Page::Home
+                && (self.selected == self.disconnect_row()
+                    || (self.bluetooth_available && self.selected == self.disconnect_row() + 1))
+            {
                 "B Back · Change"
             } else if self.disconnect_notice && self.page == Page::Home {
                 "A Select"
@@ -680,6 +721,7 @@ fn run(root: PathBuf, verb: &str, address: Option<String>) -> ResultMessage {
                 "connect" => "Device connected",
                 "speaker" => "Speaker selected",
                 "off" => "Bluetooth off",
+                "on" => "Bluetooth on",
                 "forget" => "Device forgotten",
                 "diagnose" => "Saved Bluetooth/latest-report.txt",
                 "scan" => "Scan complete.",
@@ -796,8 +838,12 @@ pub fn screen_face(lines: &[String]) -> UndoFace {
             }
             continue;
         }
-        if let Some(value) = label.strip_prefix("DISCONNECT ") {
-            let name = slot_ui::quick_value_face("Volume on disconnect", true);
+        if let Some((name, value)) = label
+            .strip_prefix("DISCONNECT ")
+            .map(|v| ("Volume on disconnect", v))
+            .or_else(|| label.strip_prefix("BLUETOOTH ").map(|v| ("Bluetooth", v)))
+        {
+            let name = slot_ui::quick_value_face(name, true);
             blit(&mut rgba, &name, 14, top);
             let value = slot_ui::quick_value_face(value, highlight);
             if highlight {
@@ -1018,16 +1064,48 @@ mod menu_tests {
     }
 
     #[test]
+    fn bluetooth_defaults_off_and_remembers_explicit_enable_or_existing_headphones() {
+        let root = tempfile::tempdir().unwrap();
+        std::fs::create_dir(root.path().join("Config")).unwrap();
+        assert_eq!(startup_verb(root.path()), "off");
+        std::fs::write(root.path().join("Config/bluetooth-enabled"), "").unwrap();
+        assert_eq!(startup_verb(root.path()), "on");
+        std::fs::remove_file(root.path().join("Config/bluetooth-enabled")).unwrap();
+        std::fs::write(
+            root.path().join("Config/bluetooth-headphones"),
+            "AA:BB:CC:DD:EE:FF",
+        )
+        .unwrap();
+        assert_eq!(startup_verb(root.path()), "restore");
+        std::fs::write(root.path().join("Config/bluetooth-off"), "").unwrap();
+        assert_eq!(startup_verb(root.path()), "off");
+    }
+
+    #[test]
+    fn pair_entry_enables_bluetooth_and_toggle_has_change_hint() {
+        let root = tempfile::tempdir().unwrap();
+        let mut m = menu();
+        m.root = root.path().to_owned();
+        m.selected = m.disconnect_row() + 1;
+        assert!(m.lines().last().unwrap().contains("Change"));
+        m.selected = m.disconnect_row() - 1;
+        m.input(Action::GbaDown(Btn::A));
+        assert_eq!(m.page, Page::Pair);
+        assert!(m.busy());
+        assert_eq!(m.status, "Turning Bluetooth on...");
+    }
+
+    #[test]
     fn off_is_available_only_with_bluetooth_and_reflects_the_saved_state() {
         let root = tempfile::tempdir().unwrap();
         let mut m = menu();
         m.root = root.path().to_owned();
-        assert_eq!(m.rows().last().unwrap(), "Turn Bluetooth off");
+        assert_eq!(m.rows().last().unwrap(), "BLUETOOTH Off");
         std::fs::create_dir(root.path().join("Config")).unwrap();
         std::fs::write(root.path().join("Config/bluetooth-off"), "").unwrap();
-        assert_eq!(m.rows().last().unwrap(), "Bluetooth off");
+        assert_eq!(m.rows().last().unwrap(), "BLUETOOTH Off");
         m.bluetooth_available = false;
-        assert!(!m.rows().iter().any(|r| r.contains("Bluetooth off")));
+        assert!(!m.rows().iter().any(|r| r.starts_with("BLUETOOTH ")));
     }
 
     #[test]
@@ -1079,7 +1157,7 @@ mod menu_tests {
                 "DEVICE WF-C510",
                 "Pair audio device",
                 "DISCONNECT 0%",
-                "Turn Bluetooth off"
+                "BLUETOOTH Off"
             ]
         );
         assert!(m.lines()[0].is_empty());
@@ -1682,11 +1760,7 @@ pub fn probe(root: &std::path::Path) -> Option<Receiver<bool>> {
             .is_ok_and(|o| o.status.success());
         let _ = tx.send(supported);
         if supported {
-            let verb = if root.join("Config/bluetooth-off").exists() {
-                "off"
-            } else {
-                "restore"
-            };
+            let verb = startup_verb(&root);
             let result = run(root, verb, None);
             if result.status.starts_with("Error:") {
                 eprintln!("slot: headphone reconnect unavailable");

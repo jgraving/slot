@@ -16,7 +16,7 @@ if it disconnects while slot is awake. Retry delays increase from 5 to 15, 30,
 then 60 seconds. A passive BlueZ listener notices connection changes promptly;
 if that tool is unavailable, polling remains as a fallback. The listener stops
 while slot sleeps or Bluetooth is off. Reconnect never scans for or pairs a new device. Selecting the
-local output stops automatic reconnect. **Turn Bluetooth off** also powers off
+local output stops automatic reconnect. **Bluetooth: Off** also powers off
 and blocks the radio, and stays off after restarting. Pairings are kept. Select
 a saved device or scan for devices to turn Bluetooth back on.
 
@@ -113,3 +113,5 @@ kernel messages, device power state, stream formats and mixer readings in the
 bounded report. These are read only; slot does not change USB power policy or
 hardware gain. Automatic selection and the updated icons need device testing. USB audio does not require Bluetooth
 hardware. Card IDs are used rather than assuming the USB device is always card 3.
+
+Bluetooth defaults to Off on a fresh setup. The Bluetooth row uses left/right to switch On or Off; selecting Pair audio device enables it automatically. Explicit On/Off is remembered, and existing saved-headphone setups retain startup reconnect. USB outputs use the same headphone symbols as the audio jack.
