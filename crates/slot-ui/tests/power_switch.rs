@@ -5,11 +5,18 @@ fn detents_and_fade_stay_aligned_on_each_canvas() {
     for width in [480.0, 640.0, 720.0, 854.0] {
         let canvas = Canvas { w: width, h: 480.0 };
         let scale = (width / 720.0_f32).min(1.0);
-        for (progress, mark, alpha) in [(0.0, 539.5, 1.0), (0.5, 445.5, 1.0), (1.0, 445.5, 0.0)] {
+        for (ms, mark, alpha) in [
+            (0.0, 539.5, 1.0),
+            (225.0, 492.5, 1.0),
+            (450.0, 445.5, 1.0),
+            (500.0, 445.5, 1.0),
+            (550.0, 445.5, 0.5),
+            (600.0, 445.5, 0.0),
+        ] {
             let mut draws = Vec::new();
             draw_power_switch(
                 canvas,
-                progress,
+                ms / slot_ui::POWER_SWITCH_MS as f32,
                 [TexId::from_raw(0), TexId::from_raw(1)],
                 &mut draws,
             );
@@ -19,7 +26,7 @@ fn detents_and_fade_stay_aligned_on_each_canvas() {
             };
             assert!((x + w / 2.0 - width / 2.0).abs() < 0.001);
             assert!(x >= 0.0 && x + w <= width);
-            assert_eq!(a, alpha);
+            assert!((a - alpha).abs() < 0.001);
             let Draw::Tex {
                 x: sx,
                 w: sw,

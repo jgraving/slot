@@ -108,9 +108,11 @@ pub fn draw_power_switch(
     out: &mut Vec<crate::Draw>,
 ) {
     let p = progress.clamp(0.0, 1.0);
-    let t = ((p * POWER_SWITCH_MS as f32 - 40.0) / 240.0).clamp(0.0, 1.0);
+    // 450 ms slide, 50 ms at OFF, then 100 ms fade; total remains 600 ms.
+    let elapsed = p * POWER_SWITCH_MS as f32;
+    let t = (elapsed / 450.0).clamp(0.0, 1.0);
     let off = t * t * (3.0 - 2.0 * t);
-    let alpha = ((1.0 - p) / 0.2).clamp(0.0, 1.0);
+    let alpha = ((POWER_SWITCH_MS as f32 - elapsed) / 100.0).clamp(0.0, 1.0);
     let scale = (canvas.w / 720.0).min(1.0);
     let w = 600.0 * scale;
     let h = 240.0 * scale;
