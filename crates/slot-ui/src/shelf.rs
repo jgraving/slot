@@ -8,6 +8,17 @@ use crate::hud::Millis;
 use crate::silhouette::GbShell;
 use crate::slot_chrome::{draw_empty_slot, MOUTH_H};
 
+pub const GBA_SHELF_SCALE: f32 = 1.15;
+pub const GB_SHELF_SCALE: f32 = 1.08;
+
+pub fn shelf_scale(platform: Platform) -> f32 {
+    if platform == Platform::Gba { GBA_SHELF_SCALE } else { GB_SHELF_SCALE }
+}
+
+fn height_scale(h: f32) -> f32 {
+    if h > CART_H as f32 { GB_SHELF_SCALE } else { GBA_SHELF_SCALE }
+}
+
 const SIDE_SCALE: f32 = 0.78;
 const SIDE_ALPHA: f32 = 1.0;
 
@@ -17,16 +28,15 @@ pub fn rest_y(h: f32) -> f32 {
     } else {
         (OUT_H + CART_H) as f32 / 2.0 - h
     };
-    // A Game Boy pak is 337px in a 422px gap, which centres at 42.5. Snap to a
-    // whole pixel so the 312×337 bitmap hits the RG SP panel 1:1.
-    y.round()
+    // Keep the enlarged cartridge centred at the same resting position.
+    (y - h * (height_scale(h) - 1.0) / 2.0).round()
 }
 
 pub fn foot_y(h: f32) -> f32 {
-    rest_y(h) + h
+    rest_y(h) + h * height_scale(h)
 }
 const OMEGA: f32 = 16.0;
-const PART: f32 = 130.0;
+const PART: f32 = 100.0;
 
 const SLOTS: i32 = 3;
 
@@ -379,7 +389,8 @@ impl Shelf {
 
     pub fn selected_at(&self, canvas: Canvas) -> (f32, f32) {
         let (w, _) = self.slot_width(0);
-        let scale = shrink(self.scroll_target() - self.scroll);
+        let zoom = self.carts.get(self.index).map_or(GBA_SHELF_SCALE, |c| shelf_scale(c.platform));
+        let scale = shrink(self.scroll_target() - self.scroll) * zoom;
         (self.centre(canvas, 0) - w * scale / 2.0, scale)
     }
 
@@ -392,8 +403,10 @@ impl Shelf {
 
     fn pitch(&self, a: i32, u: f32) -> f32 {
         let ((wa, gba_a), (wb, gba_b)) = (self.slot_width(a), self.slot_width(a + 1));
+        let wa = wa * if gba_a { GBA_SHELF_SCALE } else { GB_SHELF_SCALE };
+        let wb = wb * if gba_b { GBA_SHELF_SCALE } else { GB_SHELF_SCALE };
         let (sa, sb) = (shrink(a as f32 - u), shrink((a + 1) as f32 - u));
-        let gap_of = if gba_a || gba_b { CART_W as f32 } else { wa };
+        let gap_of = if gba_a || gba_b { CART_W as f32 * GBA_SHELF_SCALE } else { wa };
         wa * sa / 2.0 + gap_of * (1.0 - (sa + sb) / 2.0) + wb * sb / 2.0
     }
 
@@ -489,6 +502,7 @@ impl Shelf {
             }
             let alpha = (1.0 + (SIDE_ALPHA - 1.0) * t) * (1.0 - recede);
             let (cw, ch) = cart_box(cart.platform);
+            let scale = scale * shelf_scale(cart.platform);
             let (w0, h0) = (cw as f32 * scale, ch as f32 * scale);
             let (sw, sh) = crate::seated_box(cart.platform);
             let (w, h) = (w0 + (sw as f32 - w0) * depart,

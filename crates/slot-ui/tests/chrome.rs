@@ -347,7 +347,12 @@ fn an_unseated_cart_stands_where_the_shelf_left_it() {
         Shelf::new(vec![c.clone()]).draw_row(Canvas::FRAMED, None, 0.0, 0.0, 1.0, &mut shelf);
         let on_shelf = quad(&shelf[cart_at(&shelf)]);
 
-        let out = chrome(&c, 0.0);
+        let row = Shelf::new(vec![c.clone()]);
+        let (rest, scale) = row.selected_at(Canvas::FRAMED);
+        let mut out = Vec::new();
+        SlotChrome { canvas: Canvas::FRAMED, cart: &c, face: None, rest, scale, seat: 0.0,
+            screen: 0.0, game: false, over: false, dim: 0.0, slot: None,
+            behind: [None, None], alert: None }.draw(&mut out);
         let in_slot = quad(&out[cart_at(&out)]);
         assert_eq!(
             on_shelf, in_slot,

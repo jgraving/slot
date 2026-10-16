@@ -186,7 +186,7 @@ pub struct Placed {
 }
 
 pub fn shelf_cart(canvas: Canvas) -> Placed {
-    shelf_cart_at(canvas.centred(CART_W as f32), 1.0)
+    shelf_cart_at(canvas.centred(CART_W as f32 * crate::shelf::GBA_SHELF_SCALE), crate::shelf::GBA_SHELF_SCALE)
 }
 
 pub fn shelf_cart_at(x: f32, scale: f32) -> Placed {
