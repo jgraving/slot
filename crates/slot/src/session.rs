@@ -21,6 +21,7 @@ use crate::prefetch::Prefetch;
 pub struct Session {
     usb_monitor: crate::usb_audio::Monitor,
     usb_switch: Option<crate::bluetooth::Manager>,
+    bluetooth_volume: crate::bluetooth_volume::Volume,
     bluetooth_monitor: crate::bluetooth::Indicator,
     bluetooth_reconnect: crate::bluetooth::Reconnect,
     bluetooth_events: crate::bluetooth::Events,
@@ -48,6 +49,7 @@ impl Session {
         let mut session = Session {
             usb_monitor: Default::default(),
             usb_switch: None,
+            bluetooth_volume: Default::default(),
             bluetooth_monitor: Default::default(),
             bluetooth_reconnect: Default::default(),
             bluetooth_events: Default::default(),
@@ -74,6 +76,13 @@ impl Session {
         session
     }
 
+    fn software_volume(&self) -> u8 {
+        self.bluetooth_volume.software_volume(
+            self.app.bluetooth_volume_address(),
+            self.app.output_volume(),
+        )
+    }
+
     pub fn play_sfx(&mut self, sfx: Sfx) {
         let ring = self.sink.ring();
         let rate = ring.sample_rate();
@@ -81,7 +90,7 @@ impl Session {
             return;
         }
         let mut samples = sfx.render(rate);
-        crate::audio::volume::apply(&mut samples, self.app.output_volume());
+        crate::audio::volume::apply(&mut samples, self.software_volume());
         ring.mix(&samples);
     }
 
@@ -227,7 +236,7 @@ impl Session {
             Action::VolumeUp | Action::VolumeDown | Action::MuteToggle
         ) {
             if let Some(emu) = &self.emu {
-                emu.set_volume(self.app.output_volume());
+                emu.set_volume(self.software_volume());
             }
         }
         if menu || self.overlaid() {
@@ -292,7 +301,7 @@ impl Session {
             if selected && !present {
                 // Lower local volume before allowing ALSA to open the speaker.
                 if let Some(emu) = &self.emu {
-                    emu.set_volume(self.app.output_volume());
+                    emu.set_volume(self.software_volume());
                 }
                 if std::fs::read_to_string(crate::usb_audio::route_path())
                     .is_ok_and(|s| s.trim() == route)
@@ -325,8 +334,16 @@ impl Session {
             self.app.bluetooth_state(address.clone(), address.is_some());
             self.app.usb_state(usb, false);
         }
+        if awake {
+            if let Some(level) = self
+                .bluetooth_volume
+                .poll(self.app.bluetooth_volume_address(), self.app.volume())
+            {
+                self.app.observe_bluetooth_volume(level);
+            }
+        }
         if let Some(emu) = &self.emu {
-            emu.set_volume(self.app.output_volume());
+            emu.set_volume(self.software_volume());
         }
         if let Some((client_id, transport)) = self.app.take_link_transport() {
             match &self.emu {
@@ -585,7 +602,7 @@ impl Session {
             Some(p) => EmuHandle::spawn_linked(opened.core, rom, ring, sav, resume, p),
             None => EmuHandle::spawn(opened.core, rom, ring, sav, resume),
         };
-        emu.set_volume(self.app.output_volume());
+        emu.set_volume(self.software_volume());
         emu.set_driven(self.driven);
         self.app.set_snapshot(Box::new(emu.snapshot()));
         self.emu = Some(emu);

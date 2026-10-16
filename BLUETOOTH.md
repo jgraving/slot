@@ -81,7 +81,7 @@ They do not replace testing on the device.
 
 For unexpectedly quiet audio, connect the device and press X in Sound, then check
 `Bluetooth/latest-report.txt`. It includes slot’s volume settings and read-only
-mixer readings. No gain boost or automatic change to device volume is applied.
+mixer readings. No gain boost is applied. Supported Bluetooth headphones use linked native volume; wired and USB gain settings are unchanged.
 
 Routine operation transcripts stay in temporary memory and are removed when the
 operation ends. Saved diagnostics overwrite `latest-report.txt`, `latest-error.txt`
@@ -117,3 +117,22 @@ hardware. Card IDs are used rather than assuming the USB device is always card 3
 Bluetooth defaults to Off on a fresh setup. The Bluetooth row uses left/right to switch On or Off; selecting Pair audio device enables it automatically. Explicit On/Off is remembered, and existing saved-headphone setups retain startup reconnect. USB outputs use the same headphone symbols as the audio jack.
 
 Bluetooth Off now uses BlueZ power control without rfkill-blocking the attached UART. On waits for the powered state with a bounded timeout. If the controller stays off, the menu asks for a full shutdown and power-on; this recovery hint is not shown for ordinary headphone connection failures. On-demand reports include Bluetooth kernel messages and rfkill state.
+
+## Linked Bluetooth volume
+
+Slot uses BlueALSA native volume when the selected A2DP transport exposes AVRCP
+volume. The handheld buttons control headphone volume, and headphone volume
+changes update Slot's indicator. The existing squared slider curve is applied
+once, at the headphone volume control. Mute still silences samples immediately.
+
+The first switch from software volume combines the existing remote level with
+Slot's attenuation; it never initializes the headphones to maximum. Subsequent
+connections use the lower of the remembered level and the headphone's current
+level. Volume changes run outside the UI/audio threads, with bounded D-Bus calls.
+Readback must confirm a native write before Slot bypasses its software gain.
+Unsupported or failed native control falls back to software volume. No boost,
+wired/USB mixer, suspend, or shutdown changes are included.
+
+Device validation: play audio, change volume on both the handheld and headphones,
+check that the indicator follows both, then test mute, reconnect, and switching
+to USB or the speaker. Save a report with X in Sound if synchronization fails.
