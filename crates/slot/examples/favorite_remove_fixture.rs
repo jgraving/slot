@@ -3,7 +3,7 @@ use slot_store::{write_slot_state, Platform, Recent, SlotState};
 fn main() {
     let root = std::path::PathBuf::from(std::env::args().nth(1).expect("fixture root"));
     slot::root::ensure(&root);
-    let names = ["Emerald", "Fusion", "Minish Cap"];
+    let names = ["Emerald", "Fusion", "Golden Sun", "Minish Cap", "WarioWare"];
     for name in names {
         let mut header = vec![0u8; 256];
         let title = name.to_uppercase();
@@ -13,6 +13,7 @@ fn main() {
     write_slot_state(&root, &SlotState {
         clock_set: true,
         shelf: Some("favorites".into()),
+        shelf_cart: Some(Recent { platform: Platform::Gba, stem: "Emerald".into() }),
         favorites: names.into_iter().map(|name| Recent { platform: Platform::Gba, stem: name.into() }).collect(),
         ..SlotState::default()
     }).unwrap();
