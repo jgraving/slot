@@ -14,6 +14,8 @@ mod clock;
 mod draw;
 mod favorite;
 mod footer;
+mod favorite_remove;
+pub use favorite_remove::{draw_favorite_remove, favorite_remove_face, FAVORITE_REMOVE_MS};
 pub use favorite::draw_star;
 mod hud;
 mod icon;

@@ -439,9 +439,29 @@ impl Shelf {
         dim: f32,
         out: &mut Vec<Draw>,
     ) {
+        self.draw_row_departure(canvas, hidden, shake, recede, dim, None, out);
+    }
+
+    /// Reuse the cartridge layers and insertion easing, travelling out above the panel.
+    pub fn draw_departing(&self, canvas: Canvas, progress: f32,
+        slot: Option<(TexId, TexId)>, out: &mut Vec<Draw>) {
+        self.draw_row_departure(canvas, None, 0.0, 0.0, 1.0, Some(progress), out);
+        draw_empty_slot(canvas, slot, out);
+    }
+
+    fn draw_row_departure(&self, canvas: Canvas, hidden: Option<&str>, shake: f32,
+        recede: f32, dim: f32, departure: Option<f32>, out: &mut Vec<Draw>) {
         let recede = recede.clamp(0.0, 1.0);
         let dim = dim.clamp(0.0, 1.0);
         let target = self.scroll_target();
+        let progress = crate::ease(departure.unwrap_or(0.0).clamp(0.0, 1.0));
+        // Geometry-only destination row. Textures stay in this shelf until the animation ends.
+        let destination = departure.map(|_| {
+            let mut row = Shelf::new(self.carts.iter().enumerate()
+                .filter(|(i, _)| *i != self.index).map(|(_, c)| c.clone()).collect());
+            row.select(self.index.min(row.carts.len().saturating_sub(1)));
+            row
+        });
         for slot in -SLOTS..=SLOTS {
             let Some(i) = self.cart_at_offset(slot) else {
                 continue;
@@ -452,17 +472,35 @@ impl Shelf {
             }
             let offset = target + slot as f32 - self.scroll;
             let t = offset.abs().min(1.0);
-            let scale = shrink(offset);
+            let mut scale = shrink(offset);
+            let mut centre = self.centre(canvas, slot);
+            let depart = if slot == 0 { progress } else { 0.0 };
+            if let Some(row) = &destination {
+                if i == self.index {
+                    if slot != 0 { continue; }
+                } else {
+                    let n = self.carts.len() as i32;
+                    let next_slot = slot - slot.div_euclid(n) - 1
+                        + i32::from(self.index + 1 == self.carts.len());
+                    if row.carts.len() == 1 && next_slot != 0 { continue; }
+                    scale += (shrink(next_slot as f32) - scale) * progress;
+                    centre += (row.centre(canvas, next_slot) - centre) * progress;
+                }
+            }
             let alpha = (1.0 + (SIDE_ALPHA - 1.0) * t) * (1.0 - recede);
             let (cw, ch) = cart_box(cart.platform);
-            let (w, h) = (cw as f32 * scale, ch as f32 * scale);
+            let (w0, h0) = (cw as f32 * scale, ch as f32 * scale);
+            let (sw, sh) = crate::seated_box(cart.platform);
+            let (w, h) = (w0 + (sw as f32 - w0) * depart,
+                h0 + (sh as f32 - h0) * depart);
             let away = offset.signum() * (1.0 + offset.abs());
-            let x = self.centre(canvas, slot) - w / 2.0 + away * PART * recede;
+            let x = centre - w / 2.0 + away * PART * recede;
             if x + w <= 0.0 || x >= canvas.w || alpha <= 0.0 {
                 continue;
             }
             let x = x + shake;
-            let y = foot_y(ch as f32) - h;
+            let y0 = foot_y(ch as f32) - h0;
+            let y = y0 + (-h - 12.0 - y0) * depart;
             if alpha < 1.0 {
                 let backing = match self.shell(i) {
                     None => self.shadow,

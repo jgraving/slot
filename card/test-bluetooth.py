@@ -121,8 +121,20 @@ esac
         self.assertNotEqual(result.returncode, 0)
         self.assertLess(time.monotonic() - started, 5)
         pid = int((self.root / 'stuck-pid').read_text())
-        with self.assertRaises(ProcessLookupError):
+        try:
             os.kill(pid, 0)
+        except ProcessLookupError:
+            pass
+        else:
+            # Container PID 1 may not reap an orphan immediately. A zombie is
+            # already dead; a live/sleeping TERM-ignoring client must still fail.
+            try:
+                stat = Path(f'/proc/{pid}/stat').read_text()
+            except FileNotFoundError:
+                pass
+            else:
+                self.assertEqual(stat.rsplit(')', 1)[1].split()[0], 'Z',
+                    'the timed-out controller client is still running')
 
     def test_disconnect_during_transport_setup_preserves_current_output(self):
         for previous in ['', 'plughw:CARD=Headset,DEV=0']:

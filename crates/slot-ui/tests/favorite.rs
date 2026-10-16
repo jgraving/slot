@@ -216,3 +216,56 @@ fn glossy_sticker_interior_is_opaque_at_every_texture_size() {
         assert!(lightest - darkest > 70, "foil reflections need visible contrast");
     }
 }
+
+#[test]
+fn departure_moves_every_cartridge_layer_up_and_shrinks_to_insertion_size() {
+    for platform in [Platform::Gba, Platform::Gb, Platform::Gbc] {
+        let mut shelf = Shelf::new(vec![cart(platform)]);
+        let face = TexId::from_raw(201);
+        let star = TexId::from_raw(202);
+        shelf.set_faces(vec![face]);
+        shelf.set_star(star, 33, 33);
+        shelf.mark_starred(|_| true);
+        let canvas = Canvas::FRAMED;
+        let mut previous = None;
+        for progress in [0.0, 0.25, 0.5, 0.75, 1.0] {
+            let mut draws = vec![];
+            shelf.draw_departing(canvas, progress, None, &mut draws);
+            let body = draws.iter().find(|d| matches!(d, Draw::Tex { tex, .. } if *tex == face)).unwrap();
+            let sticker = draws.iter().find(|d| matches!(d, Draw::Tex { tex, .. } if *tex == star)).unwrap();
+            let (_, y, w, h, a) = quad(body);
+            let (_, _, sw, _, sa) = quad(sticker);
+            if let Some((py, pw)) = previous { assert!(y < py && w < pw); }
+            assert_eq!(a, 1.0);
+            assert_eq!(sa, 1.0);
+            close(sw / w, 33.0 / slot_ui::cart_box(platform).0 as f32);
+            if progress == 1.0 { assert!(y + h < 0.0); }
+            previous = Some((y, w));
+        }
+    }
+}
+
+#[test]
+fn next_favorite_moves_into_place_during_departure_including_last_and_two_carts() {
+    for count in [2, 3, 4] {
+        for selected in 0..count {
+            let carts: Vec<_> = (0..count).map(|i| { let mut c = cart(Platform::Gba); c.stem = i.to_string(); c }).collect();
+            let mut shelf = Shelf::new(carts);
+            shelf.set_faces((0..count).map(|i| TexId::from_raw(300 + i)).collect());
+            shelf.select(selected);
+            let next = if selected + 1 < count { selected + 1 } else { selected - 1 };
+            let tex = TexId::from_raw(300 + next);
+            let mut distance = f32::MAX;
+            for progress in [0.0, 0.5, 1.0] {
+                let mut draws = vec![];
+                shelf.draw_departing(Canvas::FRAMED, progress, None, &mut draws);
+                let nearest = draws.iter().filter(|d| matches!(d, Draw::Tex { tex: t, .. } if *t == tex))
+                    .map(|d| { let (x, _, w, _, _) = quad(d); (x + w / 2.0 - Canvas::FRAMED.w / 2.0).abs() })
+                    .fold(f32::MAX, f32::min);
+                assert!(nearest < distance);
+                if progress == 1.0 { close(nearest, 0.0); }
+                distance = nearest;
+            }
+        }
+    }
+}

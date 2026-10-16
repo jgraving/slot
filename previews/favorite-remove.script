@@ -1,0 +1,15 @@
+# Actual App input and GL rendering: cancel, confirm, then timeout.
+wait 120
+rec
+wait 45
+tap y 6
+wait 75
+tap b 6
+wait 45
+tap y 6
+wait 75
+tap y 6
+wait 90
+tap y 6
+wait 210
+cut

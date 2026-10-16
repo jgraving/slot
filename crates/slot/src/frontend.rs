@@ -256,6 +256,9 @@ impl Frontend {
         let back = hint_face("B", "Back");
         let tex = compositor.create_texture(back.w, back.h, &back.rgba);
         self.session.app_mut().set_clock_back_face((tex, back.w));
+        let removal = slot_ui::favorite_remove_face();
+        let tex = compositor.create_texture(removal.w, removal.h, &removal.rgba);
+        self.session.app_mut().set_favorite_remove_face(tex, removal.w, removal.h);
         let star = slot_ui::star_face(slot_ui::STAR_SCALE, slot_ui::STAR_INK);
         let id = compositor.create_texture(star.w, star.h, &star.rgba);
         self.session
