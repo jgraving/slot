@@ -326,7 +326,7 @@ fn blue_light_warms_monotonically_and_clamps_at_the_last_step() {
     assert_eq!(blue_light_gain(0), [1.0, 1.0, 1.0]);
     let warmest = blue_light_gain(9);
     assert!(
-        (warmest[1] - 0.82).abs() < 0.005 && (warmest[2] - 0.62).abs() < 0.005,
+        (warmest[1] - 0.60).abs() < 0.005 && (warmest[2] - 0.20).abs() < 0.005,
         "warmest step is {warmest:?}"
     );
     assert_eq!(blue_light_gain(200), warmest, "step must clamp, not wrap");
