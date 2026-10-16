@@ -13,10 +13,10 @@ mod cart;
 mod clock;
 mod draw;
 mod favorite;
-mod footer;
 mod favorite_remove;
-pub use favorite_remove::{draw_favorite_remove, favorite_remove_face, FAVORITE_REMOVE_MS};
+mod footer;
 pub use favorite::draw_star;
+pub use favorite_remove::{draw_favorite_remove, favorite_remove_face, FAVORITE_REMOVE_MS};
 mod hud;
 mod icon;
 mod link_art;
@@ -80,6 +80,7 @@ pub use plate::{
 pub use polaroids::{photo_face, PhotoFace, Polaroids, DOT, LEGEND, PHOTO_H, PHOTO_W};
 pub use power_menu::{
     draw_power_switch, menu_face, power_switch_faces, PowerChoice, MENU_PAD, POWER_SWITCH_MS,
+    POWER_SWITCH_SLIDE_MS,
 };
 pub use quick_menu::{
     core_button_legends, draw_menu_ground, link_button_legends, quick_caret_face, quick_label_face,
