@@ -30,5 +30,5 @@ palette = frames[0].quantize(colors=256)
 frames = [f.quantize(palette=palette, dither=Image.Dither.NONE) for f in frames]
 output.parent.mkdir(parents=True, exist_ok=True)
 frames[0].save(output, save_all=True, append_images=frames[1:],
-               duration=[800] + [20] * 29 + [700], loop=0, disposal=2, optimize=False)
+               duration=[20] * 30 + [700], loop=0, disposal=2, optimize=False)
 print(output)
