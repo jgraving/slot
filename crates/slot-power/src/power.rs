@@ -1,3 +1,4 @@
+use std::path::PathBuf;
 use std::time::Duration;
 
 use crate::{Battery, Charge, LedState, LidPolicy, Platform};
@@ -42,6 +43,14 @@ impl Power {
         self.platform.card_read_only()
     }
 
+    pub fn card_log(&self) -> Option<PathBuf> {
+        self.platform.card_log()
+    }
+
+    pub fn card_kernel_lines(&self) -> Vec<String> {
+        self.platform.card_kernel_lines()
+    }
+
     pub fn set_led(&mut self, state: LedState) {
         self.platform.set_led(state)
     }
@@ -52,18 +61,6 @@ impl Power {
 
     pub fn relink_adb(&mut self) -> bool {
         self.platform.relink_adb()
-    }
-
-    pub fn supports_deep_sleep(&self) -> bool {
-        self.platform.supports_deep_sleep()
-    }
-
-    pub fn suspend(&mut self, timeout: Option<Duration>) -> std::io::Result<bool> {
-        self.platform.suspend(timeout)
-    }
-
-    pub fn prepare_poweroff(&mut self) {
-        self.platform.prepare_poweroff();
     }
 
     pub fn poweroff(&mut self) -> ! {

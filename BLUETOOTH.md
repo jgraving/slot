@@ -1,67 +1,131 @@
-# RG SP Bluetooth audio update v3.3
+# Sound outputs
 
-MERGE this update into your existing slot installation. DO NOT replace or delete the System folder.
-This update does not contain emulator cores. If the previous update replaced your entire System
-folder, restore the original slot System folder first so games work again.
+Open **Sound** from the carousel settings or the in-game Settings menu to choose
+an audio output and manage headphones. The selected output has a checkmark.
+Speaker, headphone and Bluetooth icons identify the output in the menu and
+volume display. USB and analog headphones use the same headphone symbol.
 
-## Install
+## Bluetooth headphones
 
-1. Power off and back up your existing System folder.
-2. Copy the files inside this update's System folder into the card's existing System folder.
-   Replace only matching files. Keep all existing emulator files, ROMs, saves and configuration.
-3. Boot. Open Settings → Sound → Pair headphones.
-4. Put headphones into pairing mode, select Scan for headphones, choose their name,
-   then select Connect headphones. Sony WF-C510: earbuds in case, lid open,
-   hold the rear case button at least five seconds until the blue light double flashes.
+Bluetooth defaults to **Off** on a fresh setup. Change the **Bluetooth** setting
+with left/right, or choose **Pair audio device** to enable it automatically.
+Put the headphones in pairing mode, choose **Scan for devices**, and select
+them from the results. Progress indicators show background work.
 
-## Menus
+Saved devices appear in Sound. Press **A** to connect. Press **Y** to forget a
+device, then **Y** again to confirm; **B** or navigation cancels the confirmation.
+Press **B** to go back or **MENU** to close Sound.
 
-The main menu contains Pair headphones, Speaker and your saved headphones.
-A checkmark marks the current output. A connects a saved headset or selects Speaker.
-Y on a saved headset opens Connect / Forget. Forgetting requires confirmation.
-Pair headphones opens a separate scan menu. Generic headers and idle status text are omitted.
-Selections use the current theme's full-width highlight, existing font and native button hints.
-B goes back one page. X saves a diagnostic report without adding another menu.
-Pairing and connecting run in the background. Wait for completion before starting another operation.
-Saved named devices appear on the main menu; MAC-only names are hidden from lists.
-Forgetting requires confirmation. Use speaker disconnects and stops automatic reconnect.
+The selected paired device reconnects at startup and is retried after connection
+loss while slot is awake. Retry delays increase from 5 to 15, 30, then 60 seconds.
+Automatic reconnect does not scan for or pair new devices. Selecting the local
+output stops automatic reconnect.
 
-A small Bluetooth symbol appears beside the carousel battery percentage while the selected headphones
-are connected. A read-only background check updates it every few seconds; it hides when
-Speaker is selected or the headset disconnects.
+The Bluetooth On/Off choice is remembered. Off powers down the controller through
+BlueZ without rfkill-blocking the UART and preserves saved pairings. If the
+controller cannot start, Sound asks the user to turn the handheld off and on.
 
-## Send a failure report
+## USB and wired headphones
 
-When an operation fails, attach Bluetooth/latest-error.txt from your content SD card here.
-It includes the pairing transcript, exact BlueZ error, adapter/service state, audio route,
-installed emulator file list and recent slot.log. Older failures are retained in Bluetooth/errors.
-Press X anywhere in the Bluetooth menus to save Bluetooth/latest-report.txt without needing a failure.
-Automatic reconnect failures use Bluetooth/latest-restore.txt so unavailable headphones
-at startup do not overwrite a manual failure report. Listing devices and saving reports
-never wait for the reconnect lock. A manual scan, connect, Speaker or Forget action
-asks the automatic reconnect to stop; it does not kill or restart Bluetooth services.
-Reports contain Bluetooth names/addresses and application log paths; review before sharing publicly.
+The local output is shown as **Wired headphones** when the headphone jack is in
+use, otherwise **Internal speaker**.
 
-## Changes and validation
+Plug a supported USB audio device into the handheld's data/OTG port. slot selects
+it when its playback endpoint appears, including at startup. A manual Sound
+operation already in progress takes priority. A deliberate output choice remains
+in effect until another USB attachment or restart.
 
-The pairing helper now maintains a registered NoInputNoOutput agent through discovery and pairing,
-checks actual Paired/Connected properties, and waits for the A2DP Audio Sink service before routing.
-Helper tests cover live-agent pairing, failure reporting, filtering, routing, restore and forgetting.
-Rust checks cover list/state parsing, menu access, highlighted rendering, settings and audio behavior.
-The v2 pairing/audio implementation was confirmed working by the RG SP user.
-V3 simplifies the menus and adds the carousel indicator. V3.1 also fixes the startup race
-seen in the supplied log: wait for the A2DP source before connecting, retry a transient
-profile-unavailable response once, and give manual actions priority over automatic reconnect.
-V3.1 was confirmed working on the user’s handheld. V3.2 renames the menu item to Sound,
-places it above About, and uses a smaller Bluetooth indicator beside the battery.
+USB discovery uses ALSA card IDs rather than fixed card numbers. Only USB playback
+endpoints are listed; microphone-only, internal and HDMI endpoints are excluded.
+Playback is checked with digital silence before selecting the route.
 
-## Restore
+## Volume
 
-Power off and restore your backed-up System/slot and System/launch_frontend.sh.
-Remove System/bluetooth.sh and Config/bluetooth-headphones, then reboot.
+Volume and mute are remembered separately for the speaker, analog headphones,
+Bluetooth and USB. USB starts at 20%. Use slot's normal volume controls.
 
-Source: BrandonKowalski/slot 9d7c795e7c862f37db912f5400f0ad004ebba1c8.
-BaseOS reference: 1.3.0, 7dec5cba47db9b77b18b546a52acc51b1df64088.
+**Volume on disconnect** chooses the local output volume after Bluetooth loss or
+wired/USB headphone removal. It defaults to **0% (silent)** and changes in 5% steps.
+If the headphone jack is occupied when Bluetooth disconnects, the setting applies
+to the wired headphones.
 
-V3.3 uses a clearer 20-pixel Bluetooth symbol with thicker strokes. Scan results include saved
-headphones; selecting a saved pair connects directly without repeating pairing.
+Device and mute icons make the active output clear. Starting a game muted or at
+zero volume briefly shows the volume bar, including when a game resumes at startup.
+
+### Bluetooth volume synchronization
+
+Linked Bluetooth volume is experimental and **not yet reliable in hardware
+testing**. The handheld and headphones may still have separate volume levels.
+If Bluetooth playback is quiet at maximum handheld volume, adjust the headphones'
+own volume as well. This resolved quiet playback on the tested Sony WF-C510.
+
+The implementation attempts native AVRCP volume through BlueALSA when the selected
+A2DP transport exposes it. It checks readback before bypassing software attenuation
+and falls back to software volume if native control is unavailable or fails.
+Initialization accounts for the existing volume instead of setting the headphones
+to maximum. Volume work runs outside the UI and audio threads.
+
+The intended behavior is for handheld controls to adjust headphone volume and
+headphone controls to update slot's indicator. Automated checks exercise this path,
+but successful playback does not establish that two-way synchronization works.
+
+## Tested devices and known limitations
+
+Tested on **RG SP** and **RG35XXSP**, with Bluetooth playback and the Sound menu
+broadly working on both.
+
+- USB-C headphone playback has been confirmed on RG SP.
+- USB audio was unavailable in RG35XXSP testing. A hardware limitation is
+  suspected, but the cause has not been confirmed.
+- Quiet analog headphone output was reported with some headphones, while the
+  speaker and working USB-C headphones sounded normal. The exposed mixer levels
+  were already at maximum; a general fix has not been established.
+- A USB-to-3.5 mm adapter was not recognized. Previously failing USB earbuds also
+  stopped working on a phone, so those dropouts are suspected hardware trouble.
+- Abrupt Bluetooth power-off may take time to be reported by the Bluetooth stack.
+
+Bluetooth controls appear only when support is detected. Local and detected USB
+outputs remain available without Bluetooth hardware.
+
+## Diagnostics
+
+Press **X while in Sound** to save a report. **There is no on-screen hint for this
+shortcut.** Reports are saved on the SD card:
+
+- `Bluetooth/latest-report.txt`: the current manual report.
+- `Bluetooth/previous-report.txt`: the previous manual report, for comparison.
+
+Reports include selected output, saved volumes, Bluetooth state, mixer readings
+and relevant USB driver, power and stream information. For quiet audio, save a
+report with the affected output selected. For connection failures, save one after
+the failure. If Bluetooth controls are missing, also check
+`Logs/bluetooth-support.log`.
+
+Routine operation transcripts remain temporary. Saved helper reports are bounded
+to 128 KiB; error and reconnect reports use `latest-error.txt` and
+`latest-restore.txt`. The helper cleans up only its own obsolete logs.
+
+## Implementation and development checks
+
+Audio uses BaseOS's existing BlueZ, BlueALSA and ALSA support. Adapter readiness
+and the selected A2DP playback endpoint are checked before reporting a successful
+connection. The connection is checked again after endpoint discovery so a headset
+that disconnects during setup does not replace the current output. Short-lived
+helper commands use hard timeouts even if the client ignores termination. Competing operations are serialized, and automatic work yields to
+manual choices. A passive BlueZ listener monitors connections while awake, with
+polling as a fallback.
+
+Incoming pairing and discoverability remain disabled. Pairing is initiated for a
+device selected in Sound; ambiguous authorization prompts and legacy PIN requests
+are rejected. Devices are trusted after their audio service has been verified.
+
+Run the focused checks with:
+
+- `python3 card/test-bluetooth.py`
+- `cargo test -p slot --no-default-features --features device --lib --test quick_menu --test menu_repeat`
+- `cargo test -p slot-ui --test quick_menu`
+
+The checks cover device discovery, pairing, connection failures, reconnect,
+competing operations, volume handling and menu behavior. Hardware validation
+should include playback, both Bluetooth volume controls, mute, reconnect and
+switching outputs. Automated checks do not replace device testing.

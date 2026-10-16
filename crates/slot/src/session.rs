@@ -19,6 +19,12 @@ use crate::persist;
 use crate::prefetch::Prefetch;
 
 pub struct Session {
+    usb_monitor: crate::usb_audio::Monitor,
+    usb_switch: Option<crate::bluetooth::Manager>,
+    bluetooth_volume: crate::bluetooth_volume::Volume,
+    bluetooth_monitor: crate::bluetooth::Indicator,
+    bluetooth_reconnect: crate::bluetooth::Reconnect,
+    bluetooth_events: crate::bluetooth::Events,
     root: PathBuf,
     app: App,
     emu: Option<EmuHandle>,
@@ -32,7 +38,6 @@ pub struct Session {
     prefetch: Prefetch,
     reloading: bool,
     driven: bool,
-    bluetooth_monitor: crate::bluetooth::Indicator,
 }
 
 impl Session {
@@ -41,7 +46,13 @@ impl Session {
     }
 
     pub fn boot_with(root: PathBuf, sink: Box<dyn AudioSink>) -> Self {
-        Session {
+        let mut session = Session {
+            usb_monitor: Default::default(),
+            usb_switch: None,
+            bluetooth_volume: Default::default(),
+            bluetooth_monitor: Default::default(),
+            bluetooth_reconnect: Default::default(),
+            bluetooth_events: Default::default(),
             app: App::boot(&root),
             root,
             emu: None,
@@ -55,8 +66,21 @@ impl Session {
             prefetch: Prefetch::default(),
             reloading: false,
             driven: false,
-            bluetooth_monitor: Default::default(),
+        };
+        // A game left running comes straight back. Its core loads on its own thread, so start it
+        // now and let the card read overlap the rest of the boot. Waiting for the first update
+        // left a cold boot (after a power off) idle on the slot for the whole load.
+        if session.inserting() {
+            session.sync_core();
         }
+        session
+    }
+
+    fn software_volume(&self) -> u8 {
+        self.bluetooth_volume.software_volume(
+            self.app.bluetooth_volume_address(),
+            self.app.output_volume(),
+        )
     }
 
     pub fn play_sfx(&mut self, sfx: Sfx) {
@@ -66,7 +90,7 @@ impl Session {
             return;
         }
         let mut samples = sfx.render(rate);
-        crate::audio::volume::apply(&mut samples, self.app.output_volume());
+        crate::audio::volume::apply(&mut samples, self.software_volume());
         ring.mix(&samples);
     }
 
@@ -156,14 +180,22 @@ impl Session {
 
     pub fn feed(&mut self, events: impl IntoIterator<Item = RawEvent>, now: Millis) {
         let mut actions = Vec::new();
+        let latched = self.gestures.ff_latched();
         for ev in events {
             actions.extend(self.gestures.feed(ev, now));
         }
         actions.extend(self.gestures.tick(now));
+        if !latched && self.app.in_game_menu().is_some() {
+            actions.extend(self.gestures.drop_ff_latch());
+        }
         for action in actions {
             self.act(action);
         }
         self.sync_pad();
+    }
+
+    pub fn set_menu_dpad_display(&mut self, enabled: bool) {
+        self.gestures.set_menu_dpad_display(enabled);
     }
 
     fn sync_pad(&mut self) {
@@ -189,10 +221,11 @@ impl Session {
         if trace() {
             eprintln!("slot: {action:?} in {:?}", self.app.phase());
         }
+        let menu_open = self.app.in_game_menu().is_some();
         match action {
-            Action::RewindStart => self.rewinding = true,
+            Action::RewindStart if !menu_open => self.rewinding = true,
             Action::RewindStop => self.rewinding = false,
-            Action::FfStart => self.fast = true,
+            Action::FfStart if !menu_open => self.fast = true,
             Action::FfStop => self.fast = false,
             _ => {}
         }
@@ -203,7 +236,7 @@ impl Session {
             Action::VolumeUp | Action::VolumeDown | Action::MuteToggle
         ) {
             if let Some(emu) = &self.emu {
-                emu.set_volume(self.app.output_volume());
+                emu.set_volume(self.software_volume());
             }
         }
         if menu || self.overlaid() {
@@ -219,14 +252,98 @@ impl Session {
     }
 
     pub fn update(&mut self, dt: f32) {
-        if !self.dozing() {
-            let connected = self.bluetooth_monitor.poll();
+        let awake = !matches!(self.app.phase(), crate::app::Phase::Doze { .. });
+        let (changed, watching) = self.bluetooth_events.poll(&self.root, awake);
+        let mut automatic_choice = None;
+        if awake {
+            if let Some(worker) = &mut self.usb_switch {
+                worker.poll();
+                if let Some(menu) = &mut self.app.bluetooth {
+                    menu.adopt_usb_switch(worker);
+                    self.usb_switch = None;
+                } else if !worker.busy() {
+                    automatic_choice = worker.route_choice.take();
+                    self.usb_switch = None;
+                }
+            }
+            if changed {
+                self.bluetooth_monitor.changed();
+                self.bluetooth_reconnect.changed();
+            }
+            let connected = self.bluetooth_monitor.poll(watching);
             self.app
                 .bluetooth_state(self.bluetooth_monitor.address(), connected);
+            self.bluetooth_reconnect.poll(&self.root, connected);
+            let inserted = self.usb_monitor.poll();
+            if let Some(device) = inserted.filter(|d| {
+                !std::fs::read_to_string(crate::usb_audio::route_path())
+                    .is_ok_and(|s| s.trim() == d.route)
+            }) {
+                if self.usb_switch.is_none() {
+                    if let Some(menu) = &mut self.app.bluetooth {
+                        // A deliberate user action already in progress wins.
+                        if !menu.busy() {
+                            menu.select_usb(device.route);
+                        }
+                    } else {
+                        let mut worker = crate::bluetooth::Manager::new(self.root.clone(), false);
+                        worker.select_usb(device.route);
+                        self.usb_switch = Some(worker);
+                    }
+                }
+            }
+            let route = std::fs::read_to_string(crate::usb_audio::route_path()).unwrap_or_default();
+            let route = route.trim();
+            let selected = crate::usb_audio::valid_route(route);
+            let present = self.usb_monitor.devices.iter().any(|d| d.route == route);
+            self.app
+                .usb_state(selected && present, selected && !present);
+            if selected && !present {
+                // Lower local volume before allowing ALSA to open the speaker.
+                if let Some(emu) = &self.emu {
+                    emu.set_volume(self.software_volume());
+                }
+                if std::fs::read_to_string(crate::usb_audio::route_path())
+                    .is_ok_and(|s| s.trim() == route)
+                {
+                    let _ = crate::usb_audio::write_route("");
+                }
+            }
+            if let Some(menu) = &mut self.app.bluetooth {
+                if menu.usb_devices != self.usb_monitor.devices {
+                    menu.usb_devices = self.usb_monitor.devices.clone();
+                    menu.selected = menu.selected.min(menu.rows().len().saturating_sub(1));
+                }
+                if selected && present {
+                    menu.observe_output(Some(route), true);
+                }
+            }
         }
+
         self.bridge_link(|app| app.update(dt));
+        if let Some(output) = self
+            .app
+            .bluetooth
+            .as_mut()
+            .and_then(|menu| menu.route_choice.take())
+            .or(automatic_choice)
+        {
+            let usb = crate::usb_audio::valid_route(&output);
+            let address = crate::bluetooth::valid_address(&output).then_some(output);
+            self.bluetooth_monitor.select(address.clone());
+            self.app.bluetooth_state(address.clone(), address.is_some());
+            self.app.usb_state(usb, false);
+        }
+        if awake {
+            if let Some(level) = self
+                .bluetooth_volume
+                .poll(self.app.bluetooth_volume_address(), self.app.volume())
+            {
+                self.app.observe_bluetooth_volume(level);
+            }
+        }
         if let Some(emu) = &self.emu {
-            emu.set_volume(self.app.output_volume());
+            emu.set_volume(self.software_volume());
         }
         if let Some((client_id, transport)) = self.app.take_link_transport() {
             match &self.emu {
@@ -237,16 +354,26 @@ impl Session {
                 None => eprintln!("slot: link: a transport arrived with no core to run it"),
             }
         }
+        let mut recoloured = false;
         if let Some(p) = self.app.take_gb_palette() {
             if let Some(emu) = &self.emu {
                 emu.set_option("mgba_gb_colors", p.core_name());
+                recoloured = true;
             }
         }
         if let Some(on) = self.app.take_colour_correction() {
-            if let Some((key, value)) = crate::core::colour_option(self.app.core(), on) {
+            if let Some((key, value)) =
+                crate::core::colour_option(self.app.core(), self.app.playing_platform(), on)
+            {
                 if let Some(emu) = &self.emu {
                     emu.set_option(key, value);
+                    recoloured = true;
                 }
+            }
+        }
+        if recoloured && self.held() && !self.app.link_active() {
+            if let Some(emu) = &self.emu {
+                emu.refresh();
             }
         }
         if let Some((stem, serial)) = self.app.take_link_reload() {
@@ -277,19 +404,6 @@ impl Session {
         }
         self.app.set_game_ready(ready);
         self.sync_speed();
-        if self.app.suspend_requested()
-            && self
-                .emu
-                .as_ref()
-                .is_none_or(|e| e.observed_speed() == Speed::Paused)
-        {
-            self.sink.ring().set_muted(true);
-            self.app.suspend_if_requested();
-            self.sink.ring().set_muted(false);
-            self.pad.clear();
-            self.gestures = Gestures::new();
-            self.sync_speed();
-        }
         self.sync_rewind_hud();
         self.sync_ff_hud();
         self.sync_rumble();
@@ -374,10 +488,7 @@ impl Session {
     }
 
     fn held(&self) -> bool {
-        self.app.power_menu().is_some()
-            || self.app.game_menu_open()
-            || self.app.shutting_down()
-            || self.app.audio_paused()
+        self.app.game_menu_open() || self.app.in_game_menu().is_some() || self.app.shutting_down()
     }
 
     fn dozing(&self) -> bool {
@@ -392,6 +503,7 @@ impl Session {
         if let Some(emu) = &self.emu {
             emu.set_fast_steps(u32::from(self.app.ff_speed()));
             emu.set_ff_sound(self.app.ff_sound());
+            emu.set_runahead(self.app.runahead_in_play());
             emu.set_speed(
                 if self.inserting()
                     || self.ejecting()
@@ -475,8 +587,9 @@ impl Session {
         let opened = open_core(
             &self.root,
             core,
+            platform,
             serial,
-            self.app.colour_correction(),
+            self.app.colour_correction_for(platform),
             palette,
             player,
         );
@@ -489,7 +602,7 @@ impl Session {
             Some(p) => EmuHandle::spawn_linked(opened.core, rom, ring, sav, resume, p),
             None => EmuHandle::spawn(opened.core, rom, ring, sav, resume),
         };
-        emu.set_volume(self.app.output_volume());
+        emu.set_volume(self.software_volume());
         emu.set_driven(self.driven);
         self.app.set_snapshot(Box::new(emu.snapshot()));
         self.emu = Some(emu);

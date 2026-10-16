@@ -1,11 +1,14 @@
 use slot_ui::{
-    ff_badge, icon_box, icon_face, Badge, Draw, FfState, Hud, HudKind, Icon, LinkBadge, TexId,
-    HUD_ICON_PX, LINK_HOST_INK, LINK_JOIN_INK, OUT_H, OUT_W,
+    ff_badge, icon_box, icon_face, Badge, Canvas, Draw, FfState, Hud, HudKind, Icon, LinkBadge,
+    TexId, HUD_ICON_PX, LINK_HOST_INK, LINK_JOIN_INK, OUT_H, OUT_W,
 };
 
 fn bottom_edge(d: &Draw) -> Option<f32> {
     match *d {
-        Draw::Rect { y, h, .. } | Draw::Tex { y, h, .. } | Draw::Turned { y, h, .. } => Some(y + h),
+        Draw::Rect { y, h, .. }
+        | Draw::Tex { y, h, .. }
+        | Draw::Part { y, h, .. }
+        | Draw::Turned { y, h, .. } => Some(y + h),
         Draw::Game | Draw::Shot { .. } => None,
     }
 }
@@ -14,7 +17,7 @@ fn fill(kind: HudKind, value: u8) -> f32 {
     let mut h = Hud::new();
     h.show(kind, value, false, 0);
     let mut out = Vec::new();
-    h.draw(0, &mut out);
+    h.draw(Canvas::FRAMED, 0, &mut out);
     match out.last().expect("no bar in the list") {
         Draw::Rect { w, .. } => *w,
         _ => panic!("the bar must be a rect"),
@@ -49,7 +52,7 @@ fn the_hud_sits_at_the_top_of_the_screen() {
     let mut h = Hud::new();
     h.show(HudKind::Volume, 50, false, 0);
     let mut out = Vec::new();
-    h.draw(0, &mut out);
+    h.draw(Canvas::FRAMED, 0, &mut out);
     let lowest = out.iter().filter_map(bottom_edge).fold(0.0f32, f32::max);
     assert!(
         lowest < OUT_H as f32 / 2.0,
@@ -62,7 +65,7 @@ fn the_hud_draws_a_dark_plate_behind_itself() {
     let mut h = Hud::new();
     h.show(HudKind::Brightness, 5, false, 0);
     let mut out = Vec::new();
-    h.draw(0, &mut out);
+    h.draw(Canvas::FRAMED, 0, &mut out);
     let plate = out.first().expect("nothing drawn");
     let Draw::Rect { w, colour, .. } = plate else {
         panic!("first draw is not the plate")
@@ -80,7 +83,7 @@ fn the_hud_draws_a_dark_plate_behind_itself() {
 
 #[test]
 fn muted_volume_uses_the_muted_icon() {
-    assert_eq!(HudKind::Volume.icon(0, false, false), Icon::VolumeZero);
+    assert_eq!(HudKind::Volume.icon(0, false, false), Icon::VolumeMuted);
     assert_eq!(HudKind::Volume.icon(0, true, false), Icon::VolumeMuted);
     assert_eq!(HudKind::Volume.icon(40, true, false), Icon::VolumeMuted);
     assert_eq!(HudKind::Volume.icon(40, false, false), Icon::Volume);
@@ -103,7 +106,7 @@ fn an_empty_rewind_buffer_still_draws_an_empty_bar() {
     let mut h = Hud::new();
     h.show(HudKind::Rewind, 0, false, 0);
     let mut out = Vec::new();
-    h.draw(0, &mut out);
+    h.draw(Canvas::FRAMED, 0, &mut out);
     assert!(
         out.len() >= 2,
         "the track disappeared when the buffer emptied"
@@ -145,7 +148,7 @@ fn the_badge_outlives_the_bar_timer_without_a_plate() {
     let mut h = Hud::new();
     h.set_ff(FfState::Latched);
     let mut out = Vec::new();
-    h.draw(60_000, &mut out);
+    h.draw(Canvas::FRAMED, 60_000, &mut out);
     assert!(
         !out.iter()
             .any(|d| matches!(d, Draw::Rect { w, .. } if *w == OUT_W as f32)),
@@ -163,7 +166,7 @@ fn the_badge_leaves_when_fast_forward_stops() {
     h.set_ff(FfState::Held);
     h.set_ff(FfState::Off);
     let mut out = Vec::new();
-    h.draw(0, &mut out);
+    h.draw(Canvas::FRAMED, 0, &mut out);
     assert!(out.is_empty(), "the plate outlived the fast forward");
 }
 
@@ -178,7 +181,7 @@ fn the_ff_badge_draws_no_plate_but_the_bar_still_does() {
     let mut badge_only = Hud::new();
     badge_only.set_ff(FfState::Held);
     let mut out = Vec::new();
-    badge_only.draw(60_000, &mut out);
+    badge_only.draw(Canvas::FRAMED, 60_000, &mut out);
     assert_eq!(
         full(&out),
         0,
@@ -188,7 +191,7 @@ fn the_ff_badge_draws_no_plate_but_the_bar_still_does() {
     let mut with_bar = Hud::new();
     with_bar.show(HudKind::Volume, 50, false, 0);
     let mut out = Vec::new();
-    with_bar.draw(0, &mut out);
+    with_bar.draw(Canvas::FRAMED, 0, &mut out);
     assert_eq!(full(&out), 1, "the bar lost the plate it is read against");
 }
 
@@ -202,7 +205,7 @@ fn the_link_badge_takes_the_fast_forward_corner_without_a_plate() {
     h.set_link_faces(badges());
     h.set_link(LinkBadge::Hosting);
     let mut out = Vec::new();
-    h.draw(60_000, &mut out);
+    h.draw(Canvas::FRAMED, 60_000, &mut out);
     assert_eq!(out.len(), 1, "the badge came with company: {out:?}");
     let (w, _) = icon_box(HUD_ICON_PX);
     assert!(matches!(out[0], Draw::Tex { tex, x, .. }
@@ -229,7 +232,7 @@ fn the_link_badge_outranks_fast_forward() {
     h.set_ff(FfState::Latched);
     h.set_link(LinkBadge::JoinedLost);
     let mut out = Vec::new();
-    h.draw(0, &mut out);
+    h.draw(Canvas::FRAMED, 0, &mut out);
     let texes: Vec<TexId> = out
         .iter()
         .filter_map(|d| match d {
@@ -243,7 +246,79 @@ fn the_link_badge_outranks_fast_forward() {
 #[test]
 fn volume_on_headphones_shows_headphones() {
     assert_eq!(HudKind::Volume.icon(40, false, true), Icon::Headphones);
-    assert_eq!(HudKind::Volume.icon(0, false, true), Icon::Headphones);
+    assert_eq!(HudKind::Volume.icon(0, false, true), Icon::HeadphonesMuted);
     assert_eq!(HudKind::Volume.icon(40, true, true), Icon::HeadphonesMuted);
     assert_eq!(HudKind::Brightness.icon(4, false, true), Icon::Brightness);
+}
+
+#[test]
+fn audio_notice_keeps_volume_bar_visible_below_the_text() {
+    let mut hud = Hud::new();
+    hud.set_toasts(
+        slot_ui::Toast::all()
+            .iter()
+            .enumerate()
+            .map(|(i, _)| TexId::from_raw(i + 100))
+            .collect(),
+    );
+    hud.show(HudKind::Volume, 35, false, 0);
+    hud.toast(slot_ui::Toast::BluetoothConnected, 0);
+    let mut out = Vec::new();
+    hud.draw(Canvas::FRAMED, 0, &mut out);
+    assert!(out
+        .iter()
+        .any(|d| matches!(d, Draw::Tex {y, ..} if *y < 40.0)));
+    assert!(out
+        .iter()
+        .any(|d| matches!(d, Draw::Rect {y, w, ..} if *y > 40.0 && (*w - 112.0).abs() < 0.1)));
+    assert!(!hud.visible(1500));
+    assert!(!hud.toast_visible(1500));
+}
+
+#[test]
+fn bluetooth_volume_is_distinct_from_wired_and_retains_mute_mark() {
+    let mut hud = Hud::new();
+    hud.set_headphones(true);
+    hud.show(HudKind::Volume, 45, false, 0);
+    assert_eq!(hud.glyph(), Icon::Headphones);
+    hud.set_bluetooth(true);
+    assert_eq!(hud.glyph(), Icon::Bluetooth);
+    hud.show(HudKind::Volume, 0, false, 0);
+    assert_eq!(hud.glyph(), Icon::BluetoothMuted);
+    hud.show(HudKind::Volume, 45, true, 0);
+    assert_eq!(hud.glyph(), Icon::BluetoothMuted);
+    hud.set_bluetooth(false);
+    hud.set_headphones(false);
+    assert_eq!(hud.glyph(), Icon::VolumeMuted);
+    hud.show(HudKind::Brightness, 5, false, 0);
+    hud.set_bluetooth(true);
+    assert_eq!(hud.glyph(), Icon::Brightness);
+}
+
+#[test]
+fn muted_headphones_render_at_native_width_without_stretching() {
+    let mut hud = Hud::new();
+    hud.set_icons(
+        Icon::ALL
+            .iter()
+            .enumerate()
+            .map(|(i, _)| TexId::from_raw(i + 1))
+            .collect(),
+    );
+    hud.set_headphones(true);
+    hud.show(HudKind::Volume, 0, false, 0);
+    let face = icon_face(Icon::HeadphonesMuted, HUD_ICON_PX, [255; 3]);
+    let mut out = Vec::new();
+    hud.draw(Canvas::FRAMED, 0, &mut out);
+    let (x, w, h) = out
+        .iter()
+        .find_map(|d| match d {
+            Draw::Tex { x, w, h, .. } => Some((*x, *w, *h)),
+            _ => None,
+        })
+        .unwrap();
+    assert_eq!((w, h), (face.w as f32, face.h as f32));
+    assert!(out.iter().any(
+        |d| matches!(d, Draw::Rect {x: bar_x, w: bar_w, ..} if *bar_w == 320. && *bar_x > x + w)
+    ));
 }

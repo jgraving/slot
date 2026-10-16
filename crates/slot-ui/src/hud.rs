@@ -1,4 +1,4 @@
-use slot_gfx::{Draw, TexId, OUT_H, OUT_W};
+use slot_gfx::{Canvas, Draw, TexId, OUT_H};
 use slot_store::{BLUE_LIGHT_MAX, BRIGHTNESS_MAX, VOLUME_MAX};
 
 use crate::icon::icon_box;
@@ -19,12 +19,23 @@ const ALARM_DIM: [f32; 4] = [0.40, 0.03, 0.03, 0.94];
 
 pub const HUD_ICON_PX: f32 = 24.0;
 pub const HUD_INK: [u8; 3] = [0xf5, 0xf2, 0xef];
+
+pub const FOOTER_INK: [u8; 3] = [0xff, 0xff, 0xff];
+pub const FOOTER_INK_LIGHT: [u8; 3] = [0x00, 0x00, 0x00];
+
+pub fn footer_ink(light: bool) -> [u8; 3] {
+    if light {
+        FOOTER_INK_LIGHT
+    } else {
+        FOOTER_INK
+    }
+}
 const ICON_GAP: f32 = 10.0;
 
 const BADGE_MARGIN: f32 = 12.0;
 
-pub fn badge_at(w: f32, h: f32) -> (f32, f32) {
-    (OUT_W as f32 - BADGE_MARGIN - w, (PLATE_H - h) / 2.0)
+pub fn badge_at(canvas: Canvas, w: f32, h: f32) -> (f32, f32) {
+    (canvas.w - BADGE_MARGIN - w, (PLATE_H - h) / 2.0)
 }
 
 const BAR_W: f32 = 320.0;
@@ -52,10 +63,9 @@ impl HudKind {
         match self {
             HudKind::Brightness => Icon::Brightness,
             HudKind::BlueLight => Icon::BlueLight,
-            HudKind::Volume if headphones && muted => Icon::HeadphonesMuted,
+            HudKind::Volume if headphones && (muted || value == 0) => Icon::HeadphonesMuted,
             HudKind::Volume if headphones => Icon::Headphones,
-            HudKind::Volume if muted => Icon::VolumeMuted,
-            HudKind::Volume if value == 0 => Icon::VolumeZero,
+            HudKind::Volume if muted || value == 0 => Icon::VolumeMuted,
             HudKind::Volume => Icon::Volume,
             HudKind::Rewind => Icon::Rewind,
         }
@@ -137,6 +147,8 @@ pub struct Hud {
     held: bool,
     muted: bool,
     headphones: bool,
+    bluetooth: bool,
+    usb: bool,
     ff: FfState,
     said: Option<(Toast, Millis)>,
     alarm: Option<Millis>,
@@ -201,7 +213,29 @@ impl Hud {
     }
 
     pub fn glyph(&self) -> Icon {
+        if self.kind == HudKind::Volume && self.usb {
+            return if self.muted || self.value == 0 {
+                Icon::HeadphonesMuted
+            } else {
+                Icon::Headphones
+            };
+        }
+        if self.kind == HudKind::Volume && self.bluetooth {
+            return if self.muted || self.value == 0 {
+                Icon::BluetoothMuted
+            } else {
+                Icon::Bluetooth
+            };
+        }
         self.kind.icon(self.value, self.muted, self.headphones)
+    }
+
+    pub fn set_usb(&mut self, on: bool) {
+        self.usb = on;
+    }
+
+    pub fn set_bluetooth(&mut self, on: bool) {
+        self.bluetooth = on;
     }
 
     pub fn set_headphones(&mut self, on: bool) {
@@ -232,21 +266,25 @@ impl Hud {
         self.alpha(now) > 0.0
     }
 
-    pub fn draw(&self, now: Millis, out: &mut Vec<Draw>) {
+    pub fn draw(&self, canvas: Canvas, now: Millis, out: &mut Vec<Draw>) {
         let alpha = self.alpha(now);
         let toast = self.toast_alpha(now);
+        let audio_notice = toast > 0.0 && self.said.is_some_and(|(t, _)| t.audio_change());
         if alpha > 0.0 || toast > 0.0 {
             out.push(Draw::Rect {
                 x: 0.0,
                 y: 0.0,
-                w: OUT_W as f32,
-                h: PLATE_H,
+                w: canvas.w,
+                h: if audio_notice { PLATE_H * 2.0 } else { PLATE_H },
                 colour: faded(PLATE, alpha.max(toast)),
             });
             if toast > 0.0 {
-                self.draw_toast(now, out);
+                self.draw_toast(canvas, now, out);
+                if audio_notice {
+                    self.draw_bar(canvas, alpha, PLATE_H, out);
+                }
             } else {
-                self.draw_bar(alpha, out);
+                self.draw_bar(canvas, alpha, 0.0, out);
             }
         }
         let link = self
@@ -255,20 +293,20 @@ impl Hud {
             .and_then(|i| self.link_faces.get(i).copied());
         let ff = ff_badge(self.ff).and_then(|i| self.icons.get(i.index()).copied());
         if let Some(tex) = link.or(ff) {
-            self.place_badge(tex, out);
+            self.place_badge(canvas, tex, out);
         }
         if let Some(since) = self.alarm {
-            self.draw_alarm(now.saturating_sub(since), out);
+            self.draw_alarm(canvas, now.saturating_sub(since), out);
         }
     }
 
-    fn draw_bar(&self, alpha: f32, out: &mut Vec<Draw>) {
-        let x = (OUT_W as f32 - BAR_W) / 2.0;
+    fn draw_bar(&self, canvas: Canvas, alpha: f32, offset: f32, out: &mut Vec<Draw>) {
+        let x = canvas.centred(BAR_W);
         if let Some(tex) = self.icon() {
-            let (w, h) = icon_box(HUD_ICON_PX);
+            let (w, h) = crate::icon::glyph_box(self.glyph(), HUD_ICON_PX);
             out.push(Draw::Tex {
                 x: x - ICON_GAP - w as f32,
-                y: (PLATE_H - h as f32) / 2.0,
+                y: offset + (PLATE_H - h as f32) / 2.0,
                 w: w as f32,
                 h: h as f32,
                 tex,
@@ -277,24 +315,24 @@ impl Hud {
         }
         out.push(Draw::Rect {
             x,
-            y: BAR_Y,
+            y: offset + BAR_Y,
             w: BAR_W,
             h: BAR_H,
             colour: faded(TRACK, alpha),
         });
         out.push(Draw::Rect {
             x,
-            y: BAR_Y,
+            y: offset + BAR_Y,
             w: BAR_W * self.fraction(),
             h: BAR_H,
             colour: faded(FILL, alpha),
         });
     }
 
-    fn place_badge(&self, tex: TexId, out: &mut Vec<Draw>) {
+    fn place_badge(&self, canvas: Canvas, tex: TexId, out: &mut Vec<Draw>) {
         let (w, h) = icon_box(HUD_ICON_PX);
         let (w, h) = (w as f32, h as f32);
-        let (x, y) = badge_at(w, h);
+        let (x, y) = badge_at(canvas, w, h);
         out.push(Draw::Tex {
             x,
             y,
@@ -305,11 +343,11 @@ impl Hud {
         });
     }
 
-    fn draw_alarm(&self, age: Millis, out: &mut Vec<Draw>) {
+    fn draw_alarm(&self, canvas: Canvas, age: Millis, out: &mut Vec<Draw>) {
         out.push(Draw::Rect {
             x: 0.0,
             y: (OUT_H as f32 - ALARM_BAND_H) / 2.0,
-            w: OUT_W as f32,
+            w: canvas.w,
             h: ALARM_BAND_H,
             colour: pulse(age),
         });
@@ -317,7 +355,7 @@ impl Hud {
         let Some(tex) = self.toasts.get(alarm.index()).copied() else {
             return;
         };
-        let (x, y, w, h) = toast_rect(alarm);
+        let (x, y, w, h) = toast_rect(canvas, alarm);
         out.push(Draw::Tex {
             x,
             y,
@@ -328,7 +366,7 @@ impl Hud {
         });
     }
 
-    fn draw_toast(&self, now: Millis, out: &mut Vec<Draw>) {
+    fn draw_toast(&self, canvas: Canvas, now: Millis, out: &mut Vec<Draw>) {
         let alpha = self.toast_alpha(now);
         if alpha <= 0.0 {
             return;
@@ -343,7 +381,7 @@ impl Hud {
         let Some((said, _)) = self.said else {
             return;
         };
-        let (x, y, w, h) = toast_rect(said);
+        let (x, y, w, h) = toast_rect(canvas, said);
         out.push(Draw::Tex {
             x,
             y,

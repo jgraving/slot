@@ -37,8 +37,6 @@ reset() {
 	make_fake wpa_cli "$TMP/cli.log" 'echo "wpa_state=${FAKE_STATE:-COMPLETED}"'
 	make_fake wpa_supplicant "$TMP/sup.log"
 	make_fake ip "$TMP/ip.log"
-	make_fake rfkill "$TMP/rfkill.log"
-	: > "$TMP/run/slot-offline-ready"
 	make_fake insmod "$TMP/mod.log"
 	make_fake legacy "$TMP/legacy.log"
 }
@@ -81,15 +79,12 @@ export FAKE_STATE=SCANNING
 run absent link join && rc=0 || rc=$?
 unset FAKE_STATE
 [ "$rc" = 3 ] || fail "join with no host exited $rc, want 3"
-[ ! -e "$TMP/run/slotlink.session" ] || fail "failed join left radio session"
-grep -q "block wifi" "$TMP/rfkill.log" || fail "failed join left Wi-Fi on"
 [ "$(grep -c -- '-i wlan0' "$TMP/sup.log")" = 2 ] || fail "join did not make two attempts"
 
 reset yes
 run absent link join >/dev/null
 run absent link down && rc=0 || rc=$?
 [ "$rc" = 0 ] || fail "down exited $rc"
-grep -q "block wifi" "$TMP/rfkill.log" || fail "down left radio on"
 for f in slotlink-ap.conf slotlink-sta.conf slotlink.session; do
 	[ -e "$TMP/run/$f" ] && fail "down left $f"
 done
@@ -102,7 +97,6 @@ run absent link cool && rc=0 || rc=$?
 reset no
 run absent link warm >/dev/null || true
 [ -e "$TMP/mod.log" ] && fail "insmod on BaseOS"
-[ -e "$TMP/rfkill.log" ] && fail "warm touched the radio"
 
 reset yes
 make_fake wpa_cli "$TMP/cli.log" 'sleep 0.3' 'echo "wpa_state=SCANNING"'

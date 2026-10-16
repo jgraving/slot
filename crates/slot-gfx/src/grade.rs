@@ -1,4 +1,4 @@
-const WARMEST: [f32; 3] = [1.0, 0.60, 0.20];
+const WARMEST: [f32; 3] = [1.0, 0.82, 0.62];
 
 pub const BLUE_LIGHT_MAX: u8 = 9;
 

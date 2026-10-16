@@ -4,14 +4,14 @@ mod power;
 mod sim;
 
 pub use device::{
-    has_bit, motor_change, read_only, read_only_in, record_first_frame, rumble_node,
-    trace_first_frame, uptime_seconds, DevicePlatform,
+    card_kernel_lines, has_bit, motor_change, read_only, read_only_in, record_first_frame,
+    rumble_node, trace_first_frame, uptime_seconds, DevicePlatform,
 };
 pub use motor::Motor;
 pub use power::Power;
 pub use sim::SimPlatform;
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
@@ -42,26 +42,12 @@ pub trait Platform: Send {
     fn battery(&self) -> Option<Battery>;
     fn charge(&self) -> Charge;
     fn set_led(&mut self, state: LedState);
-    /// Begin non-blocking disk flushing while the frontend animates shutdown.
-    /// Must not signal init or stop rendering; poweroff performs the final sync.
-    fn prepare_poweroff(&mut self) {}
     fn poweroff(&mut self) -> !;
     fn restart(&mut self) -> !;
     fn root(&self) -> &Path;
     fn now(&self) -> i64;
     fn set_clock(&mut self, secs: i64);
     fn set_rumble(&mut self, strength: u16);
-
-    fn supports_deep_sleep(&self) -> bool {
-        false
-    }
-
-    fn suspend(&mut self, _timeout: Option<Duration>) -> std::io::Result<bool> {
-        Err(std::io::Error::new(
-            std::io::ErrorKind::Unsupported,
-            "Deep sleep unavailable",
-        ))
-    }
 
     fn relink_adb(&mut self) -> bool {
         false
@@ -73,6 +59,14 @@ pub trait Platform: Send {
 
     fn card_read_only(&self) -> bool {
         false
+    }
+
+    fn card_log(&self) -> Option<PathBuf> {
+        None
+    }
+
+    fn card_kernel_lines(&self) -> Vec<String> {
+        Vec::new()
     }
 }
 
