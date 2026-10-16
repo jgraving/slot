@@ -127,6 +127,26 @@ pub fn icon_face(icon: Icon, px: f32, colour: [u8; 3]) -> CartFace {
             h: 0,
         };
     };
+    if matches!(
+        icon,
+        Icon::Bluetooth | Icon::BluetoothMuted | Icon::Usb | Icon::UsbMuted
+    ) {
+        // Keep the common icon box, but no black halo on these fine strokes.
+        let (w, h) = (r.w + 2 * HALO_PX, r.h + 2 * HALO_PX);
+        let mut rgba = vec![0; (w * h * 4) as usize];
+        for y in 0..r.h {
+            for x in 0..r.w {
+                let at = (((y + HALO_PX) * w + x + HALO_PX) * 4) as usize;
+                rgba[at..at + 4].copy_from_slice(&[
+                    colour[0],
+                    colour[1],
+                    colour[2],
+                    r.cov[(y * r.w + x) as usize],
+                ]);
+            }
+        }
+        return CartFace { rgba, w, h };
+    }
     haloed(&r.cov, r.w, r.h, colour)
 }
 
@@ -244,75 +264,9 @@ fn rasterise(icon: Icon, px: f32) -> Option<Raster> {
         icon,
         Icon::Bluetooth | Icon::BluetoothMuted | Icon::Usb | Icon::UsbMuted
     ) {
-        let muted = matches!(icon, Icon::BluetoothMuted | Icon::UsbMuted);
-        let mut out = vec![0u8; (f.w * f.h) as usize];
-        // Use the available height and preserve the symbol's proportions.
-        // The previous 20-unit inset inside another inset made these tiny.
-        let height = f.h as i32 - 2;
-        let available = f.w as i32 - if muted { 10 } else { 3 };
-        let scale = (available as f32 / 15.0).min(height as f32 / 18.0);
-        let width = (15.0 * scale).round() as i32;
-        let height = (18.0 * scale).round() as i32;
-        let left = if muted { 0 } else { (f.w as i32 - width) / 2 };
-        let top = (f.h as i32 - height) / 2;
-        let mut line = |x0: i32, y0: i32, x1: i32, y1: i32| {
-            let steps = (x1 - x0).abs().max((y1 - y0).abs()).max(1);
-            for i in 0..=steps {
-                let x = x0 + (x1 - x0) * i / steps;
-                let y = y0 + (y1 - y0) * i / steps;
-                for dx in 0..2 {
-                    if x + dx >= 0 && x + dx < f.w as i32 && y >= 0 && y < f.h as i32 {
-                        out[(y as u32 * f.w + (x + dx) as u32) as usize] = 255;
-                    }
-                }
-            }
-        };
-        let segments: &[((i32, i32), (i32, i32))] = if matches!(icon, Icon::Usb | Icon::UsbMuted) {
-            &[
-                ((10, 18), (10, 2)),
-                ((10, 2), (7, 5)),
-                ((10, 2), (13, 5)),
-                ((10, 13), (4, 9)),
-                ((4, 9), (4, 5)),
-                ((3, 5), (5, 5)),
-                ((10, 15), (16, 11)),
-                ((16, 11), (16, 7)),
-                ((14, 7), (18, 7)),
-                ((14, 7), (14, 9)),
-                ((18, 7), (18, 9)),
-                ((14, 9), (18, 9)),
-                ((8, 18), (12, 18)),
-            ]
-        } else {
-            &[
-                ((9, 1), (9, 18)),
-                ((9, 1), (16, 6)),
-                ((16, 6), (3, 15)),
-                ((9, 18), (16, 13)),
-                ((16, 13), (3, 4)),
-            ]
-        };
-        for &((x0, y0), (x1, y1)) in segments {
-            line(
-                left + (x0 - 3) * width / 15,
-                top + (y0 - 1) * height / 18,
-                left + (x1 - 3) * width / 15,
-                top + (y1 - 1) * height / 18,
-            );
-        }
-        if muted {
-            let size = (px * 0.24).round().max(5.0) as i32;
-            let x = f.w as i32 - size - 2;
-            let y = f.h as i32 - size - 3;
-            line(x, y, x + size - 1, y + size - 1);
-            line(x + size - 1, y, x, y + size - 1);
-        }
-        return Some(Raster {
-            cov: out,
-            w: f.w,
-            h: f.h,
-        });
+        return Some(audio_raster(icon, f.w, f.h, px));
     }
+
     let (m, cov) = font.rasterize(icon.glyph(), px);
     let x0 = m.xmin - f.left;
     let y0 = f.top - (m.ymin + m.height as i32);
@@ -329,6 +283,67 @@ fn rasterise(icon: Icon, px: f32) -> Option<Raster> {
         w: f.w,
         h: f.h,
     })
+}
+
+// Rasterize in a square design space with uniform scaling and round strokes.
+// Supersampling avoids the gaps and horizontal bias of integer line stepping.
+fn audio_raster(icon: Icon, w: u32, h: u32, px: f32) -> Raster {
+    let usb = matches!(icon, Icon::Usb | Icon::UsbMuted);
+    let muted = matches!(icon, Icon::BluetoothMuted | Icon::UsbMuted);
+    let mut segments: Vec<((f32, f32), (f32, f32))> = if usb {
+        vec![
+            ((12., 20.), (12., 3.)),
+            ((12., 3.), (9.5, 6.)),
+            ((12., 3.), (14.5, 6.)),
+            ((12., 14.), (7., 10.)),
+            ((7., 10.), (7., 7.)),
+            ((12., 17.), (17., 13.)),
+            ((17., 13.), (17., 9.)),
+            ((15.5, 7.), (18.5, 7.)),
+            ((18.5, 7.), (18.5, 10.)),
+            ((18.5, 10.), (15.5, 10.)),
+            ((15.5, 10.), (15.5, 7.)),
+        ]
+    } else {
+        vec![
+            ((10., 3.), (10., 21.)),
+            ((10., 3.), (16., 8.)),
+            ((16., 8.), (6., 16.)),
+            ((10., 21.), (16., 16.)),
+            ((16., 16.), (6., 8.)),
+        ]
+    };
+    if muted {
+        segments.extend([((19., 17.), (23., 21.)), ((23., 17.), (19., 21.))]);
+    }
+    let scale = (px / 24.).min(w as f32 / 26.).min(h as f32 / 26.);
+    let ox = (w as f32 - 24. * scale) / 2.;
+    let oy = (h as f32 - 24. * scale) / 2.;
+    let mut cov = vec![0; (w * h) as usize];
+    for y in 0..h {
+        for x in 0..w {
+            let mut covered = 0;
+            for sy in 0..4 {
+                for sx in 0..4 {
+                    let qx = (x as f32 + (sx as f32 + 0.5) / 4. - ox) / scale;
+                    let qy = (y as f32 + (sy as f32 + 0.5) / 4. - oy) / scale;
+                    let stroke = segments.iter().any(|&((ax, ay), (bx, by))| {
+                        let (dx, dy) = (bx - ax, by - ay);
+                        let t =
+                            (((qx - ax) * dx + (qy - ay) * dy) / (dx * dx + dy * dy)).clamp(0., 1.);
+                        (qx - ax - t * dx).powi(2) + (qy - ay - t * dy).powi(2) <= 0.85 * 0.85
+                    });
+                    let dot = usb
+                        && [(7., 7., 1.5), (12., 20., 1.8)]
+                            .iter()
+                            .any(|&(cx, cy, r)| (qx - cx).powi(2) + (qy - cy).powi(2) <= r * r);
+                    covered += u32::from(stroke || dot);
+                }
+            }
+            cov[(y * w + x) as usize] = ((covered * 255 + 8) / 16) as u8;
+        }
+    }
+    Raster { cov, w, h }
 }
 
 struct Frame {

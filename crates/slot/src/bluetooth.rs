@@ -824,17 +824,26 @@ pub fn screen_face(lines: &[String]) -> UndoFace {
         let inset = if device { 68 } else { 32 };
         let label_w = label_w - (inset - 32);
         if device {
-            let icon = if usb {
-                let face = slot_ui::icon_face(slot_ui::Icon::Usb, 22.0, [246, 244, 239]);
-                UndoFace {
-                    rgba: face.rgba,
-                    w: face.w,
-                    h: face.h,
-                }
-            } else {
-                indicator_face()
+            let face = slot_ui::icon_face(
+                if usb {
+                    slot_ui::Icon::Usb
+                } else {
+                    slot_ui::Icon::Bluetooth
+                },
+                24.0,
+                [246, 244, 239],
+            );
+            let icon = UndoFace {
+                rgba: face.rgba,
+                w: face.w,
+                h: face.h,
             };
-            blit(&mut rgba, &icon, 32, top + 8);
+            blit(
+                &mut rgba,
+                &icon,
+                32 + 32u32.saturating_sub(icon.w) / 2,
+                top + h.saturating_sub(icon.h) / 2,
+            );
             let is_device = |line: &String| {
                 let label = line
                     .strip_prefix("ROW ")
