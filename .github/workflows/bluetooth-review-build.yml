@@ -19,7 +19,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: f3c4b359ad2ba9d40a8da245e7b04364dded876b
+          ref: b11ae23943bd043d0d0c4db690ab48c6ee276006
 
       - name: Install zip, cmake and Task
         run: |
@@ -57,9 +57,9 @@ jobs:
         run: |
           set -eu
           out="slot-bluetooth-pr33"
-          printf 'Source: f3c4b359ad2ba9d40a8da245e7b04364dded876b\n' > "$out/System/bluetooth-build.txt"
-          zip="slot-sound-System-f3c4b35.zip"
-          (cd "$out" && zip -qry "../$zip" System && zip -qry ../slot-sound-install-f3c4b35.zip .)
+          printf 'Source: b11ae23943bd043d0d0c4db690ab48c6ee276006\n' > "$out/System/bluetooth-build.txt"
+          zip="slot-sound-System-b11ae23.zip"
+          (cd "$out" && zip -qry "../$zip" System && zip -qry ../slot-sound-install-b11ae23.zip .)
           echo "zip=$zip" >> "$GITHUB_OUTPUT"
 
       - uses: actions/upload-artifact@v7
@@ -67,5 +67,5 @@ jobs:
           name: ${{ steps.package.outputs.zip }}
           path: |
             ${{ steps.package.outputs.zip }}
-            slot-sound-install-f3c4b35.zip
+            slot-sound-install-b11ae23.zip
           if-no-files-found: error
