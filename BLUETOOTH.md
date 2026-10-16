@@ -109,7 +109,9 @@ to 128 KiB; error and reconnect reports use `latest-error.txt` and
 
 Audio uses BaseOS's existing BlueZ, BlueALSA and ALSA support. Adapter readiness
 and the selected A2DP playback endpoint are checked before reporting a successful
-connection. Competing operations are serialized, and automatic work yields to
+connection. The connection is checked again after endpoint discovery so a headset
+that disconnects during setup does not replace the current output. Short-lived
+helper commands use hard timeouts even if the client ignores termination. Competing operations are serialized, and automatic work yields to
 manual choices. A passive BlueZ listener monitors connections while awake, with
 polling as a fallback.
 

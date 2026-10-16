@@ -91,7 +91,11 @@ case "$*" in
  *info*)
    [ "${MOCK_ALIAS:-}" = "" ] || echo "Alias: $MOCK_ALIAS"
    if [ -f "$SLOT_ROOT/paired" ]; then echo 'Paired: yes'; else echo "Paired: ${MOCK_PAIRED:-yes}"; fi
-   echo "Connected: ${MOCK_CONNECTED:-yes}"
+   if [ "${MOCK_DISCONNECT_AFTER_PCM:-no}" = yes ] && [ -f "$SLOT_ROOT/pcm-count" ]; then
+     echo 'Connected: no'
+   elif [ "${MOCK_INFO_FAIL_AFTER_PCM:-no}" = yes ] && [ -f "$SLOT_ROOT/pcm-count" ]; then
+     echo 'Connected: yes'; exit 1
+   else echo "Connected: ${MOCK_CONNECTED:-yes}"; fi
    echo "UUID: Audio Sink (${MOCK_UUID:-0000110b-0000-1000-8000-00805f9b34fb})";;
 esac
 ''')
@@ -108,6 +112,39 @@ esac
     def run_command(self, *args):
         return subprocess.run(['sh', str(SCRIPT), *args], env=self.env,
             capture_output=True, text=True, timeout=5)
+
+    def test_stuck_controller_probe_is_killed_even_if_it_ignores_term(self):
+        bt = self.root / 'bin/bluetoothctl'
+        bt.write_text("#!/bin/sh\ntrap '' TERM\necho $$ > \"$SLOT_ROOT/stuck-pid\"\nexec sleep 60\n")
+        started = time.monotonic()
+        result = self.run_command('supported')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertLess(time.monotonic() - started, 5)
+        pid = int((self.root / 'stuck-pid').read_text())
+        with self.assertRaises(ProcessLookupError):
+            os.kill(pid, 0)
+
+    def test_disconnect_during_transport_setup_preserves_current_output(self):
+        for previous in ['', 'plughw:CARD=Headset,DEV=0']:
+            with self.subTest(previous=previous):
+                (self.root / 'route').write_text(previous)
+                (self.root / 'pcm-count').unlink(missing_ok=True)
+                self.env['MOCK_DISCONNECT_AFTER_PCM'] = 'yes'
+                result = self.run_command('connect', MAC)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn('disconnected before audio was ready', result.stderr)
+                self.assertEqual((self.root / 'route').read_text(), previous)
+                self.assertFalse((self.root / 'Config/bluetooth-headphones').exists())
+                self.assertFalse((self.root / 'lock').exists())
+
+    def test_failed_final_probe_cannot_publish_even_with_partial_connected_output(self):
+        (self.root / 'route').write_text('plughw:CARD=Headset,DEV=0')
+        self.env['MOCK_INFO_FAIL_AFTER_PCM'] = 'yes'
+        result = self.run_command('connect', MAC)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('Could not verify', result.stderr)
+        self.assertEqual((self.root / 'route').read_text(), 'plughw:CARD=Headset,DEV=0')
+        self.assertFalse((self.root / 'Config/bluetooth-headphones').exists())
 
     def test_supported_requires_real_controller_and_audio_plugin(self):
         result = self.run_command('supported')
