@@ -826,7 +826,7 @@ pub fn screen_face(lines: &[String]) -> UndoFace {
         if device {
             let face = slot_ui::icon_face(
                 if usb {
-                    slot_ui::Icon::Usb
+                    slot_ui::Icon::Headphones
                 } else {
                     slot_ui::Icon::Bluetooth
                 },

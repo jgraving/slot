@@ -518,15 +518,7 @@ impl Frontend {
                     if bluetooth && !usb {
                         crate::bluetooth::indicator_face_with_ink(ink)
                     } else {
-                        let f = slot_ui::icon_face(
-                            if usb {
-                                slot_ui::Icon::Usb
-                            } else {
-                                slot_ui::Icon::Headphones
-                            },
-                            20.0,
-                            ink,
-                        );
+                        let f = slot_ui::icon_face(slot_ui::Icon::Headphones, 20.0, ink);
                         slot_ui::UndoFace {
                             rgba: f.rgba,
                             w: f.w,

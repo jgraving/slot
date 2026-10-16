@@ -215,9 +215,9 @@ impl Hud {
     pub fn glyph(&self) -> Icon {
         if self.kind == HudKind::Volume && self.usb {
             return if self.muted || self.value == 0 {
-                Icon::UsbMuted
+                Icon::HeadphonesMuted
             } else {
-                Icon::Usb
+                Icon::Headphones
             };
         }
         if self.kind == HudKind::Volume && self.bluetooth {

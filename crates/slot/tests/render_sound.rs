@@ -18,9 +18,9 @@ fn render_sound_icons() {
     let mut face = slot::bluetooth::screen_face(&lines);
     for (i, icon) in [
         Icon::Bluetooth,
-        Icon::Usb,
+        Icon::Headphones,
         Icon::BluetoothMuted,
-        Icon::UsbMuted,
+        Icon::HeadphonesMuted,
     ]
     .into_iter()
     .enumerate()
