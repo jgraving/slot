@@ -359,6 +359,7 @@ pub struct App {
     link_transport: Option<(u16, Box<dyn LinkChannel>)>,
     restarting: bool,
     act_at: Millis,
+    power_click_at: Option<Millis>,
     root: Option<PathBuf>,
     state: SlotState,
     vol_before: Vec<(u8, bool, Millis)>,
@@ -536,6 +537,7 @@ impl App {
             link_transport: None,
             restarting: false,
             act_at: 0,
+            power_click_at: None,
             root: None,
             state: SlotState::default(),
             vol_before: Vec::new(),
@@ -2864,6 +2866,10 @@ impl App {
     }
 
     fn timers(&mut self) {
+        if self.power_click_at.is_some_and(|at| self.now() >= at) {
+            self.power_click_at = None;
+            self.sfx = Some(Sfx::PowerSwitch);
+        }
         if self.favorite_departure.is_some_and(|since|
             self.now().saturating_sub(since) as f32 >= SEATED_AT * 1000.0) {
             self.finish_favorite_departure();
@@ -4596,6 +4602,7 @@ impl App {
         self.close_game_menu();
         self.remember_shelf();
         self.powering_off = true;
+        self.power_click_at = Some(self.now() + slot_ui::POWER_SWITCH_SLIDE_MS);
         self.act_at = self.now() + slot_ui::POWER_SWITCH_MS;
         self.set_led(LedState::Off);
     }

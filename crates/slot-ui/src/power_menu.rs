@@ -39,6 +39,7 @@ pub fn menu_face(label: &str) -> UndoFace {
 
 /// A short physical ON-to-OFF stroke, followed by a fade to black.
 pub const POWER_SWITCH_MS: u64 = 600;
+pub const POWER_SWITCH_SLIDE_MS: u64 = 450;
 
 /// Build both finishes once, using the carousel's own pebbled housing pixels.
 /// The red source vector identifies shell material; the neutral cavity is left alone.
@@ -110,7 +111,7 @@ pub fn draw_power_switch(
     let p = progress.clamp(0.0, 1.0);
     // 450 ms slide, 50 ms at OFF, then 100 ms fade; total remains 600 ms.
     let elapsed = p * POWER_SWITCH_MS as f32;
-    let t = (elapsed / 450.0).clamp(0.0, 1.0);
+    let t = (elapsed / POWER_SWITCH_SLIDE_MS as f32).clamp(0.0, 1.0);
     let off = t * t * (3.0 - 2.0 * t);
     let alpha = ((POWER_SWITCH_MS as f32 - elapsed) / 100.0).clamp(0.0, 1.0);
     let scale = (canvas.w / 720.0).min(1.0);
