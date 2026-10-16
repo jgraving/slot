@@ -19,7 +19,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: 4be3cd1e9793892e4d506353c2cf5d85f56f624f
+          ref: c57b1e783a2ba21fd8816880817ab744efd47e8f
 
       - name: Install zip, cmake and Task
         run: |
@@ -62,9 +62,9 @@ jobs:
         run: |
           set -eu
           out="slot-gold-pr34"
-          printf 'Source: 4be3cd1e9793892e4d506353c2cf5d85f56f624f\n' > "$out/System/gold-sticker-build.txt"
-          zip="slot-gold-System-4be3cd1.zip"
-          (cd "$out" && zip -qry "../$zip" System && zip -qry ../slot-gold-install-4be3cd1.zip .)
+          printf 'Source: c57b1e783a2ba21fd8816880817ab744efd47e8f\n' > "$out/System/gold-sticker-build.txt"
+          zip="slot-gold-System-c57b1e7.zip"
+          (cd "$out" && zip -qry "../$zip" System && zip -qry ../slot-gold-install-c57b1e7.zip .)
           echo "zip=$zip" >> "$GITHUB_OUTPUT"
 
       - uses: actions/upload-artifact@v7
@@ -72,5 +72,5 @@ jobs:
           name: ${{ steps.package.outputs.zip }}
           path: |
             ${{ steps.package.outputs.zip }}
-            slot-gold-install-4be3cd1.zip
+            slot-gold-install-c57b1e7.zip
           if-no-files-found: error
