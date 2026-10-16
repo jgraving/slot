@@ -42,3 +42,7 @@ pub mod state_writer;
 pub mod thumb;
 pub mod video_mode;
 pub mod wallpaper;
+
+pub mod bluetooth;
+mod bluetooth_volume;
+pub mod usb_audio;

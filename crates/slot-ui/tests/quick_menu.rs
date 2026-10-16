@@ -94,7 +94,7 @@ fn the_run_ahead_row_offers_off_and_one_frame() {
 fn the_rows_run_in_the_order_the_user_chose() {
     assert_eq!(
         QuickRow::MAIN.map(QuickRow::label),
-        ["General", "Screen", "Gameplay", "About"]
+        ["General", "Screen", "Sound", "Gameplay", "About"]
     );
     assert_eq!(
         QuickRow::GENERAL.map(QuickRow::label),
@@ -152,7 +152,9 @@ fn the_rows_run_in_the_order_the_user_chose() {
             QuickRow::PlayGameplay,
             QuickRow::ScreenGba,
             QuickRow::ScreenGbc,
-            QuickRow::ScreenGb
+            QuickRow::ScreenGb,
+            QuickRow::Bluetooth,
+            QuickRow::PlaySound
         ]
     );
     for page in [
@@ -316,7 +318,11 @@ fn the_in_game_pages_hold_their_rows_in_order() {
     );
     assert_eq!(
         QuickRow::SETTINGS,
-        [QuickRow::PlayScreen, QuickRow::PlayGameplay]
+        [
+            QuickRow::PlayScreen,
+            QuickRow::PlaySound,
+            QuickRow::PlayGameplay
+        ]
     );
     assert_eq!(
         QuickRow::PLAY_SCREEN,
