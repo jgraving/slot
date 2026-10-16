@@ -529,10 +529,13 @@ fn a_and_b_on_their_own_are_untouched_by_the_shader_chord() {
 }
 
 #[test]
-fn x_under_select_reaches_the_game() {
+fn select_x_toggles_night_without_reaching_the_game() {
     let mut g = Gestures::new();
     assert!(g.feed(Down(Select), 0).is_empty());
-    assert_eq!(g.feed(Down(X), 10), vec![GbaDown(Select), GbaDown(X)]);
+    assert_eq!(g.feed(Down(X), 10), vec![NightToggle]);
+    assert!(g.feed(Down(X), 20).is_empty());
+    assert!(g.feed(Up(X), 40).is_empty());
+    assert!(g.feed(Up(Select), 50).is_empty());
 }
 
 #[test]

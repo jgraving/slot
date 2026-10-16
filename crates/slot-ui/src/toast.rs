@@ -30,11 +30,13 @@ pub enum Toast {
     CardUnwritable,
     DeepSleepWake,
     SleepUnavailable,
+    NightOn,
+    NightOff,
     Palette(GbPalette),
 }
 
 impl Toast {
-    const FIXED: [Toast; 22] = [
+    const FIXED: [Toast; 24] = [
         Toast::BluetoothConnected,
         Toast::BluetoothDisconnected,
         Toast::UsbConnected,
@@ -57,6 +59,8 @@ impl Toast {
         Toast::CardUnwritable,
         Toast::DeepSleepWake,
         Toast::SleepUnavailable,
+        Toast::NightOn,
+        Toast::NightOff,
     ];
 
     pub fn all() -> Vec<Toast> {
@@ -118,6 +122,8 @@ impl Toast {
             Toast::ShaderSimpletex => "Shader: Simpletex",
             Toast::CardUnwritable => "Can't write to SD card",
             Toast::DeepSleepWake => "Deep sleep: Power wakes",
+            Toast::NightOn => "Night mode On",
+            Toast::NightOff => "Night mode Off",
             Toast::SleepUnavailable => "Deep sleep unavailable",
             Toast::Palette(p) => p.label(),
         }
