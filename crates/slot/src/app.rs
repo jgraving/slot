@@ -2658,6 +2658,11 @@ impl App {
                 Phase::Playing { cart } => Some(cart.clone()),
                 _ => None,
             };
+            // Show this when gameplay starts, so loading cannot use up the
+            // indicator's display time. Zero volume is silent too, even unmuted.
+            if seated.is_some() && self.output_volume() == 0 {
+                self.hud.show(HudKind::Volume, 0, self.muted(), now);
+            }
             if seated.is_none() {
                 self.link_loaded = None;
             }
