@@ -22,10 +22,10 @@ attach_adapter() {
             # path: it issues hciconfig commands underneath a running BlueZ.
             if ! pidof rtk_hciattach >/dev/null 2>&1; then
                 rm -f /tmp/.init_bt
-                timeout 15 sh "$INIT" init || return 1
+                timeout -s KILL 15 sh "$INIT" init || return 1
             fi
         fi
-        timeout 5 systemctl start bluetooth || return 1
+        timeout -s KILL 5 systemctl start bluetooth || return 1
     fi
 }
 audio_plugin_installed() {
@@ -60,7 +60,7 @@ supported() {
     fi
     # Older BaseOS versions and other systems may not supply a hardware flag.
     attach_adapter || { echo 'Bluetooth adapter initialization failed'; return 1; }
-    timeout 3 "$BT" show | grep -q '^Controller ' || { echo 'No Bluetooth controller found'; return 1; }
+    timeout -s KILL 3 "$BT" show | grep -q '^Controller ' || { echo 'No Bluetooth controller found'; return 1; }
     echo 'Bluetooth controller and audio plugin detected'
 }
 if [ "$VERB" = supported ]; then
@@ -111,12 +111,14 @@ check_cancel() {
     fi
 }
 fail() { check_cancel; ERROR=$*; printf '%s\n' "$ERROR" >&2; exit 1; }
+# Use a hard timeout for short-lived client commands: a wedged client may
+# ignore SIGTERM. This kills only the command, never the running audio services.
 # bluetoothctl exit status alone is unreliable: the properties are checked below.
 bt() {
     check_cancel
     log "bluetoothctl $*"
     rc=0
-    bounded timeout 6 "$BT" "$@" > "$WORK/command-output" 2>&1 || rc=$?
+    bounded timeout -s KILL 6 "$BT" "$@" > "$WORK/command-output" 2>&1 || rc=$?
     cat "$WORK/command-output" >> "$SESSION_LOG"
     cat "$WORK/command-output"
     log "exit=$rc"
@@ -174,8 +176,8 @@ report() {
         for f in /etc/os-release /etc/baseos-release "$ROOT/System/bluetooth-build.txt"; do
             [ ! -r "$f" ] || cat "$f"
         done
-        timeout 3 "$BT" --version 2>&1 || true
-        timeout 3 bluealsa --version 2>&1 || true
+        timeout -s KILL 3 "$BT" --version 2>&1 || true
+        timeout -s KILL 3 bluealsa --version 2>&1 || true
         echo
         echo '--- Services ---'
         for service in dbus-daemon bluetoothd bluealsa rtk_hciattach; do
@@ -184,17 +186,17 @@ report() {
             echo
         done
         echo '--- Adapter ---'
-        timeout 3 "$BT" show 2>&1 || true
-        timeout 3 hciconfig -a 2>&1 || true
+        timeout -s KILL 3 "$BT" show 2>&1 || true
+        timeout -s KILL 3 hciconfig -a 2>&1 || true
         echo '--- All discovered devices (unfiltered) ---'
-        timeout 3 "$BT" devices 2>&1 || true
+        timeout -s KILL 3 "$BT" devices 2>&1 || true
         report_target=$TARGET
         if ! valid_mac "$report_target" && [ -r "$ROUTE" ]; then
             report_target=$(sed -n 's/^bluealsa:DEV=\([^,]*\),PROFILE=a2dp$/\1/p' "$ROUTE")
         fi
         if valid_mac "$report_target"; then
             echo '--- Selected device ---'
-            timeout 3 "$BT" info "$report_target" 2>&1 || true
+            timeout -s KILL 3 "$BT" info "$report_target" 2>&1 || true
         fi
         echo '--- Audio route / saved preference ---'
         [ ! -r "$ROUTE" ] || cat "$ROUTE"
@@ -207,18 +209,18 @@ report() {
         for flag in "$OFF" "$ENABLED"; do
             if [ -f "$flag" ]; then echo "$(basename "$flag"): present"; else echo "$(basename "$flag"): absent"; fi
         done
-        timeout 3 rfkill list bluetooth 2>&1 || true
+        timeout -s KILL 3 rfkill list bluetooth 2>&1 || true
         if [ "$VERB" = diagnose ]; then
             echo '--- Bluetooth kernel messages (last 80 matching lines) ---'
             dmesg 2>/dev/null | grep -iE 'bluetooth|hci[0-9]|hci_uart|rtk|rfkill' | tail -n 80 || true
         fi
         echo '--- Local mixer (read only) ---'
-        timeout 3 amixer scontents 2>&1 || true
+        timeout -s KILL 3 amixer scontents 2>&1 || true
         echo '--- Bluetooth mixer (read only) ---'
-        timeout 3 amixer -D bluealsa scontents 2>&1 || true
+        timeout -s KILL 3 amixer -D bluealsa scontents 2>&1 || true
         echo '--- BlueALSA PCM volume properties (read only) ---'
-        timeout 3 dbus-send --system --print-reply --dest=org.bluealsa /org/bluealsa org.freedesktop.DBus.ObjectManager.GetManagedObjects 2>&1 ||
-            timeout 3 dbus-send --system --print-reply --dest=org.bluealsa /org/bluealsa org.bluealsa.Manager1.GetPCMs 2>&1 || true
+        timeout -s KILL 3 dbus-send --system --print-reply --dest=org.bluealsa /org/bluealsa org.freedesktop.DBus.ObjectManager.GetManagedObjects 2>&1 ||
+            timeout -s KILL 3 dbus-send --system --print-reply --dest=org.bluealsa /org/bluealsa org.bluealsa.Manager1.GetPCMs 2>&1 || true
         echo '--- ALSA cards and PCM devices ---'
         cat /proc/asound/cards /proc/asound/pcm 2>/dev/null || true
         echo '--- USB audio driver ---'
@@ -228,7 +230,7 @@ report() {
         fi
         if [ "$VERB" = diagnose ]; then
             echo '--- USB kernel messages (last 100 matching lines) ---'
-            timeout 3 dmesg 2>&1 | grep -Ei 'usb|xhci|ehci|ohci|musb|snd|over.current|under.voltage' | tail -n 100 || true
+            timeout -s KILL 3 dmesg 2>&1 | grep -Ei 'usb|xhci|ehci|ohci|musb|snd|over.current|under.voltage' | tail -n 100 || true
             echo '--- USB devices and power state (read only) ---'
             for usb in /sys/bus/usb/devices/*; do
                 [ -r "$usb/idVendor" ] || continue
@@ -246,11 +248,11 @@ report() {
                 for stream in "$card"/stream*; do
                     [ ! -r "$stream" ] || head -c 8192 "$stream"
                 done
-                timeout 3 amixer -c "${card##*card}" scontents 2>&1 | head -c 8192 || true
+                timeout -s KILL 3 amixer -c "${card##*card}" scontents 2>&1 | head -c 8192 || true
             done
         fi
         echo '--- ALSA outputs ---'
-        timeout 3 aplay -L 2>&1 || true
+        timeout -s KILL 3 aplay -L 2>&1 || true
         echo '--- Operation transcript ---'
         cat "$SESSION_LOG"
         echo '--- Installed emulator files ---'
@@ -277,12 +279,12 @@ cleanup() {
     fi
     stop_session
     if [ "$OWNED" = 1 ]; then
-        timeout 3 "$BT" pairable off >> "$SESSION_LOG" 2>&1 || true
-        timeout 3 "$BT" discoverable off >> "$SESSION_LOG" 2>&1 || true
+        timeout -s KILL 3 "$BT" pairable off >> "$SESSION_LOG" 2>&1 || true
+        timeout -s KILL 3 "$BT" discoverable off >> "$SESSION_LOG" 2>&1 || true
     fi
     if [ "$CANCELLED" = 1 ] && valid_mac "$TARGET"; then
         # Cancel only this reconnect's pending BlueZ request, not Bluetooth services.
-        timeout 3 "$BT" disconnect "$TARGET" >> "$SESSION_LOG" 2>&1 || true
+        timeout -s KILL 3 "$BT" disconnect "$TARGET" >> "$SESSION_LOG" 2>&1 || true
     fi
     # Release the radio lock before report collection, which can take several seconds.
     if [ "$OWNED" = 1 ] && [ "$(cat "$LOCK/pid" 2>/dev/null)" = "$$" ]; then rm -rf "$LOCK"; fi
@@ -462,7 +464,7 @@ wait_audio_transport() {
         check_cancel
         # Connected is only the Bluetooth link. Require the selected device's
         # A2DP playback PCM before publishing a route or claiming success.
-        bounded timeout 3 dbus-send --system --print-reply --dest=org.bluealsa /org/bluealsa \
+        bounded timeout -s KILL 3 dbus-send --system --print-reply --dest=org.bluealsa /org/bluealsa \
             org.freedesktop.DBus.ObjectManager.GetManagedObjects > "$WORK/pcms" 2>&1 || true
         if grep -Eq "object path \"/org/bluealsa/hci[0-9]+/dev_$device/a2dpsrc/sink\"" "$WORK/pcms"; then return 0; fi
         n=$((n + 1))
@@ -521,6 +523,12 @@ connect() {
     [ -z "$CONNECT_REASON" ] || fail "Connection failed: $CONNECT_REASON"
     if automatic; then wait_property Connected 8; else wait_property Connected 20; fi
     wait_audio_transport
+    check_cancel
+    # A PCM can outlive a disconnected link briefly. Recheck after endpoint
+    # discovery so a disconnect during setup cannot replace a working output.
+    info=$(bt info "$TARGET") || fail 'Could not verify the Bluetooth audio connection'
+    printf '%s\n' "$info" | grep -q '^[[:space:]]*Connected: yes[[:space:]]*$' ||
+        fail 'Headphones disconnected before audio was ready'
     check_cancel
     mkdir -p "$ROOT/Config"
     rm -f "$OFF"
@@ -604,8 +612,8 @@ case "$VERB" in
             *) route ''; output=speaker ;;
         esac
         # Do not start services merely to shut them down.
-        timeout 3 "$BT" pairable off >/dev/null 2>&1 || true
-        timeout 3 "$BT" discoverable off >/dev/null 2>&1 || true
+        timeout -s KILL 3 "$BT" pairable off >/dev/null 2>&1 || true
+        timeout -s KILL 3 "$BT" discoverable off >/dev/null 2>&1 || true
         # BlueZ owns the live UART controller. rfkill may remove chip power
         # while hciattach still holds the initialized transport, breaking On.
         # Keep the transport attached and disable the radio through BlueZ only.
