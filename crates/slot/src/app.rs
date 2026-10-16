@@ -373,6 +373,8 @@ pub struct App {
     video_mode: VideoMode,
     link: Option<LinkSession>,
     sfx: Option<Sfx>,
+    click_at: Option<Millis>,
+    click_variant: u8,
     polaroids: Option<Polaroids>,
     pending: Option<(PendingUndo, Millis)>,
     legend_faces: Vec<TexId>,
@@ -550,6 +552,8 @@ impl App {
             video_mode: VideoMode::default(),
             link: None,
             sfx: None,
+            click_at: None,
+            click_variant: 0,
             polaroids: None,
             pending: None,
             legend_faces: Vec::new(),
@@ -2652,8 +2656,21 @@ impl App {
         let next = match &mut self.phase {
             Phase::Shelf => {
                 let shelf = &mut self.shelves[at].1;
+                let before = shelf.scroll.round() as i32;
                 shelf.tick(now);
                 shelf.update(dt);
+                if before != shelf.scroll.round() as i32
+                    && self.bluetooth.is_none()
+                    && self.core_picker.is_none()
+                    && self.favorite_departure.is_none()
+                    && !self.powering_off && !self.restarting
+                    && self.click_at.is_none_or(|at| now.saturating_sub(at) >= 35)
+                    && self.sfx.is_none()
+                {
+                    self.click_variant = self.click_variant.wrapping_add(1);
+                    self.sfx = Some(Sfx::Cartridge(self.click_variant % 5));
+                    self.click_at = Some(now);
+                }
                 None
             }
             Phase::Inserting {
