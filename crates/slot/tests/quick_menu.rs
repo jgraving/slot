@@ -231,6 +231,7 @@ fn up_and_down_move_the_bar_and_wrap_at_the_ends() {
     for want in [
         QuickRow::General,
         QuickRow::Screen,
+        QuickRow::Bluetooth,
         QuickRow::Game,
         QuickRow::About,
         QuickRow::General,
@@ -658,7 +659,7 @@ fn fake_faces(a: &mut App) {
     let id = TexId::from_raw;
     a.set_quick_menu_faces(QuickMenuFaces {
         labels: (0..QuickRow::ALL.len())
-            .map(|i| [(id(100 + i), 200, 40), (id(130 + i), 200, 40)])
+            .map(|i| [(id(100 + i), 200, 40), (id(150 + i), 200, 40)])
             .collect(),
         pointer: (id(700), 32, 48),
         values: (0..QuickValue::ALL.len())
@@ -685,7 +686,7 @@ fn fake_faces(a: &mut App) {
 
 fn label(row: QuickRow, lit: bool) -> usize {
     if lit {
-        130 + row.index()
+        150 + row.index()
     } else {
         100 + row.index()
     }
@@ -769,8 +770,9 @@ fn the_carousel_menu_keeps_the_empty_footer_where_the_shelf_left_it() {
         "Open is not on the right: {right}"
     );
     assert!(!drawn(&open, 403), "Resume is on the carousel menu");
-    press(&mut a, Btn::Down);
-    press(&mut a, Btn::Down);
+    for _ in 0..3 {
+        press(&mut a, Btn::Down);
+    }
     press(&mut a, Btn::A);
     assert_eq!(a.quick_menu(), Some(QuickRow::FastForward));
     for _ in 0..30 {
@@ -811,7 +813,7 @@ fn the_legend_says_change_on_a_value_row_and_open_on_a_row_that_opens() {
     let (_d, mut a, _) = on_carousel();
     fake_faces(&mut a);
     a.apply(Action::QuickMenu);
-    for row in QuickRow::MAIN {
+    for row in QuickRow::General.shown(a.hidden_rows()) {
         assert_eq!(a.quick_menu(), Some(row));
         let out = frame(&a);
         assert!(drawn(&out, 400), "no B BACK on {row:?}");
@@ -867,7 +869,7 @@ fn the_pointer_stands_left_of_the_selected_row_and_only_it_is_lit() {
     let (_d, mut a, _) = on_carousel();
     fake_faces(&mut a);
     a.apply(Action::QuickMenu);
-    for row in QuickRow::MAIN {
+    for row in QuickRow::General.shown(a.hidden_rows()) {
         let out = frame(&a);
         let pointers: Vec<_> = out
             .iter()
@@ -885,7 +887,11 @@ fn the_pointer_stands_left_of_the_selected_row_and_only_it_is_lit() {
             ly + lh / 2.0,
             "{row:?}: the pointer is off the row"
         );
-        for other in QuickRow::MAIN.into_iter().filter(|r| *r != row) {
+        for other in QuickRow::General
+            .shown(a.hidden_rows())
+            .into_iter()
+            .filter(|r| *r != row)
+        {
             assert!(drawn(&out, label(other, false)), "{other:?} is not grey");
             assert!(!drawn(&out, label(other, true)), "{other:?} is lit");
         }
@@ -968,7 +974,7 @@ fn no_row_in_hand_runs_its_arrows_into_its_label() {
             .enumerate()
             .map(|(i, r)| {
                 let w = slot_ui::quick_label_face(*r, true).w;
-                [(id(100 + i), w, 40), (id(130 + i), w, 40)]
+                [(id(100 + i), w, 40), (id(150 + i), w, 40)]
             })
             .collect(),
         pointer: (id(700), 32, 48),
@@ -1012,7 +1018,7 @@ fn no_row_in_hand_runs_its_arrows_into_its_label() {
             }
             open_at(&mut a, row);
             let out = frame(&a);
-            let [lx, _, lw, _] = placed(&out, 130 + row.index()).expect("the lit label");
+            let [lx, _, lw, _] = placed(&out, 150 + row.index()).expect("the lit label");
             let label_ends = lx + lw - MENU_PAD as f32;
             if let Some([cx, ..]) = placed(&out, 300) {
                 assert!(

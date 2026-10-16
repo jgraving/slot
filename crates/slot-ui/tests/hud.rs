@@ -83,7 +83,7 @@ fn the_hud_draws_a_dark_plate_behind_itself() {
 
 #[test]
 fn muted_volume_uses_the_muted_icon() {
-    assert_eq!(HudKind::Volume.icon(0, false, false), Icon::VolumeZero);
+    assert_eq!(HudKind::Volume.icon(0, false, false), Icon::VolumeMuted);
     assert_eq!(HudKind::Volume.icon(0, true, false), Icon::VolumeMuted);
     assert_eq!(HudKind::Volume.icon(40, true, false), Icon::VolumeMuted);
     assert_eq!(HudKind::Volume.icon(40, false, false), Icon::Volume);
@@ -246,7 +246,79 @@ fn the_link_badge_outranks_fast_forward() {
 #[test]
 fn volume_on_headphones_shows_headphones() {
     assert_eq!(HudKind::Volume.icon(40, false, true), Icon::Headphones);
-    assert_eq!(HudKind::Volume.icon(0, false, true), Icon::Headphones);
+    assert_eq!(HudKind::Volume.icon(0, false, true), Icon::HeadphonesMuted);
     assert_eq!(HudKind::Volume.icon(40, true, true), Icon::HeadphonesMuted);
     assert_eq!(HudKind::Brightness.icon(4, false, true), Icon::Brightness);
+}
+
+#[test]
+fn audio_notice_keeps_volume_bar_visible_below_the_text() {
+    let mut hud = Hud::new();
+    hud.set_toasts(
+        slot_ui::Toast::all()
+            .iter()
+            .enumerate()
+            .map(|(i, _)| TexId::from_raw(i + 100))
+            .collect(),
+    );
+    hud.show(HudKind::Volume, 35, false, 0);
+    hud.toast(slot_ui::Toast::BluetoothConnected, 0);
+    let mut out = Vec::new();
+    hud.draw(Canvas::FRAMED, 0, &mut out);
+    assert!(out
+        .iter()
+        .any(|d| matches!(d, Draw::Tex {y, ..} if *y < 40.0)));
+    assert!(out
+        .iter()
+        .any(|d| matches!(d, Draw::Rect {y, w, ..} if *y > 40.0 && (*w - 112.0).abs() < 0.1)));
+    assert!(!hud.visible(1500));
+    assert!(!hud.toast_visible(1500));
+}
+
+#[test]
+fn bluetooth_volume_is_distinct_from_wired_and_retains_mute_mark() {
+    let mut hud = Hud::new();
+    hud.set_headphones(true);
+    hud.show(HudKind::Volume, 45, false, 0);
+    assert_eq!(hud.glyph(), Icon::Headphones);
+    hud.set_bluetooth(true);
+    assert_eq!(hud.glyph(), Icon::Bluetooth);
+    hud.show(HudKind::Volume, 0, false, 0);
+    assert_eq!(hud.glyph(), Icon::BluetoothMuted);
+    hud.show(HudKind::Volume, 45, true, 0);
+    assert_eq!(hud.glyph(), Icon::BluetoothMuted);
+    hud.set_bluetooth(false);
+    hud.set_headphones(false);
+    assert_eq!(hud.glyph(), Icon::VolumeMuted);
+    hud.show(HudKind::Brightness, 5, false, 0);
+    hud.set_bluetooth(true);
+    assert_eq!(hud.glyph(), Icon::Brightness);
+}
+
+#[test]
+fn muted_headphones_render_at_native_width_without_stretching() {
+    let mut hud = Hud::new();
+    hud.set_icons(
+        Icon::ALL
+            .iter()
+            .enumerate()
+            .map(|(i, _)| TexId::from_raw(i + 1))
+            .collect(),
+    );
+    hud.set_headphones(true);
+    hud.show(HudKind::Volume, 0, false, 0);
+    let face = icon_face(Icon::HeadphonesMuted, HUD_ICON_PX, [255; 3]);
+    let mut out = Vec::new();
+    hud.draw(Canvas::FRAMED, 0, &mut out);
+    let (x, w, h) = out
+        .iter()
+        .find_map(|d| match d {
+            Draw::Tex { x, w, h, .. } => Some((*x, *w, *h)),
+            _ => None,
+        })
+        .unwrap();
+    assert_eq!((w, h), (face.w as f32, face.h as f32));
+    assert!(out.iter().any(
+        |d| matches!(d, Draw::Rect {x: bar_x, w: bar_w, ..} if *bar_w == 320. && *bar_x > x + w)
+    ));
 }

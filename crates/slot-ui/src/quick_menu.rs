@@ -49,10 +49,12 @@ pub enum QuickRow {
     GbaBezel,
     ScreenGbc,
     ScreenGb,
+    Bluetooth,
+    PlaySound,
 }
 
 impl QuickRow {
-    pub const ALL: [QuickRow; 40] = [
+    pub const ALL: [QuickRow; 42] = [
         QuickRow::FastForward,
         QuickRow::FastForwardSound,
         QuickRow::Screen,
@@ -93,11 +95,14 @@ impl QuickRow {
         QuickRow::GbaBezel,
         QuickRow::ScreenGbc,
         QuickRow::ScreenGb,
+        QuickRow::Bluetooth,
+        QuickRow::PlaySound,
     ];
 
-    pub const MAIN: [QuickRow; 4] = [
+    pub const MAIN: [QuickRow; 5] = [
         QuickRow::General,
         QuickRow::Screen,
+        QuickRow::Bluetooth,
         QuickRow::Game,
         QuickRow::About,
     ];
@@ -150,7 +155,11 @@ impl QuickRow {
         QuickRow::ExitGame,
     ];
 
-    pub const SETTINGS: [QuickRow; 2] = [QuickRow::PlayScreen, QuickRow::PlayGameplay];
+    pub const SETTINGS: [QuickRow; 3] = [
+        QuickRow::PlayScreen,
+        QuickRow::PlaySound,
+        QuickRow::PlayGameplay,
+    ];
 
     pub const PLAY_SCREEN: [QuickRow; 4] = [
         QuickRow::Shader,
@@ -192,7 +201,9 @@ impl QuickRow {
             QuickRow::Resume | QuickRow::States | QuickRow::Settings | QuickRow::ExitGame => {
                 &QuickRow::PLAY
             }
-            QuickRow::PlayScreen | QuickRow::PlayGameplay => &QuickRow::SETTINGS,
+            QuickRow::PlayScreen | QuickRow::PlaySound | QuickRow::PlayGameplay => {
+                &QuickRow::SETTINGS
+            }
             QuickRow::Shader | QuickRow::ColourCorrection | QuickRow::Palette | QuickRow::Bezel => {
                 &QuickRow::PLAY_SCREEN
             }
@@ -269,6 +280,7 @@ impl QuickRow {
             QuickRow::Rumble => "Rumble",
             QuickRow::DateTime => "Date & Time",
             QuickRow::About => "About",
+            QuickRow::Bluetooth | QuickRow::PlaySound => "Sound",
             QuickRow::GbaShader => "Shader",
             QuickRow::GbShader => "Shader",
             QuickRow::GbcShader => "Shader",
@@ -310,6 +322,8 @@ impl QuickRow {
         matches!(
             self,
             QuickRow::DateTime
+                | QuickRow::Bluetooth
+                | QuickRow::PlaySound
                 | QuickRow::About
                 | QuickRow::Screen
                 | QuickRow::Game
@@ -566,6 +580,39 @@ pub fn quick_legend_faces(ink: [u8; 3]) -> [UndoFace; 5] {
         with_hint(button_face(ButtonLegend::B), "Resume", hint, true),
         with_hint(button_face(ButtonLegend::X), "Restart", hint, false),
     ]
+}
+
+/// Sound uses the same bitmap buttons and typography as the other menus.
+/// Back goes on the left; Forget and Connect/Select/Change on the right.
+pub fn sound_button_legends(ink: [u8; 3]) -> [UndoFace; 5] {
+    let ink = Some(ink);
+    [
+        with_hint(button_face(ButtonLegend::B), "Back", ink, true),
+        with_hint(button_face(ButtonLegend::A), "Connect", ink, false),
+        with_hint(button_face(ButtonLegend::Y), "Forget", ink, false),
+        with_hint(button_face(ButtonLegend::A), "Select", ink, false),
+        with_hint(
+            button_pair(ButtonLegend::Left, ButtonLegend::Right),
+            "Change",
+            ink,
+            false,
+        ),
+    ]
+}
+
+pub fn sound_forget_confirmation() -> UndoFace {
+    with_hint(
+        button_face(ButtonLegend::Y),
+        "Press again to forget",
+        Some(MENU_INK),
+        true,
+    )
+}
+
+pub fn quick_text_centre() -> f32 {
+    text::label_font()
+        .map(|f| cap_centre(f, MENU_H))
+        .unwrap_or(MENU_H as f32 / 2.)
 }
 
 /// Cancel, Swap, Choose. Swap keeps the button before the word, the way the old arrows did.
