@@ -200,6 +200,10 @@ pub struct SlotState {
     pub blue_light: u8,
     pub volume: u8,
     pub volume_hp: u8,
+    pub volume_bt: Option<u8>,
+    pub muted_bt: bool,
+    pub volume_usb: u8,
+    pub muted_usb: bool,
     pub muted: bool,
     pub muted_hp: bool,
     pub clock_set: bool,
@@ -322,6 +326,10 @@ impl Default for SlotState {
             blue_light: 0,
             volume: 60,
             volume_hp: 60,
+            volume_bt: None,
+            muted_bt: false,
+            volume_usb: 20,
+            muted_usb: false,
             muted: false,
             muted_hp: false,
             clock_set: false,
@@ -405,13 +413,17 @@ fn write_list(root: &Path, name: &str, list: &[Recent]) -> std::io::Result<()> {
 
 pub fn write_slot_state(root: &Path, s: &SlotState) -> std::io::Result<()> {
     let mut text = format!(
-        "cart={}\ncart_platform={}\nbrightness={}\nblue_light={}\nvolume={}\nvolume_hp={}\nmuted={}\nmuted_hp={}\nclock_set={}\nutc_offset_min={}\nrumble={}\nff_speed={}\nff_sound={}\ncolour_correction_gba={}\ncolour_correction_gb={}\nshader_gba={}\nshader_gb={}\neject_save={}\nturbo={}\nrewind={}\nrunahead={}\ngb_palettes={}\ngb_palette={}\nappearance={}\nwallpaper={}\n",
+        "cart={}\ncart_platform={}\nbrightness={}\nblue_light={}\nvolume={}\nvolume_hp={}\nvolume_bt={}\nmuted_bt={}\nvolume_usb={}\nmuted_usb={}\nmuted={}\nmuted_hp={}\nclock_set={}\nutc_offset_min={}\nrumble={}\nff_speed={}\nff_sound={}\ncolour_correction_gba={}\ncolour_correction_gb={}\nshader_gba={}\nshader_gb={}\neject_save={}\nturbo={}\nrewind={}\nrunahead={}\ngb_palettes={}\ngb_palette={}\nappearance={}\nwallpaper={}\n",
         s.cart.as_deref().unwrap_or(""),
         s.cart_platform.map_or(String::new(), platform_key),
         s.brightness,
         s.blue_light,
         s.volume,
         s.volume_hp,
+        s.volume_bt.map(|v| v.to_string()).unwrap_or_default(),
+        s.muted_bt as u8,
+        s.volume_usb,
+        s.muted_usb as u8,
         s.muted as u8,
         s.muted_hp as u8,
         s.clock_set as u8,
@@ -464,6 +476,10 @@ fn parse(text: &str) -> Option<SlotState> {
     let mut blue_light = None;
     let mut volume = None;
     let mut volume_hp = None;
+    let mut volume_bt = None;
+    let mut muted_bt = false;
+    let mut volume_usb = 20;
+    let mut muted_usb = false;
     let mut muted = None;
     let mut muted_hp = None;
     let mut clock_set = None;
@@ -504,6 +520,16 @@ fn parse(text: &str) -> Option<SlotState> {
             "brightness" => brightness = Some(level(value, BRIGHTNESS_MAX)?),
             "blue_light" => blue_light = Some(level(value, BLUE_LIGHT_MAX)?),
             "volume" => volume = Some(level(value, VOLUME_MAX)?),
+            "volume_bt" => volume_bt = value.parse::<u8>().ok().filter(|v| *v <= VOLUME_MAX),
+            "volume_usb" => {
+                volume_usb = value
+                    .parse::<u8>()
+                    .ok()
+                    .filter(|v| *v <= VOLUME_MAX)
+                    .unwrap_or(20)
+            }
+            "muted_usb" => muted_usb = value == "1",
+            "muted_bt" => muted_bt = value == "1",
             "volume_hp" => volume_hp = Some(level(value, VOLUME_MAX)?),
             "muted" => muted = Some(level(value, 1)? == 1),
             "muted_hp" => muted_hp = Some(level(value, 1)? == 1),
@@ -547,6 +573,10 @@ fn parse(text: &str) -> Option<SlotState> {
         blue_light: blue_light?,
         volume: volume?,
         volume_hp: volume_hp.or(volume)?,
+        volume_bt,
+        muted_bt,
+        volume_usb,
+        muted_usb,
         muted: muted?,
         muted_hp: muted_hp.or(muted)?,
         clock_set: clock_set?,

@@ -8,8 +8,9 @@ use slot_store::read_slot_state;
 use slot_ui::Icon;
 
 #[test]
-fn speaker_and_headphones_keep_their_own_volume() {
+fn unplug_uses_disconnect_volume_and_preserves_wired_volume() {
     let d = tmp_root_with_carts(&["Emerald"]);
+    std::fs::write(d.path().join("Config/sound.conf"), "disconnect_volume=20\n").unwrap();
     let (mut a, jack) = app_playing_with_jack(d.path(), "Emerald");
     let speaker = a.volume();
 
@@ -35,8 +36,8 @@ fn speaker_and_headphones_keep_their_own_volume() {
     a.tick_ms(at);
     assert_eq!(
         a.volume(),
-        speaker,
-        "the speaker came back at the headphone level"
+        20,
+        "the speaker did not use the disconnect setting"
     );
     assert_eq!(a.hud_icon(), Icon::Volume);
 
@@ -51,14 +52,13 @@ fn speaker_and_headphones_keep_their_own_volume() {
 
     a.flush_state();
     let saved = read_slot_state(d.path());
-    assert_eq!((saved.volume, saved.volume_hp), (speaker, headphones));
+    assert_eq!((saved.volume, saved.volume_hp), (20, headphones));
 }
 
 #[test]
-fn muting_the_headphones_leaves_the_speaker_alone() {
+fn unplug_defaults_to_silence_without_forgetting_wired_mute() {
     let d = tmp_root_with_carts(&["Emerald"]);
     let (mut a, jack) = app_playing_with_jack(d.path(), "Emerald");
-    let speaker = a.volume();
 
     jack.store(true, Ordering::Relaxed);
     let at = a.now() + 1_000;
@@ -70,7 +70,11 @@ fn muting_the_headphones_leaves_the_speaker_alone() {
     jack.store(false, Ordering::Relaxed);
     let at = a.now() + 1_000;
     a.tick_ms(at);
-    assert_eq!(a.output_volume(), speaker, "the speaker came back muted");
+    assert_eq!(
+        a.output_volume(),
+        0,
+        "default disconnect volume must be silent"
+    );
 
     jack.store(true, Ordering::Relaxed);
     let at = a.now() + 1_000;
@@ -83,5 +87,5 @@ fn muting_the_headphones_leaves_the_speaker_alone() {
 
     a.flush_state();
     let saved = read_slot_state(d.path());
-    assert_eq!((saved.muted, saved.muted_hp), (false, true));
+    assert_eq!((saved.muted, saved.muted_hp), (true, true));
 }

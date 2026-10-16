@@ -136,6 +136,8 @@ fn unstarring_on_the_favorites_shelf_takes_the_cart_off_it() {
     press(&mut a, Btn::Y);
     assert_eq!(a.toast(), None);
     assert_eq!(a.shelf_platform_name(), Some("Favorites"));
+    assert_eq!(a.selected_stem(), Some("Emerald"), "keep the departing cart until it is offscreen");
+    a.tick_ms(a.now() + 451);
     assert_eq!(a.selected_stem(), Some("Tetris"));
     assert_eq!(
         read_slot_state(d.path()).favorites,
@@ -158,6 +160,9 @@ fn unstarring_the_last_favorite_leaves_the_empty_shelf() {
     assert_eq!(a.shelf_platform_name(), Some("Favorites"));
     assert_eq!(read_slot_state(d.path()).favorites.len(), 1);
     press(&mut a, Btn::Y);
+    assert_eq!(a.shelf_platform_name(), Some("Favorites"));
+    assert!(read_slot_state(d.path()).favorites.is_empty(), "save before animation finishes");
+    a.tick_ms(a.now() + 451);
     assert_ne!(a.shelf_platform_name(), Some("Favorites"));
     assert!(read_slot_state(d.path()).favorites.is_empty());
     assert!(!names(&mut a).contains(&"Favorites"));
@@ -273,4 +278,22 @@ fn prompt_fades_above_the_selected_cart_then_disappears_on_cancel() {
     press(&mut a, Btn::B);
     draws.clear(); a.draw(&mut draws);
     assert!(!draws.iter().any(|d| matches!(d, slot_ui::Draw::Tex { tex: t, .. } if *t == tex)));
+}
+
+#[test]
+fn confirmed_departure_blocks_navigation_but_not_power_or_lid() {
+    for interrupt in [Action::PowerHold, Action::LidClose] {
+        let (d, mut a) = two_favorites();
+        press(&mut a, Btn::Y);
+        press(&mut a, Btn::Y);
+        for action in [Action::ShelfRight, Action::Insert, Action::GbaDown(Btn::Y), Action::QuickMenu] {
+            a.apply(action);
+            assert_eq!(a.selected_stem(), Some("Emerald"));
+            assert!(matches!(a.phase(), Phase::Shelf));
+        }
+        a.apply(interrupt);
+        assert_eq!(read_slot_state(d.path()).favorites, [favorite(Platform::Gba, "Fusion")]);
+        if interrupt == Action::PowerHold { assert!(a.powering_off()); }
+        else { assert!(matches!(a.phase(), Phase::Doze { .. })); }
+    }
 }

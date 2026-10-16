@@ -3,9 +3,7 @@ use slot_store::{Cart, Platform};
 use std::sync::OnceLock;
 
 use crate::board::{board_in, Placed};
-use crate::cart::{
-    cart_box, gb_shell_of, is_clear, label_colour, label_rect, label_text, CART_H, CART_W,
-};
+use crate::cart::{cart_box, gb_shell_of, is_clear, label_colour, label_text, CART_H, CART_W};
 use crate::hud::Millis;
 use crate::silhouette::GbShell;
 use crate::slot_chrome::{draw_empty_slot, MOUTH_H};
@@ -34,9 +32,9 @@ const SLOTS: i32 = 3;
 
 pub const REPEAT_DELAY_MS: Millis = 400;
 
-pub const STAR_SCALE: u32 = 2;
+pub const STAR_SCALE: u32 = 3;
 pub const STAR_INK: [u8; 3] = [0xf6, 0xc3, 0x2c];
-const STAR_INSET: f32 = 5.0;
+
 const REPEAT_MS: [Millis; 4] = [110, 85, 65, 50];
 
 pub fn repeat_gap(fired: usize) -> Millis {
@@ -129,6 +127,16 @@ impl Shelf {
 
     pub fn set_star(&mut self, face: TexId, w: u32, h: u32) {
         self.star = Some((face, w as f32, h as f32));
+    }
+
+    pub fn star_for(&self, stem: &str) -> Option<(TexId, f32, f32)> {
+        let i = self.carts.iter().position(|c| c.stem == stem)?;
+        self.starred
+            .get(i)
+            .copied()
+            .unwrap_or(false)
+            .then_some(self.star)
+            .flatten()
     }
 
     pub fn mark_starred(&mut self, starred: impl Fn(&Cart) -> bool) {
@@ -431,6 +439,18 @@ impl Shelf {
         dim: f32,
         out: &mut Vec<Draw>,
     ) {
+        self.draw_row_departure(canvas, hidden, shake, recede, dim, None, out);
+    }
+
+    /// Reuse the cartridge layers and insertion easing, travelling out above the panel.
+    pub fn draw_departing(&self, canvas: Canvas, progress: f32,
+        slot: Option<(TexId, TexId)>, out: &mut Vec<Draw>) {
+        self.draw_row_departure(canvas, None, 0.0, 0.0, 1.0, Some(progress), out);
+        draw_empty_slot(canvas, slot, out);
+    }
+
+    fn draw_row_departure(&self, canvas: Canvas, hidden: Option<&str>, shake: f32,
+        recede: f32, dim: f32, departure: Option<f32>, out: &mut Vec<Draw>) {
         let recede = recede.clamp(0.0, 1.0);
         let dim = dim.clamp(0.0, 1.0);
         let target = self.scroll_target();
@@ -445,16 +465,23 @@ impl Shelf {
             let offset = target + slot as f32 - self.scroll;
             let t = offset.abs().min(1.0);
             let scale = shrink(offset);
+            let depart = if i == self.index {
+                crate::ease(departure.unwrap_or(0.0).clamp(0.0, 1.0))
+            } else { 0.0 };
             let alpha = (1.0 + (SIDE_ALPHA - 1.0) * t) * (1.0 - recede);
             let (cw, ch) = cart_box(cart.platform);
-            let (w, h) = (cw as f32 * scale, ch as f32 * scale);
+            let (w0, h0) = (cw as f32 * scale, ch as f32 * scale);
+            let (sw, sh) = crate::seated_box(cart.platform);
+            let (w, h) = (w0 + (sw as f32 - w0) * depart,
+                h0 + (sh as f32 - h0) * depart);
             let away = offset.signum() * (1.0 + offset.abs());
             let x = self.centre(canvas, slot) - w / 2.0 + away * PART * recede;
             if x + w <= 0.0 || x >= canvas.w || alpha <= 0.0 {
                 continue;
             }
             let x = x + shake;
-            let y = foot_y(ch as f32) - h;
+            let y0 = foot_y(ch as f32) - h0;
+            let y = y0 + (-h - 12.0 - y0) * depart;
             if alpha < 1.0 {
                 let backing = match self.shell(i) {
                     None => self.shadow,
@@ -538,16 +565,15 @@ impl Shelf {
                     }
                 }
             });
-            if let (Some(true), Some((tex, sw, sh))) = (self.starred.get(i), self.star) {
-                let (lx, ly, lw, _) = label_rect(self.shell(i));
-                out.push(Draw::Tex {
-                    x: (x + (lx + lw) * w - sw - STAR_INSET).round(),
-                    y: (y + ly * h + STAR_INSET).round(),
-                    w: sw,
-                    h: sh,
-                    tex,
-                    alpha: alpha * dim,
-                });
+            if let (Some(true), Some(star)) = (self.starred.get(i), self.star) {
+                crate::favorite::draw_star(
+                    cart,
+                    star,
+                    Placed { x, y, w, h },
+                    alpha * dim,
+                    0.0,
+                    out,
+                );
             }
         }
     }

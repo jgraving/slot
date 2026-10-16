@@ -32,6 +32,12 @@ const DOZE_TIMEOUT: Duration = Duration::from_secs(180);
 const ALERT_INK: [u8; 3] = [0xf0, 0xb4, 0x3c];
 
 pub struct Frontend {
+    bluetooth_tex: Option<TexId>,
+    bluetooth_spinner: Vec<TexId>,
+    audio_icon: Option<TexId>,
+    hud_audio_icon: Option<TexId>,
+    audio_icon_key: Option<(u8, bool)>,
+    bluetooth_lines: Vec<String>,
     session: Session,
     start: Instant,
     last: Instant,
@@ -154,6 +160,12 @@ impl Frontend {
             .app_mut()
             .set_power(Power::new(platform, DOZE_TIMEOUT));
         Frontend {
+            bluetooth_tex: None,
+            bluetooth_spinner: Vec::new(),
+            audio_icon: None,
+            hud_audio_icon: None,
+            audio_icon_key: None,
+            bluetooth_lines: Vec::new(),
             session,
             start: now,
             last: now,
@@ -248,8 +260,10 @@ impl Frontend {
         let tex = compositor.create_texture(removal.w, removal.h, &removal.rgba);
         self.session.app_mut().set_favorite_remove_face(tex, removal.w, removal.h);
         let star = slot_ui::star_face(slot_ui::STAR_SCALE, slot_ui::STAR_INK);
-        let id = compositor.create_texture_nearest(star.w, star.h, &star.rgba);
-        self.session.app_mut().set_star_face(id, star.w, star.h);
+        let id = compositor.create_texture(star.w, star.h, &star.rgba);
+        self.session
+            .app_mut()
+            .set_star_face(id, star.w, star.h);
         let shadow = cart_shadow();
         let id = compositor.create_texture(shadow.w, shadow.h, &shadow.rgba);
         self.session.app_mut().set_cart_shadow(id);
@@ -369,6 +383,8 @@ impl Frontend {
         let shadow = cart(faces.chip_shadow);
         let mut up = |f: UndoFace| (compositor.create_texture(f.w, f.h, &f.rgba), f.w, f.h);
         let lines = faces.shutdown.into_iter().map(&mut up).collect();
+        let power_switch =
+            [false, true].map(|light| slot_ui::power_switch_faces(light).map(|face| up(face).0));
         let labels = faces
             .quick_labels
             .into_iter()
@@ -419,6 +435,7 @@ impl Frontend {
         let app = self.session.app_mut();
         app.set_link_badge_faces(link_badges);
         app.set_shutdown_faces(lines);
+        app.set_power_switch_faces(power_switch);
         app.set_quick_menu_faces(QuickMenuFaces {
             labels,
             pointer,
@@ -500,6 +517,81 @@ impl Frontend {
     }
 
     pub fn compose(&mut self, compositor: &mut Compositor) {
+        let bluetooth = self.session.app().bluetooth_active();
+        let usb = self.session.app().usb_audio_active();
+        let kind = if usb {
+            2
+        } else if bluetooth {
+            1
+        } else {
+            0
+        };
+        if usb || bluetooth || self.session.app().wired_audio_active() {
+            let light = self.session.app().light();
+            if self.audio_icon_key != Some((kind, light)) {
+                let face = |ink| {
+                    if bluetooth && !usb {
+                        crate::bluetooth::indicator_face_with_ink(ink)
+                    } else {
+                        let f = slot_ui::icon_face(slot_ui::Icon::Headphones, 20.0, ink);
+                        slot_ui::UndoFace {
+                            rgba: f.rgba,
+                            w: f.w,
+                            h: f.h,
+                        }
+                    }
+                };
+                upload(
+                    compositor,
+                    &mut self.audio_icon,
+                    face(slot_ui::footer_ink(light)),
+                );
+                upload(compositor, &mut self.hud_audio_icon, face(slot_ui::HUD_INK));
+                self.audio_icon_key = Some((kind, light));
+            }
+            self.session.app_mut().audio_indicator = self.audio_icon;
+            self.session.app_mut().hud_audio_indicator = self.hud_audio_icon;
+        } else {
+            self.session.app_mut().audio_indicator = None;
+            self.session.app_mut().hud_audio_indicator = None;
+        }
+
+        let sound_busy = self
+            .session
+            .app()
+            .bluetooth
+            .as_ref()
+            .is_some_and(|m| m.busy());
+        if sound_busy && self.bluetooth_spinner.is_empty() {
+            for frame in 0..12 {
+                self.bluetooth_spinner.push(upload(
+                    compositor,
+                    &mut None,
+                    crate::bluetooth::progress_face(frame),
+                ));
+            }
+        }
+        let progress = if sound_busy {
+            self.bluetooth_spinner
+                .get((self.start.elapsed().as_millis() / 80 % 12) as usize)
+                .copied()
+        } else {
+            None
+        };
+        let sound_footer_ink = slot_ui::footer_ink(self.session.app().light());
+        if let Some(menu) = &mut self.session.app_mut().bluetooth {
+            menu.progress_face = progress;
+            let lines = menu.lines();
+            if lines != self.bluetooth_lines || menu.face.is_none() {
+                menu.face = Some(upload(
+                    compositor,
+                    &mut self.bluetooth_tex,
+                    crate::bluetooth::screen_face_with_ink(&lines, sound_footer_ink),
+                ));
+                self.bluetooth_lines = lines;
+            }
+        }
+
         compositor.set_blue_light(self.session.app().blue_light());
         compositor.set_picture(self.session.app().picture_rect());
         compositor.set_screen_effect(match self.session.app().screen_shader() {

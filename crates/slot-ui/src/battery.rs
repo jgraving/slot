@@ -95,3 +95,16 @@ pub fn draw_gauge(
         });
     }
 }
+
+/// Width including the reserved charging icon and optional percentage.
+pub(crate) fn gauge_width(percent: Printed) -> f32 {
+    BOLT_W
+        + BOLT_GAP
+        + GAUGE_W
+        + NUB_W
+        + if percent.w > 0 {
+            GAP + percent.w as f32
+        } else {
+            0.0
+        }
+}
