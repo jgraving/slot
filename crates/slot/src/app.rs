@@ -362,6 +362,7 @@ pub struct App {
     power_click_at: Option<Millis>,
     root: Option<PathBuf>,
     state: SlotState,
+    display_settings: crate::display_settings::DisplaySettings,
     vol_before: Vec<(u8, bool, Millis)>,
     snapshot: Option<Box<dyn Snapshot>>,
     core: Core,
@@ -545,6 +546,7 @@ impl App {
             power_click_at: None,
             root: None,
             state: SlotState::default(),
+            display_settings: Default::default(),
             vol_before: Vec::new(),
             snapshot: None,
             core: Core::default(),
@@ -629,6 +631,8 @@ impl App {
         app.bluetooth_probe = crate::bluetooth::probe(root);
         app.disconnect_volume = crate::bluetooth::disconnect_volume(root);
         app.state = read_slot_state(root);
+        app.display_settings = crate::display_settings::DisplaySettings::read(root, &app.state);
+        (app.state.brightness, app.state.blue_light) = app.display_settings.current();
         app.power_settings = crate::power_settings::PowerSettings::read(root);
         app.restock_recents();
         app.restock_favorites();
@@ -1961,6 +1965,10 @@ impl App {
     pub fn apply(&mut self, action: Action) {
         if self.wake_guard.is_some_and(|until| std::time::Instant::now() < until) && matches!(action,
             Action::PowerPress | Action::PowerTap | Action::PowerHold) { return; }
+        if action == Action::NightToggle {
+            if !self.shutting_down() && !matches!(self.phase, Phase::Doze { .. }) { self.toggle_night(); }
+            return;
+        }
         if self.favorite_departure.is_some() {
             match action {
                 Action::LidClose | Action::LidOpen | Action::PowerPress |
@@ -2511,10 +2519,35 @@ impl App {
         if let (HudKind::Brightness, Some(power)) = (kind, &mut self.power) {
             power.set_backlight(value);
         }
+        if moved && matches!(kind, HudKind::Brightness | HudKind::BlueLight) {
+            self.display_settings.remember(self.state.brightness, self.state.blue_light);
+            self.save_display();
+        }
         if moved || unmuted {
             self.persist_soon();
         }
         true
+    }
+
+    pub fn night_mode(&self) -> bool { self.display_settings.night }
+
+    fn save_display(&mut self) {
+        if let Some(root) = &self.root {
+            let result = self.display_settings.save(root);
+            self.card_writes.wrote("display.txt", &result);
+        }
+    }
+
+    fn toggle_night(&mut self) {
+        self.display_settings.remember(self.state.brightness, self.state.blue_light);
+        self.display_settings.night = !self.display_settings.night;
+        let (brightness, warmth) = self.display_settings.current();
+        self.state.brightness = brightness;
+        self.state.blue_light = warmth;
+        if let Some(power) = &mut self.power { power.set_backlight(brightness); }
+        self.save_display();
+        self.persist_soon();
+        self.hud.toast(if self.night_mode() { Toast::NightOn } else { Toast::NightOff }, self.now());
     }
 
     fn remember_volume(&mut self) {

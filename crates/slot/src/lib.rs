@@ -48,3 +48,5 @@ mod bluetooth_volume;
 pub mod usb_audio;
 
 pub mod power_settings;
+
+pub mod display_settings;

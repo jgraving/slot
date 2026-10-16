@@ -45,6 +45,7 @@ pub enum Action {
     PowerPress,
     PowerTap,
     PowerHold,
+    NightToggle,
     PowerOff,
     LidClose,
     LidOpen,
@@ -176,6 +177,9 @@ impl Gestures {
             return vec![action];
         }
         if let (true, Some((bit, action))) = (self.chording(now), chord(b)) {
+            if action == Action::NightToggle && self.chord_held & bit != 0 {
+                return Vec::new();
+            }
             self.mark_chorded();
             self.chord_held |= bit;
             return vec![action];
@@ -449,6 +453,7 @@ fn display_chord(b: Btn) -> Option<(u16, Action)> {
 
 fn chord(b: Btn) -> Option<(u16, Action)> {
     Some(match b {
+        Btn::X => (8192, Action::NightToggle),
         Btn::Up | Btn::Down | Btn::Left | Btn::Right => display_chord(b)?,
         Btn::L1 => (16, Action::LoadState),
         Btn::R1 => (32, Action::SaveState),
