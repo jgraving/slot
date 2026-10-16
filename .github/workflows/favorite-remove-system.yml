@@ -1,0 +1,71 @@
+name: Favorite removal PR 36 test build
+
+on:
+  push:
+    branches: [build-favorite-remove-system]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    timeout-minutes: 30
+    name: card tree
+    runs-on: ubuntu-24.04-arm
+    container: rust:1-bullseye
+    outputs:
+      zip: ${{ steps.package.outputs.zip }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: 0c269fd0d9735e47c41c02621c29598bb2bf7732
+
+      - name: Install zip, cmake and Task
+        run: |
+          set -eu
+          sed -i '/bullseye-security/d' /etc/apt/sources.list
+          apt-get -o Acquire::Check-Valid-Until=false update
+          apt-get install -y --no-install-recommends zip cmake
+          curl -fsSL https://taskfile.dev/install.sh | sh -s -- -b /usr/local/bin
+
+      - name: Build the tree
+        run: task dist:device OUT="slot-favorite-remove-pr34"
+
+      - name: Check what is about to ship
+        run: |
+          set -eu
+          out="slot-favorite-remove-pr34"
+          file "$out/System/slot" | grep -q aarch64
+          file "$out/System/mgba_libretro.so" | grep -q aarch64
+          file "$out/System/gpsp_libretro.so" | grep -q aarch64
+          test -x "$out/System/slot"
+          gpsp_src_sha="$(cat vendor/gpsp-src.sha)"
+          test -f "$out/System/licenses/gpsp-${gpsp_src_sha}.tar.gz"
+          test -f "$out/System/licenses/gpsp-${gpsp_src_sha}.meta"
+          for p in cores/gpsp/*.patch; do
+            test -f "$out/System/licenses/gpsp-$(basename "$p")"
+          done
+          mgba_src_commit="$(grep '^commit=' vendor/mgba_libretro.so.meta | cut -d= -f2)"
+          test -f "$out/System/licenses/mgba-${mgba_src_commit}.meta"
+          for p in cores/mgba/*.patch; do
+            test -f "$out/System/licenses/mgba-$(basename "$p")"
+          done
+
+      - name: Package
+        id: package
+        run: |
+          set -eu
+          out="slot-favorite-remove-pr34"
+          printf 'Source: 0c269fd0d9735e47c41c02621c29598bb2bf7732\n' > "$out/System/favorite-remove-build.txt"
+          zip="slot-favorite-remove-System-0c269fd.zip"
+          (cd "$out" && zip -qry "../$zip" System && zip -qry ../slot-favorite-remove-install-0c269fd.zip .)
+          echo "zip=$zip" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ${{ steps.package.outputs.zip }}
+          path: |
+            ${{ steps.package.outputs.zip }}
+            slot-favorite-remove-install-0c269fd.zip
+          if-no-files-found: error
