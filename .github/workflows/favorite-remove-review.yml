@@ -1,0 +1,48 @@
+name: Favorite removal confirmation review
+on:
+  push:
+    branches: [build-favorite-remove-confirm]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  tests:
+    runs-on: ubuntu-24.04-arm
+    container: rust:1-bullseye
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: e2dc0cbaa2e09665cb2b2cf4461d18fccdc4ccb3
+      - name: Favorite behavior and nearby UI regressions
+        run: |
+          cargo test -p slot --no-default-features --test favorites --test last_shelf --test quick_menu
+          cargo test -p slot-ui --lib --test legend
+  preview:
+    runs-on: macos-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: e2dc0cbaa2e09665cb2b2cf4461d18fccdc4ccb3
+      - name: Recorder dependencies
+        run: |
+          command -v ffmpeg || brew install ffmpeg
+          python3 -m venv /tmp/preview-env
+          /tmp/preview-env/bin/pip install Pillow
+      - name: Record actual app input and OpenGL output
+        run: |
+          mkdir -p preview-frames
+          cargo run -p slot --example favorite_remove_fixture -- /tmp/favorites-preview
+          cargo run -p slot --example record -- /tmp/favorites-preview previews/favorite-remove.script favorite-remove.mp4
+          ffmpeg -v error -i favorite-remove.mp4 -vf fps=20 preview-frames/%04d.png
+          /tmp/preview-env/bin/python tools/opaque_preview_gif.py preview-frames favorite-remove.gif
+          cp preview-frames/0035.png favorite-remove-still.png
+      - uses: actions/upload-artifact@v7
+        with:
+          name: favorite-removal-preview
+          path: |
+            favorite-remove.gif
+            favorite-remove.mp4
+            favorite-remove-still.png
+          if-no-files-found: error
