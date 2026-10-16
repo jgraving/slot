@@ -19,14 +19,14 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: 1c60e07cff91011d4396226cb842454cb10d6a6a
+          ref: e9f556ca9d5fbc6f2eb6e505621fc87745358443
 
       - name: Install zip, cmake and Task
         run: |
           set -eu
           sed -i '/bullseye-security/d' /etc/apt/sources.list
           apt-get -o Acquire::Check-Valid-Until=false update
-          apt-get install -y --no-install-recommends zip cmake
+          apt-get install -y --no-install-recommends zip cmake python3-pil
           curl -fsSL https://taskfile.dev/install.sh | sh -s -- -b /usr/local/bin
 
       - name: Build the tree
@@ -62,8 +62,8 @@ jobs:
         run: |
           set -eu
           out="slot-power-pr35"
-          printf 'Source: 1c60e07cff91011d4396226cb842454cb10d6a6a\n' > "$out/System/power-switch-build.txt"
-          zip="slot-power-System-1c60e07.zip"
+          printf 'Source: e9f556ca9d5fbc6f2eb6e505621fc87745358443\n' > "$out/System/power-switch-build.txt"
+          zip="slot-power-System-e9f556c.zip"
           (cd "$out" && zip -qry "../$zip" System)
           sha256sum "$zip" > "$zip.sha256"
           echo "zip=$zip" >> "$GITHUB_OUTPUT"
@@ -73,5 +73,16 @@ jobs:
           name: ${{ steps.package.outputs.zip }}
           path: |
             ${{ steps.package.outputs.zip }}
-            slot-power-System-1c60e07.zip.sha256
+            slot-power-System-e9f556c.zip.sha256
+          if-no-files-found: error
+
+      - name: Regenerate review GIF from production draws
+        run: |
+          cargo run -p slot-ui --example power_switch_preview -- /tmp/power-switch
+          python3 tools/power-switch-gif.py /tmp/power-switch previews/power-switch.gif
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: power-switch-preview-e9f556c
+          path: previews/power-switch.gif
           if-no-files-found: error
