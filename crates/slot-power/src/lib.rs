@@ -49,6 +49,17 @@ pub trait Platform: Send {
     fn set_clock(&mut self, secs: i64);
     fn set_rumble(&mut self, strength: u16);
 
+    fn supports_deep_sleep(&self) -> bool {
+        false
+    }
+
+    fn suspend(&mut self, _timeout: Option<Duration>) -> std::io::Result<bool> {
+        Err(std::io::Error::new(
+            std::io::ErrorKind::Unsupported,
+            "Deep sleep unavailable",
+        ))
+    }
+
     fn relink_adb(&mut self) -> bool {
         false
     }

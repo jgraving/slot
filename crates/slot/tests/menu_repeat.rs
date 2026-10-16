@@ -48,12 +48,12 @@ fn a_held_down_walks_the_menu_rows_after_a_pause_and_stops_on_release() {
     at(&mut a, T + 400);
     assert_eq!(a.quick_menu(), Some(QuickRow::MAIN[2]));
     at(&mut a, T + 510);
-    assert_eq!(a.quick_menu(), Some(QuickRow::Bluetooth));
+    assert_eq!(a.quick_menu(), Some(QuickRow::MAIN[3]));
     a.apply_at(Action::GbaUp(Btn::Down), T + 520);
     at(&mut a, T + 5_000);
     assert_eq!(
         a.quick_menu(),
-        Some(QuickRow::Bluetooth),
+        Some(QuickRow::MAIN[3]),
         "it kept going after the release"
     );
 }

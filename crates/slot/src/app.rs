@@ -415,6 +415,9 @@ pub struct App {
     clock: f64,
     power: Option<Power>,
     dozed_at: Millis,
+    power_settings: crate::power_settings::PowerSettings,
+    suspend_pending: bool,
+    wake_guard: Option<std::time::Instant>,
     woke_on_press: bool,
     autosave_at: Millis,
     pending_save: Option<std::thread::JoinHandle<()>>,
@@ -591,6 +594,9 @@ impl App {
             clock: 0.0,
             power: None,
             dozed_at: 0,
+            power_settings: Default::default(),
+            suspend_pending: false,
+            wake_guard: None,
             woke_on_press: false,
             autosave_at: AUTOSAVE_MS,
             pending_save: None,
@@ -617,6 +623,7 @@ impl App {
         app.bluetooth_probe = crate::bluetooth::probe(root);
         app.disconnect_volume = crate::bluetooth::disconnect_volume(root);
         app.state = read_slot_state(root);
+        app.power_settings = crate::power_settings::PowerSettings::read(root);
         app.restock_recents();
         app.restock_favorites();
         if let Some((at, i)) = app.remembered_seat() {
@@ -910,6 +917,11 @@ impl App {
 
     pub fn quick_value(&self, row: QuickRow) -> Option<QuickValue> {
         match row {
+            QuickRow::Power | QuickRow::SleepNow | QuickRow::ShutDown => None,
+            QuickRow::LidClose => Some([QuickValue::LightSleep, QuickValue::DeepSleep,
+                QuickValue::PowerOff][self.power_settings.lid_close as usize]),
+            QuickRow::SleepTimeout => Some([QuickValue::Minutes3, QuickValue::Minutes15,
+                QuickValue::Minutes30, QuickValue::Never][self.power_settings.sleep_timeout as usize]),
             QuickRow::Shader | QuickRow::ColourCorrection => {
                 self.quick_value(self.playing_row(row))
             }
@@ -1941,6 +1953,8 @@ impl App {
     }
 
     pub fn apply(&mut self, action: Action) {
+        if self.wake_guard.is_some_and(|until| std::time::Instant::now() < until) && matches!(action,
+            Action::PowerPress | Action::PowerTap | Action::PowerHold) { return; }
         if self.favorite_departure.is_some() {
             match action {
                 Action::LidClose | Action::LidOpen | Action::PowerPress |
@@ -1960,7 +1974,7 @@ impl App {
         }
         self.track_held_dir(action);
         match action {
-            Action::LidClose => return self.doze(),
+            Action::LidClose => return self.lid_close(),
             Action::LidOpen => return self.wake(),
             Action::PowerPress => {
                 if self.link_active() {
@@ -2179,6 +2193,12 @@ impl App {
 
     fn open_quick_row(&mut self, row: QuickRow) {
         match row {
+            QuickRow::SleepNow => {
+                self.doze();
+                self.suspend_pending = self.power_settings.lid_close == 1;
+            }
+            QuickRow::ShutDown => self.hold_power(),
+            QuickRow::LidClose | QuickRow::SleepTimeout => {},
             QuickRow::Bluetooth => {
                 if let Some(root) = &self.root {
                     let mut menu =
@@ -2191,7 +2211,7 @@ impl App {
                 self.phase = clock_screen(self.utc_secs(), self.state.utc_offset_min, true);
             }
             QuickRow::About => self.phase = Phase::About,
-            QuickRow::Screen
+            QuickRow::Power | QuickRow::Screen
             | QuickRow::Game
             | QuickRow::General
             | QuickRow::ScreenGba
@@ -2239,6 +2259,26 @@ impl App {
     }
 
     fn change_setting(&mut self, row: QuickRow, right: bool) {
+        if matches!(row, QuickRow::LidClose | QuickRow::SleepTimeout) {
+            let (value, count) = if row == QuickRow::LidClose {
+                (&mut self.power_settings.lid_close, 3)
+            } else { (&mut self.power_settings.sleep_timeout, 4) };
+            *value = (*value + if right { 1 } else { count - 1 }) % count;
+            if row == QuickRow::LidClose && self.power_settings.lid_close == 1 {
+                if self.power.as_ref().is_some_and(|p| p.supports_deep_sleep()) {
+                    self.hud.toast(Toast::DeepSleepWake, self.now());
+                } else {
+                    self.power_settings.lid_close = if right { 2 } else { 0 };
+                    self.hud.toast(Toast::SleepUnavailable, self.now());
+                }
+            }
+            if let Some(root) = &self.root {
+                if let Err(e) = self.power_settings.save(root) {
+                    self.card_writes.failed("power settings", &e);
+                }
+            }
+            return;
+        }
         let row = self.playing_row(row);
         if row == QuickRow::Palette {
             let to = match right {
@@ -2355,7 +2395,8 @@ impl App {
             | QuickRow::GbBezel
             | QuickRow::GbcBezel
             | QuickRow::GbaBezel
-            | QuickRow::Bezel => return,
+            | QuickRow::Bezel | QuickRow::Power | QuickRow::SleepNow | QuickRow::ShutDown
+            | QuickRow::LidClose | QuickRow::SleepTimeout => return,
         }
         self.persist();
     }
@@ -4166,6 +4207,52 @@ impl App {
         }
     }
 
+    fn lid_close(&mut self) {
+        match self.power_settings.lid_close {
+            2 => {
+                self.flush_resume();
+                self.begin_power_off();
+            }
+            1 => {
+                self.doze();
+                self.suspend_pending = true;
+            }
+            _ => self.doze(),
+        }
+    }
+
+    pub fn suspend_requested(&self) -> bool {
+        self.suspend_pending && !self.shutting_down()
+            && matches!(self.phase, Phase::Doze { .. })
+    }
+
+    pub fn suspend_if_requested(&mut self) {
+        if !self.suspend_requested() {
+            return;
+        }
+        self.suspend_pending = false;
+        self.settle_saves();
+        let timeout = self.sleep_duration();
+        let result = match &mut self.power {
+            Some(power) => power.suspend(timeout),
+            None => Err(std::io::Error::new(
+                std::io::ErrorKind::Unsupported,
+                "Deep sleep unavailable",
+            )),
+        };
+        if matches!(result, Ok(true)) {
+            self.begin_power_off();
+            return;
+        }
+        // Kernel returns after wake (or failure). Consume the waking Power event.
+        self.wake();
+        self.wake_guard = Some(std::time::Instant::now() + std::time::Duration::from_millis(750));
+        if let Err(e) = result {
+            eprintln!("slot: suspend: {e}");
+            self.hud.toast(Toast::SleepUnavailable, self.now());
+        }
+    }
+
     fn doze(&mut self) {
         if self.link_active() {
             self.end_link();
@@ -4194,6 +4281,7 @@ impl App {
     }
 
     fn wake(&mut self) {
+        self.suspend_pending = false;
         let Phase::Doze { cart } = &mut self.phase else {
             return;
         };
@@ -4611,14 +4699,21 @@ impl App {
         self.begin_power_off();
     }
 
+    fn sleep_duration(&self) -> Option<std::time::Duration> {
+        self.power_settings.duration(self.power.as_ref()
+            .map_or(std::time::Duration::from_secs(180), |p| p.timeout()))
+    }
+
     fn doze_expired(&self) -> bool {
-        if self.link_active() {
+        if self.link_active()
+            || self.suspend_pending
+            || !matches!(self.phase, Phase::Doze { .. })
+            || self.power.is_none()
+        {
             return false;
         }
-        let (Phase::Doze { .. }, Some(power)) = (&self.phase, &self.power) else {
-            return false;
-        };
-        self.now().saturating_sub(self.dozed_at) >= power.timeout().as_millis() as Millis
+        self.sleep_duration()
+            .is_some_and(|t| self.now().saturating_sub(self.dozed_at) >= t.as_millis() as Millis)
     }
 
     pub fn settle_saves(&mut self) {

@@ -435,3 +435,24 @@ fn the_kernel_log_keeps_the_latest_card_lines() {
     assert_eq!(kept.len(), 40);
     assert_eq!(kept.last().unwrap(), "[99] FAT-fs (mmcblk0p7): line 99");
 }
+
+#[test]
+fn deep_sleep_requires_mem_and_a_working_alarm_for_timed_shutdown() {
+    let d = sysfs("255", "87");
+    let mut p = platform(&d);
+    assert!(!p.supports_deep_sleep());
+    assert!(p.suspend(None).is_err());
+    fs::create_dir_all(d.path().join("power")).unwrap();
+    fs::write(d.path().join("power/state"), "freeze mem disk").unwrap();
+    assert!(p.supports_deep_sleep());
+    let policy = d.path().join("class/power_supply/axp2202-battery/os_sleep");
+    fs::write(&policy, "7").unwrap();
+    assert!(p
+        .suspend(Some(std::time::Duration::from_secs(180)))
+        .is_err());
+    assert_eq!(fs::read_to_string(policy).unwrap(), "7");
+    assert_eq!(
+        fs::read_to_string(d.path().join("power/state")).unwrap(),
+        "freeze mem disk"
+    );
+}
