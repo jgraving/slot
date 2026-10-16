@@ -165,7 +165,7 @@ fn foil_has_transparent_edges_and_metallic_tones() {
 }
 
 #[test]
-fn matte_sticker_interior_is_opaque_at_every_texture_size() {
+fn glossy_sticker_interior_is_opaque_at_every_texture_size() {
     // Independent outline, inset from the rounded/antialiased edge. Highlights
     // and texture must never punch holes through to the cartridge label.
     let outline = [
@@ -183,6 +183,7 @@ fn matte_sticker_interior_is_opaque_at_every_texture_size() {
     for scale in [3, 12, 24] {
         let f = star_face(scale, STAR_INK);
         let mut checked = 0;
+        let (mut darkest, mut lightest) = (255u8, 0u8);
         for y in 0..f.h {
             for x in 0..f.w {
                 let (px, py) = (
@@ -204,11 +205,14 @@ fn matte_sticker_interior_is_opaque_at_every_texture_size() {
                 if inside && distance > 5. {
                     let p = &f.rgba[((y * f.w + x) * 4) as usize..][..4];
                     assert_eq!(p[3], 255, "hole at {x},{y}, scale {scale}");
-                    assert!(p[0] < 240, "glossy white highlight at {x},{y}");
+                    assert!(p[0] > p[2].saturating_add(20), "foil lost its gold tint at {x},{y}");
+                    darkest = darkest.min(p[0]);
+                    lightest = lightest.max(p[0]);
                     checked += 1;
                 }
             }
         }
         assert!(checked > 100);
+        assert!(lightest - darkest > 70, "foil reflections need visible contrast");
     }
 }
