@@ -185,39 +185,12 @@ pub fn slot_back_light() -> &'static [u8] {
 
 pub fn slot_front() -> &'static [u8] {
     static P: OnceLock<Vec<u8>> = OnceLock::new();
-    slot_front_with_emblem(SLOT_FRONT_DARK_PNG, slot_back(), &P)
+    load(SLOT_FRONT_DARK_PNG, SLOT_W, SLOT_H, &P)
 }
 
 pub fn slot_front_light() -> &'static [u8] {
     static P: OnceLock<Vec<u8>> = OnceLock::new();
-    slot_front_with_emblem(SLOT_FRONT_LIGHT_PNG, slot_back_light(), &P)
-}
-
-// The play emblem belongs to the front housing. The source back bitmap also
-// contains it, but leaving it only there lets a moving label cover the button.
-fn slot_front_with_emblem(
-    bytes: &'static [u8],
-    back: &[u8],
-    cache: &'static OnceLock<Vec<u8>>,
-) -> &'static [u8] {
-    cache.get_or_init(|| {
-        let (mut front, w, h) = decode_png_bytes(bytes).expect("slot front png decodes");
-        assert_eq!((w, h), (SLOT_W, SLOT_H));
-        for y in 0..SLOT_H {
-            for x in 0..SLOT_W {
-                let dx = (x as f32 + 0.5 - SLOT_W as f32 / 2.0) / 13.0;
-                let dy = (y as f32 + 0.5 - 15.0) / 14.0;
-                let coverage = ((1.0 - (dx * dx + dy * dy).sqrt()) * 13.0).clamp(0.0, 1.0);
-                if coverage > 0.0 {
-                    let i = ((y * SLOT_W + x) * 4) as usize;
-                    front[i..i + 3].copy_from_slice(&back[i..i + 3]);
-                    front[i + 3] = front[i + 3].max((coverage * back[i + 3] as f32).round() as u8);
-                }
-            }
-        }
-        bleed(&mut front, SLOT_W, SLOT_H);
-        front
-    })
+    load(SLOT_FRONT_LIGHT_PNG, SLOT_W, SLOT_H, &P)
 }
 
 pub fn link_port() -> &'static [u8] {

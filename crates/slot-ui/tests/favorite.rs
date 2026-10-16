@@ -212,21 +212,3 @@ fn matte_sticker_interior_is_opaque_at_every_texture_size() {
         assert!(checked > 100);
     }
 }
-
-#[test]
-fn slot_play_emblem_stays_opaque_in_both_themes() {
-    for (front, back) in [
-        (slot_ui::slot_front(), slot_ui::slot_back()),
-        (slot_ui::slot_front_light(), slot_ui::slot_back_light()),
-    ] {
-        for y in 7..23 {
-            for x in 354..366 {
-                let i = ((y * slot_ui::SLOT_W + x) * 4) as usize;
-                assert_eq!(front[i + 3], 255, "transparent emblem at {x},{y}");
-                assert_eq!(&front[i..i + 3], &back[i..i + 3]);
-            }
-        }
-        // The cartridge opening beside the button must remain open.
-        assert_eq!(front[((15 * slot_ui::SLOT_W + 330) * 4 + 3) as usize], 0);
-    }
-}
