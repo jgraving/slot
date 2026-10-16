@@ -94,7 +94,7 @@ fn the_run_ahead_row_offers_off_and_one_frame() {
 fn the_rows_run_in_the_order_the_user_chose() {
     assert_eq!(
         QuickRow::MAIN.map(QuickRow::label),
-        ["General", "Screen", "Sound", "Gameplay", "About"]
+        ["General", "Screen", "Sound", "Gameplay", "Power", "About"]
     );
     assert_eq!(
         QuickRow::GENERAL.map(QuickRow::label),
@@ -154,7 +154,10 @@ fn the_rows_run_in_the_order_the_user_chose() {
             QuickRow::ScreenGbc,
             QuickRow::ScreenGb,
             QuickRow::Bluetooth,
-            QuickRow::PlaySound
+            QuickRow::PlaySound,
+            QuickRow::Power,
+            QuickRow::SleepNow,
+            QuickRow::ShutDown,
         ]
     );
     for page in [
@@ -168,6 +171,7 @@ fn the_rows_run_in_the_order_the_user_chose() {
         &QuickRow::SCREEN_GBA[..],
         &QuickRow::SCREEN_GBC[..],
         &QuickRow::SCREEN_GB[..],
+        &QuickRow::POWER[..],
     ] {
         for &row in page {
             assert_eq!(row.page(), page, "{row:?}");
@@ -214,6 +218,13 @@ fn the_values_read_as_the_menu_prints_them() {
             "25%",
             "45%",
             "65%",
+            "Light Sleep",
+            "Deep Sleep",
+            "Power Off",
+            "3 min",
+            "15 min",
+            "30 min",
+            "Never",
         ]
     );
     assert_eq!(QuickValue::flag(true), QuickValue::On);

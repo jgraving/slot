@@ -233,6 +233,7 @@ fn up_and_down_move_the_bar_and_wrap_at_the_ends() {
         QuickRow::Screen,
         QuickRow::Bluetooth,
         QuickRow::Game,
+        QuickRow::Power,
         QuickRow::About,
         QuickRow::General,
     ] {

@@ -404,6 +404,21 @@ impl Session {
         }
         self.app.set_game_ready(ready);
         self.sync_speed();
+        if self.app.suspend_requested()
+            && self
+                .emu
+                .as_ref()
+                .is_none_or(|e| e.observed_speed() == Speed::Paused)
+        {
+            let ring = self.sink.ring();
+            let was_muted = ring.muted();
+            ring.set_muted(true);
+            self.app.suspend_if_requested();
+            ring.set_muted(was_muted);
+            self.pad.clear();
+            self.gestures = Gestures::new();
+            self.sync_speed();
+        }
         self.sync_rewind_hud();
         self.sync_ff_hud();
         self.sync_rumble();

@@ -51,10 +51,15 @@ pub enum QuickRow {
     ScreenGb,
     Bluetooth,
     PlaySound,
+    Power,
+    LidClose,
+    SleepTimeout,
+    SleepNow,
+    ShutDown,
 }
 
 impl QuickRow {
-    pub const ALL: [QuickRow; 42] = [
+    pub const ALL: [QuickRow; 47] = [
         QuickRow::FastForward,
         QuickRow::FastForwardSound,
         QuickRow::Screen,
@@ -97,14 +102,27 @@ impl QuickRow {
         QuickRow::ScreenGb,
         QuickRow::Bluetooth,
         QuickRow::PlaySound,
+        QuickRow::Power,
+        QuickRow::LidClose,
+        QuickRow::SleepTimeout,
+        QuickRow::SleepNow,
+        QuickRow::ShutDown,
     ];
 
-    pub const MAIN: [QuickRow; 5] = [
+    pub const MAIN: [QuickRow; 6] = [
         QuickRow::General,
         QuickRow::Screen,
         QuickRow::Bluetooth,
         QuickRow::Game,
+        QuickRow::Power,
         QuickRow::About,
+    ];
+
+    pub const POWER: [QuickRow; 4] = [
+        QuickRow::LidClose,
+        QuickRow::SleepTimeout,
+        QuickRow::SleepNow,
+        QuickRow::ShutDown,
     ];
 
     pub const GENERAL: [QuickRow; 6] = [
@@ -174,6 +192,10 @@ impl QuickRow {
 
     pub fn page(self) -> &'static [QuickRow] {
         match self {
+            QuickRow::LidClose
+            | QuickRow::SleepTimeout
+            | QuickRow::SleepNow
+            | QuickRow::ShutDown => &QuickRow::POWER,
             QuickRow::ScreenGba | QuickRow::ScreenGbc | QuickRow::ScreenGb => &QuickRow::SCREEN,
             QuickRow::GbaShader | QuickRow::GbaColourCorrection | QuickRow::GbaBezel => {
                 &QuickRow::SCREEN_GBA
@@ -213,6 +235,7 @@ impl QuickRow {
 
     pub fn parent(self) -> Option<QuickRow> {
         match self.page()[0] {
+            QuickRow::LidClose => Some(QuickRow::Power),
             QuickRow::ScreenGba => Some(QuickRow::Screen),
             QuickRow::GbaShader => Some(QuickRow::ScreenGba),
             QuickRow::GbcShader => Some(QuickRow::ScreenGbc),
@@ -244,6 +267,7 @@ impl QuickRow {
 
     pub fn child(self) -> Option<QuickRow> {
         match self {
+            QuickRow::Power => Some(QuickRow::POWER[0]),
             QuickRow::Screen => Some(QuickRow::SCREEN[0]),
             QuickRow::Game => Some(QuickRow::GAME[0]),
             QuickRow::General => Some(QuickRow::GENERAL[0]),
@@ -274,6 +298,11 @@ impl QuickRow {
 
     pub fn label(self) -> &'static str {
         match self {
+            QuickRow::Power => "Power",
+            QuickRow::LidClose => "Lid Close",
+            QuickRow::SleepTimeout => "Shut Down After",
+            QuickRow::SleepNow => "Sleep Now",
+            QuickRow::ShutDown => "Power Off",
             QuickRow::FastForward => "Fast Forward",
             QuickRow::FastForwardSound => "Fast Forward Sound",
             QuickRow::Screen => "Screen",
@@ -321,7 +350,10 @@ impl QuickRow {
     pub fn opens(self) -> bool {
         matches!(
             self,
-            QuickRow::DateTime
+            QuickRow::Power
+                | QuickRow::SleepNow
+                | QuickRow::ShutDown
+                | QuickRow::DateTime
                 | QuickRow::Bluetooth
                 | QuickRow::PlaySound
                 | QuickRow::About
@@ -371,10 +403,17 @@ pub enum QuickValue {
     Low,
     Medium,
     High,
+    LightSleep,
+    DeepSleep,
+    PowerOff,
+    Minutes3,
+    Minutes15,
+    Minutes30,
+    Never,
 }
 
 impl QuickValue {
-    pub const ALL: [QuickValue; 18] = [
+    pub const ALL: [QuickValue; 25] = [
         QuickValue::Speed2,
         QuickValue::Speed3,
         QuickValue::Speed4,
@@ -393,6 +432,13 @@ impl QuickValue {
         QuickValue::Low,
         QuickValue::Medium,
         QuickValue::High,
+        QuickValue::LightSleep,
+        QuickValue::DeepSleep,
+        QuickValue::PowerOff,
+        QuickValue::Minutes3,
+        QuickValue::Minutes15,
+        QuickValue::Minutes30,
+        QuickValue::Never,
     ];
 
     pub fn index(self) -> usize {
@@ -419,6 +465,13 @@ impl QuickValue {
             QuickValue::Low => "25%",
             QuickValue::Medium => "45%",
             QuickValue::High => "65%",
+            QuickValue::LightSleep => "Light Sleep",
+            QuickValue::DeepSleep => "Deep Sleep",
+            QuickValue::PowerOff => "Power Off",
+            QuickValue::Minutes3 => "3 min",
+            QuickValue::Minutes15 => "15 min",
+            QuickValue::Minutes30 => "30 min",
+            QuickValue::Never => "Never",
         }
     }
 

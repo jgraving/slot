@@ -420,6 +420,71 @@ fn backlight_value(step: u8, max: u32) -> u32 {
 }
 
 impl Platform for DevicePlatform {
+    fn supports_deep_sleep(&self) -> bool {
+        fs::read_to_string(self.sysfs.join("power/state"))
+            .is_ok_and(|s| s.split_whitespace().any(|v| v == "mem"))
+    }
+
+    fn suspend(&mut self, timeout: Option<Duration>) -> std::io::Result<bool> {
+        if !self.supports_deep_sleep() {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::Unsupported,
+                "Deep sleep unavailable",
+            ));
+        }
+        // BaseOS/stock SP Super Standby: POWER wakes; opening the lid does not.
+        let policy = self
+            .sysfs
+            .join("class/power_supply/axp2202-battery/os_sleep");
+        let previous_policy = if policy.exists() {
+            Some(fs::read(&policy)?)
+        } else {
+            None
+        };
+        let alarm = self.sysfs.join("class/rtc/rtc0/wakealarm");
+        let deadline = timeout.map(|t| self.now().saturating_add(t.as_secs() as i64));
+        let previous_alarm = if deadline.is_some() {
+            Some(fs::read_to_string(&alarm)?)
+        } else {
+            None
+        };
+        // Restore shared kernel settings on success, failed suspend, or setup error.
+        let result = (|| {
+            if let Some(at) = deadline {
+                fs::write(&alarm, b"0")?;
+                fs::write(&alarm, at.to_string())?;
+            }
+            if previous_policy.is_some() {
+                fs::write(&policy, b"16")?;
+            }
+            let mixer = "/run/slot-sleep-mixer.state";
+            let saved = Command::new("timeout")
+                .args(["-s", "KILL", "3", "alsactl", "-f", mixer, "store"])
+                .status()
+                .is_ok_and(|s| s.success());
+            let _ = Command::new("sync").status();
+            let result = fs::write(self.sysfs.join("power/state"), b"mem");
+            if saved {
+                let _ = Command::new("timeout")
+                    .args(["-s", "KILL", "3", "alsactl", "-f", mixer, "restore"])
+                    .status();
+                let _ = fs::remove_file(mixer);
+            }
+            result
+        })();
+        let expired = deadline.is_some_and(|at| self.now() >= at);
+        if let Some(old) = previous_alarm {
+            let _ = fs::write(&alarm, b"0");
+            if old.trim().parse::<i64>().is_ok_and(|at| at > self.now()) {
+                let _ = fs::write(&alarm, old);
+            }
+        }
+        if let Some(old) = previous_policy {
+            let _ = fs::write(&policy, old);
+        }
+        result.map(|()| expired)
+    }
+
     fn headphones(&self) -> bool {
         fs::read_to_string(self.sysfs.join("kernel/debug/gpio")).is_ok_and(|g| headphones_in(&g))
     }
