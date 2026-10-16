@@ -175,12 +175,12 @@ pub fn chip() -> &'static [u8] {
 
 pub fn slot_back() -> &'static [u8] {
     static P: OnceLock<Vec<u8>> = OnceLock::new();
-    load(SLOT_BACK_DARK_PNG, SLOT_W, SLOT_H, &P)
+    continuous_slot(SLOT_BACK_DARK_PNG, &P)
 }
 
 pub fn slot_back_light() -> &'static [u8] {
     static P: OnceLock<Vec<u8>> = OnceLock::new();
-    load(SLOT_BACK_LIGHT_PNG, SLOT_W, SLOT_H, &P)
+    continuous_slot(SLOT_BACK_LIGHT_PNG, &P)
 }
 
 pub fn slot_front() -> &'static [u8] {
@@ -288,4 +288,26 @@ pub(crate) fn button_legend(which: ButtonLegend) -> (&'static [u8], u32, u32) {
     });
     let (rgba, w, h) = &all[which as usize];
     (rgba, *w, *h)
+}
+
+// Extend the uninterrupted moulding across the old play emblem. Reuse
+// native pixels from the same horizontal band so both finishes retain their
+// grain, bevels and exact dimensions. Prepared once when textures are loaded.
+fn continuous_slot(bytes: &'static [u8], cache: &'static OnceLock<Vec<u8>>) -> &'static [u8] {
+    cache.get_or_init(|| {
+        let (mut rgba, w, h) = decode_png_bytes(bytes).expect("slot moulding png");
+        assert_eq!((w, h), (SLOT_W, SLOT_H));
+        let original = rgba.clone();
+        let (start, end, source) = (340usize, 381usize, 250usize);
+        for y in 0..h as usize {
+            for x in start..end {
+                let sx = source + x - start;
+                let dst = (y * w as usize + x) * 4;
+                let src = (y * w as usize + sx) * 4;
+                rgba[dst..dst + 4].copy_from_slice(&original[src..src + 4]);
+            }
+        }
+        bleed(&mut rgba, w, h);
+        rgba
+    })
 }
