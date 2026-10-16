@@ -19,7 +19,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: 86a2e03987499f24c2aebc6036c3fb9757939c7b
+          ref: cae769afecead956cf22c2b4dfb4ccc903a526d9
 
       - name: Install zip, cmake and Task
         run: |
@@ -34,8 +34,11 @@ jobs:
 
       - name: Test favorites and power behavior
         run: |
-          cargo test -p slot --no-default-features --test favorites --test power --test cartridge_ticks --test power_click --test sfx --test sleep --test quick_menu --test menu_repeat
-          cargo test -p slot-ui --test favorite --test power_switch --test quick_menu --test toast
+          cargo test -p slot --no-default-features --test favorites --test power --test cartridge_ticks --test power_click --test sfx --test sleep --test quick_menu --test menu_repeat --test night_display -- --test-threads=1
+          cargo test -p slot-ui --test favorite --test power_switch --test quick_menu --test toast --test shelf --test native_shelf --test chrome --test board
+          cargo test -p slot-input --test gesture
+          cargo test -p slot-gfx --no-default-features --test grade
+          cargo test -p slot-power --test device
           python3 card/test-bluetooth.py
 
       - name: Check what is about to ship
@@ -63,9 +66,9 @@ jobs:
         run: |
           set -eu
           out="slot-bluetooth-pr33"
-          printf 'Source: 86a2e03987499f24c2aebc6036c3fb9757939c7b\n' > "$out/System/bluetooth-build.txt"
-          zip="slot-main-System-86a2e03.zip"
-          (cd "$out" && zip -qry "../$zip" System && zip -qry ../slot-main-install-86a2e03.zip .)
+          printf 'Source: cae769afecead956cf22c2b4dfb4ccc903a526d9\n' > "$out/System/bluetooth-build.txt"
+          zip="slot-main-System-cae769a.zip"
+          (cd "$out" && zip -qry "../$zip" System && zip -qry ../slot-main-install-cae769a.zip .)
           echo "zip=$zip" >> "$GITHUB_OUTPUT"
 
       - uses: actions/upload-artifact@v7
@@ -73,5 +76,5 @@ jobs:
           name: ${{ steps.package.outputs.zip }}
           path: |
             ${{ steps.package.outputs.zip }}
-            slot-main-install-86a2e03.zip
+            slot-main-install-cae769a.zip
           if-no-files-found: error
