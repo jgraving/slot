@@ -3,6 +3,8 @@
 <linearGradient id="paint" x2="0" y2="1"><stop stop-color="#b50000"/><stop offset="1" stop-color="#ae0000"/></linearGradient>
 <linearGradient id="metal" x2=".8" y2="1"><stop stop-color="#c8ccca"/><stop offset=".4" stop-color="#a7aeac"/><stop offset="1" stop-color="#707976"/></linearGradient>
 <linearGradient id="throat" x2="0" y2="1"><stop stop-color="#101215"/><stop offset=".15" stop-color="#1d2023"/><stop offset="1" stop-color="#535858"/></linearGradient>
+ <linearGradient id="leftWall" gradientUnits="userSpaceOnUse" x1="233" y1="0" x2="246" y2="0"><stop stop-color="#b20000"/><stop offset=".22" stop-color="#da0000"/><stop offset=".50" stop-color="#b90000"/><stop offset=".80" stop-color="#7c0000"/><stop offset="1" stop-color="#620000"/></linearGradient>
+ <linearGradient id="rightWall" gradientUnits="userSpaceOnUse" x1="474" y1="0" x2="487" y2="0"><stop stop-color="#620000"/><stop offset=".22" stop-color="#8a0000"/><stop offset=".58" stop-color="#c50000"/><stop offset=".80" stop-color="#cd0000"/><stop offset="1" stop-color="#b20000"/></linearGradient>
 </defs>
 <!-- Rear deck and inset throat. Detail proportions measured from the supplied SP close-up. -->
 <path d="M0 0H720V58H0Z" fill="url(#paint)"/>
@@ -32,4 +34,10 @@
 <path d="m303 3 .2 8m23 -7 -.1 6m65 -5 .3 9m16 -10 -.1 7m49 -6 .2 7" stroke="#ca0000"/>
 <path d="m303.5 3 .2 8m23 -7 -.1 6m65 -5 .3 9m16 -10 -.1 7m49 -6 .2 7" stroke="#930000"/>
 </g>
+<!-- Recessed end walls are behind the cartridge grip. Only the front cut edge occludes it. -->
+<!-- Recessed end walls stay inside the aperture. These are the inner returns
+     circled in the reference, not the removed outer device shoulders. -->
+<path d="M233 0H241Q246 0 246 6V22Q246 25 250 26L245 25H233Z" fill="url(#leftWall)"/>
+<path d="M479 0H487V25H475L470 26Q474 25 474 22V6Q474 0 479 0Z" fill="url(#rightWall)"/>
+<path d="M245.5 6V22Q245.5 25 249 26M474.5 6V22Q474.5 25 471 26" fill="none" stroke="#660000" stroke-width=".7"/>
 </svg>

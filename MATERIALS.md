@@ -133,7 +133,8 @@ scaled lower edge to land on an integer pixel.
 The red-circled reference identifies the aperture's recessed end returns. Narrow
 rounded inner walls and contact shadows at x=233..246 and x=474..487 restore this
 volume inside the slot. They do not restore the outside device shoulders or any
-outer shell outline. Their inner edges also occlude the cartridge at the mouth.
+outer shell outline. The end walls belong to the rear layer, so the cartridge grip sits in front of
+them. Only the curved front cut edge occludes the cartridge body.
 
 The lower lip's former face gradient and drop/contact shadow are removed. Depth
 comes from the recessed end walls and slot interior; below the cut edge the

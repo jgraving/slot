@@ -113,12 +113,14 @@ fn power_labels_and_both_dots_have_readable_embossed_relief() {
 #[test]
 fn slot_end_returns_have_recessed_volume_inside_the_aperture() {
     for colour in ShellColour::FINISHES {
-        let front=shell_slot_faces(colour)[1];let at=|x:usize,y:usize|(y*720+x)*4;
-        assert_eq!(front[at(239,10)+3],255);
-        assert_eq!(front[at(481,10)+3],255);
+        let [back,front]=shell_slot_faces(colour);let at=|x:usize,y:usize|(y*720+x)*4;
+        assert_eq!(back[at(239,10)+3],255);
+        assert_eq!(front[at(239,10)+3],0,"grip must pass in front of the left end wall");
+        assert_eq!(back[at(481,10)+3],255);
+        assert_eq!(front[at(481,10)+3],0,"grip must pass in front of the right end wall");
         assert_eq!(front[at(255,10)+3],0);
         assert_eq!(front[at(465,10)+3],0);
-        assert!(front[at(236,12)]>front[at(244,12)]+20,"left depression lost its depth");
-        assert!(front[at(483,12)]>front[at(476,12)]+20,"right depression lost its depth");
+        assert!(back[at(236,12)]>back[at(244,12)]+20,"left depression lost its depth");
+        assert!(back[at(483,12)]>back[at(476,12)]+20,"right depression lost its depth");
     }
 }
