@@ -189,12 +189,9 @@ fn the_card_says_which_tetris_is_in_the_slot() {
     let unstated = resumed_shot(&d, &mut c, None, "resume-unstated");
 
     let (top, bottom) = cartridge_rows(&gba).expect("no cartridge in the slot at all");
-    assert_eq!(
-        cartridge_rows(&gb),
-        Some((top, bottom)),
-        "the two cartridges are not seated at the same depth, so what follows would be \
-         comparing different parts of them"
-    );
+    let (gb_top,gb_bottom)=cartridge_rows(&gb).expect("no GB cartridge");
+    assert!(gb_top+80<top,"the taller GB cartridge must stand farther out");
+    assert_eq!(gb_bottom,bottom,"both cartridges occlude at the same front lip");
     let row = (top + bottom) / 2;
     let (dark, pale) = (centre(&gba, row), centre(&gb, row));
     assert!(

@@ -80,8 +80,8 @@ The accepted cartridge sizes and insertion timing are retained.
 
 Insertion and shelf departure use one width-derived scale for both axes, preserving
 the source cartridge aspect ratio exactly instead of interpolating rounded endpoint
-widths/heights independently. The seated foot uses that same height so every
-platform seats at the same top edge. Tests sample GBA, GB and GBC over the full
+widths/heights independently. All three cartridge types meet the same connector stop; taller GB/GBC paks
+retain their extra height outside the shell. Tests sample GBA, GB and GBC over the full
 stroke at 720 and 640 pixels, including the actual enlarged carousel start and
 rear/cart/front draw ordering.
 
@@ -97,8 +97,35 @@ python tools/compose-slot-motion.py /tmp/slot-motion /tmp/slot-motion.gif
 Use `gb` or `gbc` in place of `gba` for the other cartridge shapes.
 
 The full front and oblique reference photographs establish the slot volume:
-rolled shoulders rise above the lower shell, the curved bridge has a set-back
-inner bevel and a forward crest, and its shaded front face returns onto a lower
-deck with a contact shadow. These are distinct SVG surfaces rather than a flat
-cutout mask. The rear layer includes the metal liner behind the inserted cart.
-The two requested inverted-U ribs remain separate from the larger rolled shoulders.
+the curved lip has a set-back inner bevel and a forward crest, and its shaded
+front face blends smoothly into the lower shell. The rear layer includes the
+metal liner behind the inserted cart. Device end shoulders, side outlines and
+bottom seams are omitted: the plain shell continues to both screen edges.
+Only the slot itself has edges. The two small inverted-U ribs remain.
+
+## Seating calibration and marking legibility
+
+- GBA caliper measurements: 60.0 mm across the cap, 56.9 mm across the body,
+  34.5 mm high; [original measurement photographs](https://nantoka-game.com/?p=318).
+- GB/Color family body: approximately 57 × 65.5 mm; [iFixit cartridge reference](https://www.ifixit.com/Device/Nintendo_Game_Cartridge).
+- Inserted GB reference: [Willem Middelkoop's own SP repair photograph](https://willem.com/en/2017-03-26_repairing-a-nintendo-gameboy-advance-sp/).
+- The two supplied inserted GBA photographs calibrate the visible grip.
+
+The existing art includes transparent horizontal margins, particularly on GB/GBC;
+its opaque body, rather than the entire texture rectangle, sets physical width.
+Retain the approved shelf sizes and uniform aspect ratio. At the accepted seated
+scale the 60 mm GBA cap is 240 px; the ~57 mm GB body is ~227 px inside its padded
+240 px texture. A shared connector stop ~28 mm beyond the straight mouth plane
+leaves roughly 7 mm of GBA grip and 37 mm of GB/GBC body outside that plane.
+The central scoop reveals a little more. This depth is a photographic estimate,
+not an official engineering measurement or a claim of physical screen sizing.
+The old common-top alignment incorrectly swallowed tall paks and is removed.
+
+The switch's ON/OFF paths and both solid molded pips now have stronger upper-left
+highlights and lower-right shadows. The same paint palette and grain remain;
+timing, slider geometry and sound are unchanged.
+
+The enlarged GB/GBC shelf placement is centered in the usable area below the HUD,
+rather than underneath its top plate. Cartridge size is unchanged. The cartridge
+geometry checks retain fractional uniform scaling instead of requiring the
+scaled lower edge to land on an integer pixel.

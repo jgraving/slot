@@ -19,7 +19,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ca536ae1a05d9eeb7008d3d0d8a4050eb8078c1e
+          ref: e835212ea3c1d4ce07a7776877838a6e7e4850d0
 
       - name: Install zip, cmake and Task
         run: |
@@ -35,7 +35,7 @@ jobs:
       - name: Test favorites and power behavior
         run: |
           cargo test -p slot --no-default-features --test favorites --test power --test cartridge_ticks --test power_click --test sfx --test sleep --test quick_menu --test menu_repeat --test night_display -- --test-threads=1
-          cargo test -p slot-ui --test favorite --test power_switch --test quick_menu --test toast --test shelf --test native_shelf --test chrome --test board --test shell_material
+          cargo test -p slot-ui --test favorite --test power_switch --test quick_menu --test toast --test shelf --test native_shelf --test chrome --test board --test shell_material --test cart
           cargo test -p slot-store --test shell_colour --test config --test durability
           cargo test -p slot-input --test gesture
           cargo test -p slot-gfx --no-default-features --test grade
@@ -67,9 +67,9 @@ jobs:
         run: |
           set -eu
           out="slot-rgsp-shell"
-          printf 'Source: ca536ae1a05d9eeb7008d3d0d8a4050eb8078c1e\n' > "$out/System/shell-finish-build.txt"
-          zip="slot-rgsp-shell-System-ca536ae.zip"
-          (cd "$out" && zip -qry "../$zip" System && zip -qry ../slot-rgsp-shell-install-ca536ae.zip .)
+          printf 'Source: e835212ea3c1d4ce07a7776877838a6e7e4850d0\n' > "$out/System/shell-finish-build.txt"
+          zip="slot-rgsp-shell-System-e835212.zip"
+          (cd "$out" && zip -qry "../$zip" System && zip -qry ../slot-rgsp-shell-install-e835212.zip .)
           echo "zip=$zip" >> "$GITHUB_OUTPUT"
 
       - uses: actions/upload-artifact@v7
@@ -77,5 +77,5 @@ jobs:
           name: ${{ steps.package.outputs.zip }}
           path: |
             ${{ steps.package.outputs.zip }}
-            slot-rgsp-shell-install-ca536ae.zip
+            slot-rgsp-shell-install-e835212.zip
           if-no-files-found: error
