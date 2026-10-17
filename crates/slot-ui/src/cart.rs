@@ -145,12 +145,12 @@ fn spec(shape: Shape) -> Spec {
 }
 
 // Match the inserting bodies: GBA is 340/360 wide below its wider cap;
-// GB/Color is 292/312 wide inside its transparent texture margins.
+// GB/Color is 288/312 wide inside its transparent texture margins.
 // Preserve every source aspect ratio; never stretch the shorter GBA vertically.
 pub const SEATED_W: u32 = 308;
 const SEATED_H: u32 = 181;
-pub(crate) const GB_SEATED_W: u32 = 311;
-const GB_SEATED_H: u32 = 336;
+pub(crate) const GB_SEATED_W: u32 = 315;
+const GB_SEATED_H: u32 = 340;
 
 pub fn seated_box(platform: Platform) -> (u32, u32) {
     match platform {

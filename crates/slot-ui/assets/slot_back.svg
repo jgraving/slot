@@ -1,44 +1,41 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="720" height="72" viewBox="0 0 720 72">
 <defs>
+<clipPath id="ribPaint"><rect x="230" y="-5" width="260" height="30"/></clipPath>
 <linearGradient id="paint" x2="0" y2="1"><stop stop-color="#b50000"/><stop offset="1" stop-color="#ae0000"/></linearGradient>
 <linearGradient id="metal" x2=".8" y2="1"><stop stop-color="#c8ccca"/><stop offset=".4" stop-color="#a7aeac"/><stop offset="1" stop-color="#707976"/></linearGradient>
 <linearGradient id="throat" gradientUnits="userSpaceOnUse" x1="0" y1="25" x2="0" y2="44"><stop stop-color="#292e31"/><stop offset=".08" stop-color="#858d91"/><stop offset=".24" stop-color="#aeb5b8"/><stop offset=".65" stop-color="#a2aaae"/><stop offset=".88" stop-color="#b5bdc0"/><stop offset="1" stop-color="#909a9f"/></linearGradient>
- <linearGradient id="leftWall" gradientUnits="userSpaceOnUse" x1="233" y1="0" x2="246" y2="0"><stop stop-color="#b20000"/><stop offset=".22" stop-color="#da0000"/><stop offset=".50" stop-color="#b90000"/><stop offset=".80" stop-color="#7c0000"/><stop offset="1" stop-color="#620000"/></linearGradient>
- <linearGradient id="rightWall" gradientUnits="userSpaceOnUse" x1="474" y1="0" x2="487" y2="0"><stop stop-color="#620000"/><stop offset=".22" stop-color="#8a0000"/><stop offset=".58" stop-color="#c50000"/><stop offset=".80" stop-color="#cd0000"/><stop offset="1" stop-color="#b20000"/></linearGradient>
 
-<!-- A softly rolled shell corner, continuing into the aperture's inner return. -->
-<radialGradient id="shoulderRound" gradientUnits="userSpaceOnUse" cx="150" cy="14" r="59">
- <stop stop-color="#cc0000"/><stop offset=".34" stop-color="#c40000"/>
- <stop offset=".64" stop-color="#b50000"/><stop offset=".84" stop-color="#990000"/>
- <stop offset="1" stop-color="#790000"/>
+<!-- One continuous shoulder field in both layers. It fades to the deck in
+     both axes, and is clipped to the actual material boundary, never the liner. -->
+<radialGradient id="shoulderRound" gradientUnits="userSpaceOnUse" cx="151" cy="12" r="75">
+ <stop stop-color="#c80000"/><stop offset=".32" stop-color="#c10000"/>
+ <stop offset=".64" stop-color="#ad0000"/><stop offset="1" stop-color="#890000"/>
 </radialGradient>
-<linearGradient id="shoulderFade" x1="0" y1="0" x2="0" y2="1"><stop offset=".4" stop-color="white"/><stop offset="1" stop-color="black"/></linearGradient>
+<linearGradient id="shoulderFade" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="68"><stop offset=".28" stop-color="white"/><stop offset=".72" stop-color="#606060"/><stop offset="1" stop-color="black"/></linearGradient>
 <mask id="shoulderBlend"><rect x="120" y="0" width="480" height="72" fill="url(#shoulderFade)"/></mask>
-<clipPath id="outerShoulders"><rect x="120" y="0" width="77" height="72"/><rect x="523" y="0" width="77" height="72"/></clipPath>
-<filter id="rolledSurface" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="2.2"/></filter>
-<clipPath id="bodyOutline"><path d="M122 72V36Q122 1 158 1H562Q598 1 598 36V72Z"/></clipPath>
+<linearGradient id="shoulderJoin" gradientUnits="userSpaceOnUse" x1="160" y1="0" x2="222" y2="0"><stop stop-color="white"/><stop offset=".3" stop-color="#e0e0e0"/><stop offset=".65" stop-color="#707070"/><stop offset="1" stop-color="black"/></linearGradient>
+<mask id="shoulderSideBlend"><rect x="120" y="0" width="102" height="72" fill="url(#shoulderJoin)"/><rect x="120" y="0" width="102" height="72" fill="url(#shoulderJoin)" transform="translate(720 0) scale(-1 1)"/></mask>
+<clipPath id="plasticSurface"><path clip-rule="evenodd" d="M122 72V36Q122 1 158 1H562Q598 1 598 36V72Z M206 31.25H514V72H206Z"/></clipPath>
 </defs>
 <!-- Rear deck and inset throat. Detail proportions measured from the supplied SP close-up. -->
 <!-- Rounded SP body: open-ended at the screen bottom, not an infinite deck. -->
 <path d="M122 72V36Q122 1 158 1H562Q598 1 598 36V72Z" fill="url(#paint)"/>
 <path d="M123 72V36Q123 2 158 2H562Q597 2 597 36V72" fill="none" stroke="#d00000" stroke-width="1.2"/>
-<g transform="translate(-102 5) scale(1.2833333333 1.05)">
+<g transform="translate(-76.5354330709 5) scale(1.2125984252 1.05)">
 <path d="M233 25H487V58H233Z" fill="url(#throat)"/>
-<path d="M233 24.5H487" stroke="#650000" stroke-width="1"/>
-<!-- Contact shadows from the recessed end walls, confined to the slot. -->
-<path d="M247 1V25M473 1V25" stroke="#760000" stroke-width="3" opacity=".28"/>
+<path d="M233 25H487" stroke="#343b3e" stroke-width=".6"/>
 <!-- Set-back metal liner: rear edge and faint vertical tooling, behind the cart. -->
 <path d="M238 25H482" stroke="#3b4145" stroke-width=".9"/>
 <path d="M240 26H480" stroke="#c1c7c9" stroke-width=".5" opacity=".45"/>
 <path d="M252 28v12m9 -12v12m14 -12v12m10 -12v12m14 -12v12m9 -12v12m15 -12v12m8 -12v12m13 -12v12m11 -12v12m12 -12v12m10 -12v12m14 -12v12m10 -12v12m13 -12v12m9 -12v12m14 -12v12m9 -12v12m12 -12v12m9 -12v12" stroke="#6f787e" stroke-width=".3" opacity=".14"/>
 <path d="M257 28v9m31 -9v12m17 -11v8m32 -9v13m28 -12v10m31 -11v12m23 -12v8m29 -8v11" stroke="#edf0f0" stroke-width=".25" opacity=".16"/>
 <!-- Wide inverted-U molded ribs: open at the bottom, painted interior, rolled edges. -->
-<g fill="none" stroke-linejoin="round">
+<g fill="none" stroke-linejoin="round" clip-path="url(#ribPaint)">
  <path d="M279 25V7a5 5 0 0 1 10 0v18M431 25V7a5 5 0 0 1 10 0v18" stroke="#860000" stroke-width="1.4"/>
  <path d="M280.2 25V7.2a3.8 3.8 0 0 1 7.6 0V25M432.2 25V7.2a3.8 3.8 0 0 1 7.6 0V25" stroke="#c20000" stroke-width=".7"/>
 </g>
 <!-- Fastener uses one scale on both axes, independent of the wider aperture. -->
-<g transform="translate(360 14) scale(1 1.2222222222) translate(-360 -14)">
+<g transform="translate(360 10.5952380952) scale(1.0583333333 1.2222222222) translate(-360 -14)">
 <!-- Recessed screw seat, beveled metal head, and a cut Y/tri-point driver pocket. -->
 <circle cx="360" cy="14" r="9.1" fill="#780000"/>
 <path d="M351 14a9 9 0 0 0 18 0" fill="none" stroke="#c40000" stroke-width=".7"/>
@@ -56,10 +53,8 @@
 </g>
 <!-- The world-space rolled shoulders below also form the inner end returns. -->
 </g>
-<g clip-path="url(#bodyOutline)"><g filter="url(#rolledSurface)"><g mask="url(#shoulderBlend)"><path d="M122 72V37C122 15 136 1 157 1H175C193 1 202 12 202 26V28C202 35 207 38 215 39L215 42H197V72Z" fill="url(#shoulderRound)"/>
-<path d="M125 38C125 18 138 4 158 4H175C190 4 198 13 198 25V28C198 34 202 37 208 39" fill="none" stroke="#d00000" stroke-width=".8" opacity=".18"/>
-<g transform="translate(720 0) scale(-1 1)"><path d="M122 72V37C122 15 136 1 157 1H175C193 1 202 12 202 26V28C202 35 207 38 215 39L215 42H197V72Z" fill="url(#shoulderRound)"/>
-<path d="M125 38C125 18 138 4 158 4H175C190 4 198 13 198 25V28C198 34 202 37 208 39" fill="none" stroke="#d00000" stroke-width=".8" opacity=".18"/>
-</g></g>
-</g></g>
+<g clip-path="url(#plasticSurface)"><g mask="url(#shoulderSideBlend)"><g mask="url(#shoulderBlend)">
+<rect x="120" y="0" width="102" height="72" fill="url(#shoulderRound)"/>
+<rect x="120" y="0" width="102" height="72" fill="url(#shoulderRound)" transform="translate(720 0) scale(-1 1)"/>
+</g></g></g>
 </svg>

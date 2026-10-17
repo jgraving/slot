@@ -323,7 +323,7 @@ fn the_game_boy_pak_body_has_the_scanned_aspect() {
         body(GB_CART_W, GB_CART_H)
     );
     let (gw, gh) = seated_box(Platform::Gb);
-    assert!((gw as f32 * 292.0 / 312.0 - sw as f32 * 340.0 / 360.0).abs() < 1.0,
+    assert!((gw as f32 * 288.0 / 312.0 - sw as f32 * 340.0 / 360.0).abs() < 1.0,
         "padded GB artwork must have the same visible width as the GBA insertion body");
     assert!((body(gw, gh) - 0.877).abs() < 0.01);
 }

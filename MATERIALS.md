@@ -114,7 +114,7 @@ the screen, like a close view of the real SP. The two small inverted-U ribs rema
 The existing art includes transparent horizontal margins, particularly on GB/GBC;
 its opaque body, rather than the entire texture rectangle, sets physical width.
 Preserve the uniform source aspect ratio. The GBA cap is 308px wide and its 340/360 inserting body is ~291px;
-the GB/GBC texture is 311px, whose 292/312 opaque body is also ~291px. The same widths are used
+the GB/GBC texture is 315px, whose 288/312 opaque body is also ~291px. The same widths are used
 on the carousel and when seated, avoiding any size jump or horizontal squash. A shared connector stop ~28 mm beyond the straight mouth plane
 leaves roughly 7 mm of GBA grip and 37 mm of GB/GBC body outside that plane.
 The central scoop reveals a little more. This depth is a photographic estimate,
@@ -126,7 +126,7 @@ highlights and lower-right shadows. The same paint palette and grain remain;
 timing, slider geometry and sound are unchanged.
 
 The enlarged GB/GBC shelf placement is centered in the usable area below the HUD,
-rather than underneath its top plate. The 336px-tall GB/GBC drawing leaves about 16px of clearance below the HUD
+rather than underneath its top plate. The 340px-tall GB/GBC drawing leaves about 14px of clearance below the HUD
 and above the housing. The cartridge
 geometry checks retain fractional uniform scaling instead of requiring the
 scaled lower edge to land on an integer pixel.
@@ -154,15 +154,14 @@ the selected finish.
 
 ## Larger SP housing and matching insertion bodies
 
-The vector art is now 720×72 instead of 720×58. The aperture is enlarged by
-308/240 (about 28%) horizontally, with its original curved-to-flat cut edge,
+The vector art is now 720×72 instead of 720×58. The aperture is 308px wide, matching the visible GBA grip, with its original curved-to-flat cut edge,
 matte metal liner and recessed end walls preserved. Rounded shoulders and two
 corner screw wells follow the supplied full SP photograph. The actual device
 outline is centered at x=122..598 and remains fully visible on both panels.
 
 The 308px GBA top grip remains wider than its ~291px inserting body. GB/GBC
-bodies match that narrower body, not the top grip. Their 311px texture includes
-transparent margins and is proportionally 336px tall, comfortably between
+bodies match that narrower body, not the top grip. Their 315px texture includes
+transparent margins and is proportionally 340px tall, comfortably between
 the 40px status area and housing at y=408. Every source retains its native
 aspect ratio. GB/GBC transparent margins are counted in the texture size but
 not the visible width. Insertion uses the same sizes and common connector stop.
@@ -195,3 +194,22 @@ arms meet at that center, with a raster centroid check for the dark pocket.
 
 The shoulder material fades continuously into the flat deck before the slot
 boundary. No rectangular clip or vertical seam divides those two surfaces.
+
+## Slot boundary and fit refinement
+
+The 308px mouth is bounded at x=206..514, exactly matching the GBA grip,
+removing the former 9px gap at each end. The GB/GBC face's rendered opaque
+mid-body spans 288/312 of its texture (the prior 292/312 estimate included
+transparent edge pixels). A 315px texture therefore gives a ~291px body,
+matching the 340/360 GBA insertion body. Uniform scaling produces a ~340px
+tall GB/GBC pak, still below the HUD. Raster coverage checks measure both
+visible widths and the real liner boundary instead of assuming texture bounds.
+
+The inner shoulder profile now eases tangentially into the flat lip. Both layers
+use the same broad shoulder shading, fading horizontally and vertically into
+the deck. The front relief and bevel are clipped to its actual silhouette;
+the rear relief excludes the metal and the rib strokes stop at the rear edge.
+The center screw is at y=16.125, halfway between the top edge (1px) and liner
+(31.25px), with its circular dimensions preserved. Both corner assemblies use
+one shared local drawing: shallow recessed seats, the same viewing direction,
+and a centered head and driver cut. These are visual approximations.
