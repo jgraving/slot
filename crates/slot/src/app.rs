@@ -12,7 +12,7 @@ use slot_store::{
     WallpaperTint, BLUE_LIGHT_MAX, BRIGHTNESS_MAX, FF_SPEEDS, RING_MAX, RUN_AHEAD_MAX, VOLUME_MAX,
 };
 use slot_ui::{
-    board_from, board_zoom, draw_empty_slot, draw_footer, draw_ground, draw_slot_name,
+    board_from, board_zoom, draw_empty_slot, draw_ground, draw_slot_name,
     draw_sticker, ease, footer_ink, grown, lid_at, lid_from, lift_of, on_board, repeat_gap,
     shelf_cart_at, ClockPicker, Draw, FfState, GbShell, Hud, HudKind, Icon, LinkBadge, Millis,
     Placed, Polaroids, PowerChoice, QuickMenu, QuickMenuFaces, QuickRow, QuickValue, Refusal,
@@ -3430,6 +3430,7 @@ impl App {
                     alpha: 1.,
                 });
             }
+            self.draw_status_bar(out);
             self.hud.draw(self.canvas(), self.now(), out);
             return;
         }
@@ -3443,6 +3444,7 @@ impl App {
                 };
                 let back = self.clock_back.filter(|_| *from_menu);
                 picker.draw(self.canvas(), line, hint, back, out);
+                if *from_menu { self.draw_status_bar(out); }
                 return;
             }
             Phase::QuickMenu { row } => QuickMenu {
@@ -3504,28 +3506,12 @@ impl App {
                     }
                 }
                 self.draw_favorite_removal(out);
-                draw_footer(
-                    self.canvas(),
-                    self.battery,
-                    self.battery_percent,
-                    self.bolt,
-                    self.shelf_clock,
-                    footer_ink(self.light()),
-                    out,
-                );
-                if self.bluetooth_connected || self.local_headphones() {
-                    slot_ui::draw_footer_connection(
-                        self.battery,
-                        self.battery_percent,
-                        self.audio_indicator,
-                        out,
-                    );
-                }
             }
             Phase::About => {
                 slot_ui::draw_menu_ground(self.canvas(), self.menu_ground(), out);
                 draw_sticker(self.canvas(), self.sticker_face, out);
                 self.draw_menu_footer(out);
+                self.draw_status_bar(out);
                 return;
             }
             Phase::Inserting { cart, resumed, .. } => {
@@ -3601,7 +3587,7 @@ impl App {
                 canvas: self.canvas(),
             }
             .draw(out);
-            if row.page() != QuickRow::PLAY_SCREEN {
+            {
                 slot_ui::draw_corners(
                     self.canvas(),
                     self.battery,
@@ -3617,6 +3603,9 @@ impl App {
                     out,
                 );
             }
+        }
+        if matches!(self.phase, Phase::Shelf | Phase::QuickMenu { .. } | Phase::Inserting { .. }) {
+            self.draw_status_bar(out);
         }
         self.draw_menu_footer(out);
         self.draw_close_footer(out);
@@ -3699,16 +3688,21 @@ impl App {
         if self.framed_panel() && self.screen > 0.0 {
             self.draw_seated_mouth(cart, out);
         }
-        draw_footer(
-            self.canvas(),
-            self.battery,
-            self.battery_percent,
-            self.bolt,
-            self.shelf_clock,
-            footer_ink(self.light()),
-            out,
-        );
         shift_down(&mut out[start..], self.menu_footer_offset());
+        self.draw_status_bar(out);
+    }
+
+    fn draw_status_bar(&self, out: &mut Vec<Draw>) {
+        let in_game = matches!(self.phase, Phase::Playing { .. } | Phase::Polaroids { .. });
+        slot_ui::draw_status(
+            self.canvas(), self.battery, self.battery_percent,
+            if in_game { self.hud_bolt } else { self.bolt },
+            self.shelf_clock, self.status_ink(), out,
+        );
+        slot_ui::draw_corner_connection(
+            self.battery, self.battery_percent,
+            if in_game { self.hud_audio_indicator } else { self.audio_indicator }, out,
+        );
     }
 
     fn draw_seated_mouth(&self, stem: &str, out: &mut Vec<Draw>) {

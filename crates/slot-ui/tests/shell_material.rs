@@ -131,7 +131,28 @@ fn slot_end_returns_have_recessed_volume_inside_the_aperture() {
         assert_eq!(front[at(481,10)+3],0,"grip must pass in front of the right end wall");
         assert_eq!(front[at(255,10)+3],0);
         assert_eq!(front[at(465,10)+3],0);
-        assert!(back[at(236,12)]>back[at(244,12)]+20,"left depression lost its depth");
-        assert!(back[at(483,12)]>back[at(476,12)]+20,"right depression lost its depth");
+        let mean=|x0:usize,x1:usize| {
+            let values:Vec<_>=(18..26).flat_map(|y|(x0..x1).map(move |x|back[(y*720+x)*4] as f32)).collect();
+            values.iter().sum::<f32>()/values.len() as f32
+        };
+        assert!(mean(192,196)>mean(199,201)+8.0,"left rolled return lost its depth");
+        assert!(mean(524,528)>mean(519,521)+8.0,"right rolled return lost its depth");
     }
+}
+
+#[test]
+fn enlarged_slot_keeps_the_central_screw_head_circular() {
+    let a=shell_slot_faces(ShellColour::Graphite)[0];
+    let b=shell_slot_faces(ShellColour::PearlPink)[0];
+    let mut xs=Vec::new();let mut ys=Vec::new();
+    // The untinted metal head is identical across paint finishes. Restrict the
+    // window above the liner so its bounds measure the actual fastener.
+    for y in 4..31 { for x in 342..379 {
+        let at=(y*720+x)*4;
+        if a[at..at+3]==b[at..at+3] { xs.push(x);ys.push(y); }
+    }}
+    let w=xs.iter().max().unwrap()-xs.iter().min().unwrap()+1;
+    let h=ys.iter().max().unwrap()-ys.iter().min().unwrap()+1;
+    assert!(w.abs_diff(h)<=1,"central metal screw is warped: {w} by {h}");
+    assert!(w>=17 && h>=17,"fastener disappeared");
 }

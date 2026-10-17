@@ -144,12 +144,13 @@ fn spec(shape: Shape) -> Spec {
     }
 }
 
-// Equal visible widths: GB artwork has 10 transparent pixels at each side.
+// Match the inserting bodies: GBA is 340/360 wide below its wider cap;
+// GB/Color is 292/312 wide inside its transparent texture margins.
 // Preserve every source aspect ratio; never stretch the shorter GBA vertically.
 pub const SEATED_W: u32 = 308;
 const SEATED_H: u32 = 181;
-const GB_SEATED_W: u32 = 329;
-const GB_SEATED_H: u32 = 355;
+pub(crate) const GB_SEATED_W: u32 = 311;
+const GB_SEATED_H: u32 = 336;
 
 pub fn seated_box(platform: Platform) -> (u32, u32) {
     match platform {

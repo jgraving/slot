@@ -65,7 +65,7 @@ fn banner_ink(px: &[u8]) -> usize {
 }
 
 fn hud_ink(px: &[u8]) -> usize {
-    ((OUT_H as usize - 40)..OUT_H as usize)
+    (0..PLATE_H as usize)
         .flat_map(|y| (0..OUT_W as usize).map(move |x| (x, y)))
         .filter(|(x, y)| at(px, *x, *y).iter().all(|c| *c > 0x80))
         .count()
@@ -319,7 +319,7 @@ fn a_card_nobody_has_organised_comes_up_an_empty_shelf() {
     );
     assert!(
         hud_ink(&empty) > 100,
-        "the plate came up with no battery and no clock printed on it: {} lit pixels",
+        "the top status came up with no battery and no clock: {} lit pixels",
         hud_ink(&empty)
     );
     for (name, (x, y)) in [

@@ -1278,3 +1278,30 @@ fn shell_colour_cycles_persists_and_stays_independent_of_text_theme() {
     let (b, _) = app_booting_at(d.path(), CLOCK_IS_SET);
     assert_eq!(b.shell_colour(), ShellColour::PearlPink);
 }
+
+#[test]
+fn clock_battery_and_audio_stay_at_the_top_on_carousel_and_settings_pages() {
+    for page in [None, Some(QuickRow::General), Some(QuickRow::Theme),
+        Some(QuickRow::Bluetooth), Some(QuickRow::DateTime), Some(QuickRow::About)] {
+        let (_d,mut a,_)=on_carousel();
+        a.tick_ms(10);
+        a.set_shelf_clock_face(TexId::from_raw(901),60);
+        a.set_battery_percent_face(TexId::from_raw(902),36);
+        a.audio_indicator=Some(TexId::from_raw(903));
+        if let Some(row)=page {
+            open_at(&mut a,row);
+            if matches!(row,QuickRow::Bluetooth | QuickRow::DateTime | QuickRow::About) { press(&mut a,Btn::A); }
+        }
+        let draws=frame(&a);
+        for id in [901,902,903] {
+            let positions:Vec<_>=draws.iter().filter_map(|d| match *d {
+                Draw::Tex{tex,x,y,w,h,..} if tex==TexId::from_raw(id)=>Some((x,y,w,h)),
+                _=>None,
+            }).collect();
+            assert_eq!(positions.len(),1,"{page:?} lost or duplicated status {id}");
+            let (x,y,w,h)=positions[0];
+            assert!(y>=0.0 && y+h<=40.0,"{page:?} status {id} touches the SP: {y}");
+            assert!(x>=0.0 && x+w<=OUT_W as f32);
+        }
+    }
+}
