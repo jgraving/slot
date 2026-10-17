@@ -1,18 +1,16 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="324" height="102" viewBox="286 140 324 102">
-<title>GBA SP power switch slider</title>
-<defs>
- <linearGradient id="cap" x1="0.0%" y1="0.0%" x2="8.0%" y2="100.0%"><stop offset="0.0%" stop-color="#89898e"/><stop offset="8.0%" stop-color="#74747a"/><stop offset="65.0%" stop-color="#69696f"/><stop offset="100.0%" stop-color="#57575d"/></linearGradient>
- <linearGradient id="grip" x1="0.0%" y1="0.0%" x2="20.0%" y2="100.0%"><stop offset="0.0%" stop-color="#a0a0a6"/><stop offset="10.0%" stop-color="#88888e"/><stop offset="48.0%" stop-color="#828288"/><stop offset="90.0%" stop-color="#75757b"/><stop offset="100.0%" stop-color="#95959b"/></linearGradient>
-</defs>
-<g id="slider" transform="translate(0 0)">
+<title>GBA SP power switch slider - smooth matte plastic</title>
+<!-- Uniform untextured faces. Thin edge/contact shading conveys the molded shape,
+     without broad reflections, glossy gradients or sampled housing grain. -->
+<g id="slider">
  <path d="M288 144h322v96H288z" fill="#151518"/>
- <path d="M290 143h316q3 0 3 3v90q0 3-3 3H290z" fill="url(#cap)" stroke="#2c2c2f" stroke-width="2"/>
- <path d="M293 145h311M292 146v88" stroke="#7f7f82" stroke-opacity=".42" stroke-width="2" fill="none"/>
- <rect x="383" y="150" width="131" height="85" rx="11" fill="#222225" opacity=".5"/>
- <rect x="382" y="146" width="128" height="85" rx="11" fill="url(#grip)" stroke="#47474a" stroke-width="2"/>
- <path d="M393 148h105q10 0 10 10m-124 62q0 9 10 9h102" stroke="#949497" stroke-opacity=".38" stroke-width="2" fill="none"/>
- <rect x="440" y="159" width="11" height="60" rx="5" fill="#38383b"/>
- <path d="M449 164v48" stroke="#737376" stroke-opacity=".5" stroke-width="2"/>
- <path d="M443 164v48" stroke="#2c2c2f" stroke-width="2"/>
+ <path d="M290 143h316q3 0 3 3v90q0 3-3 3H290z" fill="#66686d" stroke="#34363a" stroke-width="2"/>
+ <path d="M293 145h311M292 146v88" stroke="#828489" stroke-opacity=".32" stroke-width="1" fill="none"/>
+ <rect x="383" y="150" width="131" height="85" rx="11" fill="#222428" opacity=".35"/>
+ <rect x="382" y="146" width="128" height="85" rx="11" fill="#7e8085" stroke="#4e5055" stroke-width="2"/>
+ <path d="M393 148h105q10 0 10 10" stroke="#93959a" stroke-opacity=".35" stroke-width="1" fill="none"/>
+ <rect x="440" y="159" width="11" height="60" rx="5" fill="#3d3f44"/>
+ <path d="M449 164v48" stroke="#65676c" stroke-opacity=".45" stroke-width="1"/>
+ <path d="M443 164v48" stroke="#303237" stroke-width="1"/>
 </g>
 </svg>
