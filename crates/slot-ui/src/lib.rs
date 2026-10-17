@@ -23,6 +23,8 @@ mod link_art;
 mod plate;
 mod polaroids;
 mod power_menu;
+mod material;
+pub use material::{shell_rgb, shell_slot_faces, shell_link_port};
 mod quick_menu;
 mod rebuild;
 mod refusal;
@@ -57,7 +59,7 @@ pub use cart::{
 pub use clock::{clock_label, date_time_text, hhmm, set_clock_hint_face, ClockPicker, Field};
 pub use draw::{Canvas, Draw, Layout, TexId, OUT_H, OUT_W};
 pub use footer::{
-    draw_corner_connection, draw_corners, draw_footer, draw_footer_connection, Printed, FOOTER_Y,
+    draw_corner_connection, draw_corners, draw_status, draw_footer, draw_footer_connection, Printed, FOOTER_Y,
 };
 pub use hud::{
     badge_at, ff_badge, footer_ink, FfState, Hud, HudKind, LinkBadge, Millis, ALARM_BAND_H,
@@ -79,14 +81,14 @@ pub use plate::{
 };
 pub use polaroids::{photo_face, PhotoFace, Polaroids, DOT, LEGEND, PHOTO_H, PHOTO_W};
 pub use power_menu::{
-    draw_power_switch, menu_face, power_switch_faces, PowerChoice, MENU_PAD, POWER_SWITCH_MS,
+    draw_power_switch, menu_face, power_switch_faces, power_switch_faces_for, PowerChoice, MENU_PAD, POWER_SWITCH_MS,
     POWER_SWITCH_SLIDE_MS,
 };
 pub use quick_menu::{
     core_button_legends, draw_menu_ground, link_button_legends, quick_caret_face, quick_label_face,
     quick_legend_faces, quick_pointer_face, quick_row_top, quick_text_centre, quick_value_face,
     sound_button_legends, sound_forget_confirmation, QuickMenu, QuickMenuFaces, QuickRow,
-    QuickValue, QUICK_EDGE, QUICK_LABEL_X, QUICK_PITCH,
+    QuickValue, QUICK_EDGE, QUICK_LABEL_X, QUICK_PITCH, MENU_HINT_H, QUICK_VISIBLE_ROWS, quick_window_start,
 };
 pub use rebuild::{rebuild_count_face, rebuild_title_face, RebuildScreen};
 pub use refusal::Refusal;

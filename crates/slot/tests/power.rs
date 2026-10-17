@@ -429,3 +429,20 @@ fn switch_is_presented_until_its_stroke_and_fade_finish() {
     a.draw(&mut out);
     assert!(matches!(out[2], Draw::Tex { alpha: 0.0, .. }));
 }
+
+#[test]
+fn shutdown_switch_uses_the_persisted_shell_colour() {
+    use slot_store::{ShellColour, SlotState, write_slot_state};
+    for colour in ShellColour::FINISHES {
+        let d = tmp_root_with_carts(&["Emerald"]);
+        write_slot_state(d.path(), &SlotState { shell_colour: colour, clock_set: true, ..SlotState::default() }).unwrap();
+        let mut a = slot::app::App::boot(d.path());
+        let faces = std::array::from_fn(|i| [slot_gfx::TexId::from_raw(800+i*2), slot_gfx::TexId::from_raw(801+i*2)]);
+        a.set_shell_switch_faces(faces);
+        a.apply(Action::PowerHold);
+        let mut out = Vec::new();
+        a.draw(&mut out);
+        let expected = faces[colour.finish_index()][0];
+        assert!(out.iter().any(|d| matches!(*d, Draw::Tex { tex, .. } if tex == expected)));
+    }
+}

@@ -189,14 +189,13 @@ fn the_card_says_which_tetris_is_in_the_slot() {
     let unstated = resumed_shot(&d, &mut c, None, "resume-unstated");
 
     let (top, bottom) = cartridge_rows(&gba).expect("no cartridge in the slot at all");
-    assert_eq!(
-        cartridge_rows(&gb),
-        Some((top, bottom)),
-        "the two cartridges are not seated at the same depth, so what follows would be \
-         comparing different parts of them"
-    );
+    let (gb_top,gb_bottom)=cartridge_rows(&gb).expect("no GB cartridge");
+    assert!(gb_top+80<top,"the taller GB cartridge must stand farther out");
+    assert_eq!(gb_bottom,bottom,"both cartridges occlude at the same front lip");
     let row = (top + bottom) / 2;
-    let (dark, pale) = (centre(&gba, row), centre(&gb, row));
+    // Compare the exposed grip on each pak, not the GB label now standing above
+    // the slot. Their top edges intentionally differ after the connector fix.
+    let (dark, pale) = (centre(&gba, row), centre(&gb, gb_top + (bottom-top)/2));
     assert!(
         (0..3).all(|k| pale[k] as i32 - dark[k] as i32 > 40),
         "the card named the Game Boy shelf and the slot is holding {pale:?} where the Game Boy \

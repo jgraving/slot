@@ -101,6 +101,7 @@ fn the_rows_run_in_the_order_the_user_chose() {
         [
             "Wallpaper",
             "Wallpaper Tint",
+            "Shell Color",
             "Theme",
             "Recents",
             "Game Titles",
@@ -182,14 +183,14 @@ fn the_rows_run_in_the_order_the_user_chose() {
 #[test]
 fn a_hidden_row_is_stepped_over_and_takes_no_place() {
     let hidden = [QuickRow::WallpaperTint];
-    assert_eq!(QuickRow::Wallpaper.down(&hidden), QuickRow::Theme);
-    assert_eq!(QuickRow::Theme.up(&hidden), QuickRow::Wallpaper);
+    assert_eq!(QuickRow::Wallpaper.down(&hidden), QuickRow::ShellColour);
+    assert_eq!(QuickRow::ShellColour.up(&hidden), QuickRow::Wallpaper);
     assert_eq!(QuickRow::Wallpaper.up(&hidden), QuickRow::DateTime);
-    assert_eq!(QuickRow::Theme.position(&hidden), 1);
+    assert_eq!(QuickRow::ShellColour.position(&hidden), 1);
     assert_eq!(QuickRow::Wallpaper.down(&[]), QuickRow::WallpaperTint);
-    assert_eq!(QuickRow::Theme.position(&[]), 2);
+    assert_eq!(QuickRow::ShellColour.position(&[]), 2);
     assert_eq!(
-        slot_ui::quick_row_top(QuickRow::Theme, &hidden)
+        slot_ui::quick_row_top(QuickRow::ShellColour, &hidden)
             - slot_ui::quick_row_top(QuickRow::Wallpaper, &hidden),
         slot_ui::QUICK_PITCH
     );
@@ -225,6 +226,11 @@ fn the_values_read_as_the_menu_prints_them() {
             "15 min",
             "30 min",
             "Never",
+            "Match Theme",
+            "Graphite",
+            "Platinum",
+            "Pearl Blue",
+            "Pearl Pink",
         ]
     );
     assert_eq!(QuickValue::flag(true), QuickValue::On);
@@ -431,10 +437,13 @@ fn screen_rows_in_game_sit_in_a_panel_at_the_bottom() {
     let colour = slot_ui::quick_row_top(QuickRow::ColourCorrection, &hidden);
     assert_eq!(colour - shader, slot_ui::QUICK_PITCH);
     assert!(
-        shader > slot_ui::OUT_H as f32 / 2.0,
+        shader >= 200.0,
         "the panel starts at {shader}"
     );
     assert!(slot_ui::quick_row_top(QuickRow::FastForward, &[]) < shader);
+    let last=slot_ui::quick_row_top(QuickRow::Bezel,&hidden)+44.0;
+    assert!(last < slot_ui::OUT_H as f32-slot_ui::MOUTH_H-slot_ui::MENU_HINT_H as f32-12.0,
+        "screen controls overlap the hint row");
 }
 
 #[test]
@@ -453,4 +462,35 @@ fn show_titles_sits_under_recents_on_the_general_page() {
         at(QuickRow::Recents).map(|i| i + 1)
     );
     assert_eq!(QuickRow::ShowTitles.parent(), Some(QuickRow::General));
+}
+
+#[test]
+fn long_pages_scroll_six_rows_with_the_selection_and_keep_clear_of_status_and_hints() {
+    use slot_ui::*;
+    let id=|n|TexId::from_raw(n);
+    let faces=QuickMenuFaces {
+        labels: QuickRow::ALL.iter().map(|r|[(id(r.index()*2),260,40),(id(r.index()*2+1),260,40)]).collect(),
+        pointer:(id(1000),32,48), values:vec![], carets:[(id(1001),20,40),(id(1002),20,40)],
+        legend:[(id(1003),80);5],legend_light:[(id(1003),80);5],
+    };
+    for hidden in [&[][..],&[QuickRow::WallpaperTint][..]] {
+        for selected in QuickRow::GENERAL.into_iter().chain(QuickRow::GAME) {
+            if hidden.contains(&selected) {continue;}
+            let shown=selected.shown(hidden);
+            let first=quick_window_start(selected,hidden);
+            assert!((first..first+QUICK_VISIBLE_ROWS.min(shown.len())).contains(&selected.position(hidden)));
+            for width in [640.0,720.0] {
+                let mut out=Vec::new();
+                QuickMenu {row:selected,hidden,values:[None;QuickRow::ALL.len()],clock:None,wallpaper:None,
+                    faces:Some(&faces),ground:None,palette:None,gba_bezel:None,gb_bezel:None,gbc_bezel:None,
+                    bezel:None,over_game:false,footer_legends:true,footer_top:480.,canvas:Canvas{w:width,h:480.}}.draw(&mut out);
+                let labels:Vec<_>=out.iter().filter_map(|d|match d {
+                    Draw::Tex {tex,y,h,..} if shown.iter().any(|r| [id(r.index()*2),id(r.index()*2+1)].contains(tex))=>Some((*tex,*y,*h)),_=>None,
+                }).collect();
+                assert_eq!(labels.len(),shown.len().min(QUICK_VISIBLE_ROWS));
+                assert!(labels.iter().all(|(_,y,h)|*y>=40. && y+h <= 480.-MOUTH_H-MENU_HINT_H as f32-12.));
+                assert!(labels.iter().any(|(tex,..)|*tex==id(selected.index()*2+1)));
+            }
+        }
+    }
 }

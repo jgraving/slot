@@ -323,10 +323,8 @@ fn the_game_boy_pak_body_has_the_scanned_aspect() {
         body(GB_CART_W, GB_CART_H)
     );
     let (gw, gh) = seated_box(Platform::Gb);
-    assert_eq!(
-        gw, sw,
-        "both paks are 57 mm wide, so they seat at one width"
-    );
+    assert!((gw as f32 * 288.0 / 312.0 - sw as f32 * 340.0 / 360.0).abs() < 1.0,
+        "padded GB artwork must have the same visible width as the GBA insertion body");
     assert!((body(gw, gh) - 0.877).abs() < 0.01);
 }
 
@@ -450,16 +448,16 @@ fn a_game_boy_cart_face_is_drawn_at_the_game_boy_size() {
 fn every_cartridge_is_centred_on_the_row_and_clears_both_the_plate_and_the_slot() {
     let lip = OUT_H as f32 - MOUTH_H;
     for (name, h, span) in [
-        ("the GBA cart", CART_H, OUT_H as f32),
-        ("the Game Boy pak", GB_CART_H, lip),
+        ("the GBA cart", CART_H, lip + PLATE_H),
+        ("the Game Boy pak", GB_CART_H, lip + PLATE_H),
     ] {
         let (top, foot) = (rest_y(h as f32), foot_y(h as f32));
         assert_eq!(top, top.round(), "{name} top is off the pixel grid: {top}");
-        assert_eq!(
-            foot,
-            foot.round(),
-            "{name} foot is off the pixel grid: {foot}"
-        );
+        // Enlarged cartridges keep a uniform fractional scale; only their resting
+        // top is snapped. Requiring an integer foot would distort their height.
+        let zoom=if h==CART_H {slot_ui::GBA_SHELF_SCALE} else {slot_ui::GB_SHELF_SCALE};
+        assert!((foot-top-h as f32*zoom).abs()<0.001,
+            "{name} lost its proportional enlarged height");
         assert!(
             (top + foot - span).abs() <= 1.0,
             "{name} stands at {top}..{foot}, which is not centred in {span}px"

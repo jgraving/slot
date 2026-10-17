@@ -8,8 +8,11 @@ use crate::hud::Millis;
 use crate::silhouette::GbShell;
 use crate::slot_chrome::{draw_empty_slot, MOUTH_H};
 
-pub const GBA_SHELF_SCALE: f32 = 1.15;
-pub const GB_SHELF_SCALE: f32 = 1.08;
+// Carousel sizes are independent of the physical insertion size. GBA can grow
+// wider; tall GB/Color paks are bounded by the status area and lower housing.
+// SlotChrome shrinks uniformly to the shared body width before crossing the lip.
+pub const GBA_SHELF_SCALE: f32 = 396.0 / CART_W as f32;
+pub const GB_SHELF_SCALE: f32 = 328.0 / crate::cart::GB_CART_W as f32;
 
 pub fn shelf_scale(platform: Platform) -> f32 {
     if platform == Platform::Gba { GBA_SHELF_SCALE } else { GB_SHELF_SCALE }
@@ -23,13 +26,9 @@ const SIDE_SCALE: f32 = 0.78;
 const SIDE_ALPHA: f32 = 1.0;
 
 pub fn rest_y(h: f32) -> f32 {
-    let y = if h > CART_H as f32 {
-        (OUT_H as f32 - MOUTH_H - h) / 2.0
-    } else {
-        (OUT_H + CART_H) as f32 / 2.0 - h
-    };
-    // Keep the enlarged cartridge centred at the same resting position.
-    (y - h * (height_scale(h) - 1.0) / 2.0).round()
+    let top = crate::hud::PLATE_H;
+    let bottom = OUT_H as f32 - MOUTH_H;
+    ((top + bottom - h * height_scale(h)) / 2.0).round()
 }
 
 pub fn foot_y(h: f32) -> f32 {
@@ -504,9 +503,9 @@ impl Shelf {
             let (cw, ch) = cart_box(cart.platform);
             let scale = scale * shelf_scale(cart.platform);
             let (w0, h0) = (cw as f32 * scale, ch as f32 * scale);
-            let (sw, sh) = crate::seated_box(cart.platform);
-            let (w, h) = (w0 + (sw as f32 - w0) * depart,
-                h0 + (sh as f32 - h0) * depart);
+            let (sw, _) = crate::seated_box(cart.platform);
+            let w = w0 + (sw as f32 - w0) * depart;
+            let h = w * h0 / w0;
             let away = offset.signum() * (1.0 + offset.abs());
             let x = centre - w / 2.0 + away * PART * recede;
             if x + w <= 0.0 || x >= canvas.w || alpha <= 0.0 {

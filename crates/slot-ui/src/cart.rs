@@ -9,11 +9,11 @@ use crate::silhouette::{cart_mask, gb_cart_mask, GbShell};
 use crate::text;
 
 pub const CART_W: u32 = 360;
-pub const CART_H: u32 = (CART_W * SEATED_H + SEATED_W / 2) / SEATED_W;
+pub const CART_H: u32 = 212;
 
 pub const GB_CART_W: u32 = 312;
 
-pub const GB_CART_H: u32 = (GB_CART_W * GB_SEATED_H + SEATED_W / 2) / SEATED_W;
+pub const GB_CART_H: u32 = 337;
 
 /// The GBA cart's label box, as drawn in `assets/gba_neutral.png`: x 48..312, y 50..186
 /// of 360x212.
@@ -144,14 +144,18 @@ fn spec(shape: Shape) -> Spec {
     }
 }
 
-pub const SEATED_W: u32 = 240;
-const SEATED_H: u32 = 141;
-const GB_SEATED_H: u32 = 259;
+// Match the inserting bodies: GBA is 340/360 wide below its wider cap;
+// GB/Color is 288/312 wide inside its transparent texture margins.
+// Preserve every source aspect ratio; never stretch the shorter GBA vertically.
+pub const SEATED_W: u32 = 308;
+const SEATED_H: u32 = 181;
+pub(crate) const GB_SEATED_W: u32 = 315;
+const GB_SEATED_H: u32 = 340;
 
 pub fn seated_box(platform: Platform) -> (u32, u32) {
     match platform {
         Platform::Gba => (SEATED_W, SEATED_H),
-        Platform::Gb | Platform::Gbc => (SEATED_W, GB_SEATED_H),
+        Platform::Gb | Platform::Gbc => (GB_SEATED_W, GB_SEATED_H),
     }
 }
 

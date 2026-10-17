@@ -3,7 +3,9 @@ use std::path::PathBuf;
 use std::sync::mpsc::{self, Receiver};
 
 use slot_input::{Action, Btn};
-use slot_ui::{TexId, UndoFace, OUT_H, OUT_W};
+use slot_ui::{TexId, UndoFace, OUT_H};
+#[cfg(test)]
+use slot_ui::OUT_W;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Headphones {
@@ -753,15 +755,20 @@ pub fn screen_face(lines: &[String]) -> UndoFace {
 }
 
 pub fn screen_face_with_ink(lines: &[String], footer_ink: [u8; 3]) -> UndoFace {
-    let mut rgba = vec![0u8; (OUT_W * OUT_H * 4) as usize];
+    screen_face_on(lines,footer_ink,slot_ui::Canvas::FRAMED)
+}
+
+pub fn screen_face_on(lines: &[String], footer_ink: [u8; 3], canvas:slot_ui::Canvas) -> UndoFace {
+    let screen_w=canvas.w.round() as u32;
+    let mut rgba = vec![0u8; (screen_w * OUT_H * 4) as usize];
     let Some(font) = slot_ui::text::label_font() else {
         return UndoFace {
             rgba,
-            w: OUT_W,
+            w: screen_w,
             h: OUT_H,
         };
     };
-    let label_w = OUT_W - 96;
+    let label_w = screen_w - 96;
     let compact = lines.get(2).is_some_and(|line| line == "COMPACT");
     let clean = lines.iter().take(3).all(String::is_empty);
     let row_count = lines.len().saturating_sub(4) as u32;
@@ -770,7 +777,7 @@ pub fn screen_face_with_ink(lines: &[String], footer_ink: [u8; 3]) -> UndoFace {
     let row_top = if compact {
         88
     } else if clean {
-        (OUT_H - row_count * 52) / 2 + 4
+        (OUT_H - slot_ui::MOUTH_H as u32 - slot_ui::MENU_HINT_H - 12 - row_count * 48) / 2 + 4
     } else {
         184
     };
@@ -788,7 +795,7 @@ pub fn screen_face_with_ink(lines: &[String], footer_ink: [u8; 3]) -> UndoFace {
                 line.strip_prefix("SELECTED ")
                     .or_else(|| line.strip_prefix("ROW "))
                     .unwrap_or(line),
-                row_top + (i as u32 - 3) * 52 + 4,
+                row_top + (i as u32 - 3) * 48 + 4,
                 40u32,
                 30.0,
                 1,
@@ -830,12 +837,12 @@ pub fn screen_face_with_ink(lines: &[String], footer_ink: [u8; 3]) -> UndoFace {
                 let total = indices.iter().map(|&i| seen(i)).sum::<u32>()
                     + gap * indices.len().saturating_sub(1) as u32;
                 let mut x = if right {
-                    OUT_W.saturating_sub(total)
+                    screen_w.saturating_sub(16 + total)
                 } else {
-                    0
+                    16
                 };
                 for &i in indices {
-                    blit(&mut rgba, &faces[i], x, OUT_H - slot_ui::MOUTH_H as u32);
+                    blit(&mut rgba, &faces[i], x, OUT_H - slot_ui::MOUTH_H as u32 - slot_ui::MENU_HINT_H - 12);
                     x += seen(i) + gap;
                 }
             }
@@ -843,7 +850,7 @@ pub fn screen_face_with_ink(lines: &[String], footer_ink: [u8; 3]) -> UndoFace {
         }
         if label == "CONFIRM_FORGET" {
             let hint = slot_ui::sound_forget_confirmation();
-            blit(&mut rgba, &hint, (OUT_W - hint.w) / 2, 12);
+            blit(&mut rgba, &hint, (screen_w - hint.w) / 2, 12);
             continue;
         }
         if let Some((name, value)) = label
@@ -857,7 +864,7 @@ pub fn screen_face_with_ink(lines: &[String], footer_ink: [u8; 3]) -> UndoFace {
             if highlight {
                 let left = slot_ui::quick_caret_face(false);
                 let right = slot_ui::quick_caret_face(true);
-                let rx = OUT_W - 32 - right.w;
+                let rx = screen_w - 32 - right.w;
                 let vx = rx - 14 + 18 - value.w;
                 blit(&mut rgba, &right, rx, top);
                 blit(&mut rgba, &value, vx, top);
@@ -872,7 +879,7 @@ pub fn screen_face_with_ink(lines: &[String], footer_ink: [u8; 3]) -> UndoFace {
                     .map(|(i, _)| i as u32 % value.w)
                     .max()
                     .unwrap_or(0);
-                blit(&mut rgba, &value, OUT_W - 33 - ink_right, top);
+                blit(&mut rgba, &value, screen_w - 33 - ink_right, top);
             }
             continue;
         }
@@ -938,7 +945,7 @@ pub fn screen_face_with_ink(lines: &[String], footer_ink: [u8; 3]) -> UndoFace {
             label_w
         };
         if active {
-            draw_check(&mut rgba, OUT_W - 32 - 28, top + h / 2, ink);
+            draw_check(&mut rgba, screen_w - 32 - 28, top + h / 2, ink);
         }
         let mut face = vec![0u8; (face_w * h * 4) as usize];
         slot_ui::text::draw_centred(&mut face, face_w, h, &layout, ink);
@@ -955,16 +962,17 @@ pub fn screen_face_with_ink(lines: &[String], footer_ink: [u8; 3]) -> UndoFace {
     }
     UndoFace {
         rgba,
-        w: OUT_W,
+        w: screen_w,
         h: OUT_H,
     }
 }
 
 fn blit(dst: &mut [u8], face: &UndoFace, left: u32, top: u32) {
+    let screen_w=dst.len() as u32/(OUT_H*4);
     for y in 0..face.h.min(OUT_H.saturating_sub(top)) {
-        for x in 0..face.w.min(OUT_W.saturating_sub(left)) {
+        for x in 0..face.w.min(screen_w.saturating_sub(left)) {
             let src = ((y * face.w + x) * 4) as usize;
-            let dest = (((top + y) * OUT_W + left + x) * 4) as usize;
+            let dest = (((top + y) * screen_w + left + x) * 4) as usize;
             let a = u32::from(face.rgba[src + 3]);
             let behind = u32::from(dst[dest + 3]) * (255 - a) / 255;
             let alpha = a + behind;
@@ -982,16 +990,17 @@ fn blit(dst: &mut [u8], face: &UndoFace, left: u32, top: u32) {
 }
 
 fn draw_check(dst: &mut [u8], x: u32, y: u32, ink: [u8; 3]) {
+    let screen_w=dst.len() as u32/(OUT_H*4);
     // Draw the mark directly: the original slot label font has no check glyph.
     for i in 0..10 {
         for thickness in 0..3 {
-            let offset = (((y - 3 + i + thickness) * OUT_W + x + i) * 4) as usize;
+            let offset = (((y - 3 + i + thickness) * screen_w + x + i) * 4) as usize;
             dst[offset..offset + 4].copy_from_slice(&[ink[0], ink[1], ink[2], 255]);
         }
     }
     for i in 0..19 {
         for thickness in 0..3 {
-            let offset = (((y + 6 - i + thickness) * OUT_W + x + 9 + i) * 4) as usize;
+            let offset = (((y + 6 - i + thickness) * screen_w + x + 9 + i) * 4) as usize;
             dst[offset..offset + 4].copy_from_slice(&[ink[0], ink[1], ink[2], 255]);
         }
     }

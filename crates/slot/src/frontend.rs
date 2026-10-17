@@ -5,14 +5,13 @@ use slot_gfx::{Compositor, Draw, ScreenEffect, TexId, OUT_H, OUT_W};
 const PAPER: &[u8] = include_bytes!("../assets/paper.png");
 use slot_input::{InputSource, Millis};
 use slot_power::{Platform, Power};
-use slot_store::{format_stamp, BezelPick, Platform as Console};
+use slot_store::{format_stamp, BezelPick, Platform as Console, ShellColour};
 use slot_ui::{
     badge_face, bezel_face, cart_shadow, chip_face, chip_shadow_face, core_button_legends,
     date_time_text, default_game_bezel_face, footer_ink, game_bezel_face, gb_cart_shadow, hhmm,
     hint_face, icon_face, link_button_legends, menu_face, photo_face, quick_caret_face,
     quick_label_face, quick_legend_faces, quick_pointer_face, quick_value_face, rebuild_count_face,
-    rebuild_title_face, set_clock_hint_face, slot_back, slot_back_light, slot_front,
-    slot_front_light, socket_face, sticker_face, title_face, toast_face, wallpaper_face, word_ink,
+    rebuild_title_face, set_clock_hint_face, socket_face, sticker_face, title_face, toast_face, wallpaper_face, word_ink,
     CartFace, GbShell, Icon, LinkBadge, PowerChoice, QuickMenuFaces, QuickRow, QuickValue,
     RebuildScreen, StickerFields, Toast, UndoFace, ALERT_PX, BOLT_PX, HUD_ICON_PX, HUD_INK, LEGEND,
 };
@@ -131,11 +130,11 @@ struct Clocks {
 }
 
 struct ShelfLook {
-    slot: [[TexId; 2]; 2],
+    slot: [[TexId; 2]; 4],
     bolt: [TexId; 2],
-    port: [Option<TexId>; 2],
+    port: [Option<TexId>; 4],
     legend: [Vec<(TexId, u32)>; 2],
-    applied: Option<(bool, bool, bool)>,
+    applied: Option<(bool, ShellColour, bool, bool)>,
 }
 
 #[derive(Default)]
@@ -285,10 +284,7 @@ impl Frontend {
         let slot = {
             let mut upload =
                 |bytes: &[u8]| compositor.create_texture(slot_ui::SLOT_W, slot_ui::SLOT_H, bytes);
-            [
-                [upload(slot_back()), upload(slot_front())],
-                [upload(slot_back_light()), upload(slot_front_light())],
-            ]
+            ShellColour::FINISHES.map(|colour| slot_ui::shell_slot_faces(colour).map(&mut upload))
         };
         let dark_bolt = icon_face(Icon::Charging, BOLT_PX, footer_ink(false));
         let light_bolt = icon_face(Icon::Charging, BOLT_PX, footer_ink(true));
@@ -299,7 +295,7 @@ impl Frontend {
         self.look = Some(ShelfLook {
             slot,
             bolt,
-            port: [None, None],
+            port: [None; 4],
             legend: [Vec::new(), Vec::new()],
             applied: None,
         });
@@ -322,16 +318,17 @@ impl Frontend {
 
     fn apply_look(&mut self) {
         let light = self.session.app().light();
+        let colour = self.session.app().shell_colour();
         let ready = self.look.as_ref().map(|look| {
             let i = usize::from(light);
             let legend_ready = !look.legend[i].is_empty();
-            let port_ready = look.port[i].is_some();
+            let port_ready = look.port[colour.finish_index()].is_some();
             (
-                look.applied == Some((light, legend_ready, port_ready)),
-                look.slot[i],
+                look.applied == Some((light, colour, legend_ready, port_ready)),
+                look.slot[colour.finish_index()],
                 look.bolt[i],
                 look.bolt[0],
-                look.port[i],
+                look.port[colour.finish_index()],
                 look.legend[i].clone(),
                 legend_ready,
                 port_ready,
@@ -354,7 +351,7 @@ impl Frontend {
             self.session.app_mut().set_link_legend_faces(legend);
         }
         if let Some(look) = &mut self.look {
-            look.applied = Some((light, legend_ready, port_ready));
+            look.applied = Some((light, colour, legend_ready, port_ready));
         }
     }
 
@@ -384,7 +381,7 @@ impl Frontend {
         let mut up = |f: UndoFace| (compositor.create_texture(f.w, f.h, &f.rgba), f.w, f.h);
         let lines = faces.shutdown.into_iter().map(&mut up).collect();
         let power_switch =
-            [false, true].map(|light| slot_ui::power_switch_faces(light).map(|face| up(face).0));
+            ShellColour::FINISHES.map(|colour| slot_ui::power_switch_faces_for(colour).map(|face| up(face).0));
         let labels = faces
             .quick_labels
             .into_iter()
@@ -435,7 +432,7 @@ impl Frontend {
         let app = self.session.app_mut();
         app.set_link_badge_faces(link_badges);
         app.set_shutdown_faces(lines);
-        app.set_power_switch_faces(power_switch);
+        app.set_shell_switch_faces(power_switch);
         app.set_quick_menu_faces(QuickMenuFaces {
             labels,
             pointer,
@@ -579,6 +576,7 @@ impl Frontend {
             None
         };
         let sound_footer_ink = slot_ui::footer_ink(self.session.app().light());
+        let sound_canvas=self.session.app().canvas();
         if let Some(menu) = &mut self.session.app_mut().bluetooth {
             menu.progress_face = progress;
             let lines = menu.lines();
@@ -586,7 +584,7 @@ impl Frontend {
                 menu.face = Some(upload(
                     compositor,
                     &mut self.bluetooth_tex,
-                    crate::bluetooth::screen_face_with_ink(&lines, sound_footer_ink),
+                    crate::bluetooth::screen_face_on(&lines, sound_footer_ink, sound_canvas),
                 ));
                 self.bluetooth_lines = lines;
             }
@@ -639,10 +637,10 @@ impl Frontend {
                     w: f.w,
                     h: f.h,
                 };
-                let port_dark = up(&art.port);
-                let port_light = up(&art.port_light);
+                let ports=art.port_finishes.each_ref().map(&mut up);
+                let port_dark=ports[0];
                 if let Some(look) = &mut self.look {
-                    look.port = [Some(port_dark.tex), Some(port_light.tex)];
+                    look.port = ports.map(|p|Some(p.tex));
                     look.applied = None;
                 }
                 let sprites = LinkSprites {

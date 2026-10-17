@@ -9,6 +9,7 @@ use crate::shelf::foot_y;
 
 pub const ALERT_PX: f32 = 44.0;
 
+// Keep the original 72px texture scale, with its lower 14px below the display.
 pub const MOUTH_H: f32 = 58.0;
 const BAND_Y: f32 = OUT_H as f32 - MOUTH_H;
 
@@ -68,7 +69,11 @@ pub fn recess() -> [f32; 4] {
 
 const LIP_Y: f32 = BAND_Y;
 
-const SEATED_Y: f32 = BAY_Y + 4.0;
+// The 60 mm GBA cap is drawn at the common 308px visible width.
+// The common connector stop is about 28 mm behind the straight mouth plane,
+// photo-calibrated from inserted SP paks; this is not an engineering tolerance.
+const MM_TO_PX: f32 = SEATED_W as f32 / 60.0;
+const SEATED_FOOT: f32 = BAND_Y + 5.0 + 25.0 * 1.05 + 28.0 * MM_TO_PX;
 
 fn catch_at(foot: f32, seated_foot: f32) -> f32 {
     (LIP_Y - foot) / (seated_foot - foot)
@@ -130,14 +135,16 @@ impl SlotChrome<'_> {
         let (cw, ch) = (cw as f32, ch as f32);
 
         let scale = self.scale.clamp(0.0, crate::shelf::shelf_scale(self.cart.platform));
-        let (w0, h0) = (cw * scale, ch * scale);
-        let (sw, sh) = seated_box(self.cart.platform);
-        let (sw, sh) = (sw as f32, sh as f32);
-        let (foot0, seated_foot) = (foot_y(ch), SEATED_Y + sh);
+        let w0 = cw * scale;
+        let sw = seated_box(self.cart.platform).0 as f32;
+        let (foot0, seated_foot) = (foot_y(ch), SEATED_FOOT);
         let catch = catch_at(foot0, seated_foot);
         let travel = travel(seat, catch);
         let k = (travel / catch).min(1.0);
-        let (cw, ch) = (w0 + (sw - w0) * k, h0 + (sh - h0) * k);
+        // One scalar drives both axes. Never interpolate width and height independently:
+        // even rounded source/seated dimensions must not squash the cartridge.
+        let image_scale = scale + (sw / cw - scale) * k;
+        let (cw, ch) = (cw * image_scale, ch * image_scale);
         let centre = self.rest + w0 / 2.0;
         let x = centre + (canvas.w / 2.0 - centre) * k - cw / 2.0;
         let y = foot0 + (seated_foot - foot0) * travel - ch;
@@ -241,7 +248,7 @@ fn strip(canvas: Canvas, tex: TexId, alpha: f32) -> Draw {
         x: 0.0,
         y: BAND_Y,
         w: canvas.w,
-        h: MOUTH_H,
+        h: crate::bitmaps::SLOT_H as f32,
         tex,
         alpha,
         uv: canvas.window(crate::bitmaps::SLOT_W as f32),
@@ -354,9 +361,9 @@ fn travel(seat: f32, catch: f32) -> f32 {
     if seat < CATCH_IN {
         catch * ease(seat / CATCH_IN)
     } else if seat < CATCH_OUT {
-        catch + CREEP * (seat - CATCH_IN) / (CATCH_OUT - CATCH_IN)
+        catch + CREEP * catch * (seat - CATCH_IN) / (CATCH_OUT - CATCH_IN)
     } else {
-        let caught = catch + CREEP;
+        let caught = catch + CREEP * catch;
         caught + (1.0 - caught) * ease((seat - CATCH_OUT) / (1.0 - CATCH_OUT))
     }
 }

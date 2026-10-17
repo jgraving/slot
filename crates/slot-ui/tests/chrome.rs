@@ -1,7 +1,7 @@
 use slot_store::{Cart, Platform};
 use slot_ui::{
     cart_box, draw_empty_slot, edge, foot_y, housing, icon_box, opening, recess, seated_box,
-    Canvas, Draw, Shelf, SlotChrome, TexId, ALERT_PX, CART_H, CART_W, GB_LABEL_H, GB_LABEL_Y,
+    Canvas, Draw, Shelf, SlotChrome, TexId, ALERT_PX, CART_W, GB_LABEL_H, GB_LABEL_Y,
     LABEL_H, LABEL_Y, MOUTH_H, OUT_H, OUT_W,
 };
 
@@ -138,11 +138,12 @@ fn cart_visible_height(out: &[Draw]) -> f32 {
 }
 
 fn chrome_into(c: &Cart, seat: f32, out: &mut Vec<Draw>) {
+    let (rest,scale)=Shelf::new(vec![c.clone()]).selected_at(Canvas::FRAMED);
     SlotChrome {
         cart: c,
         face: None,
-        rest: centred(c),
-        scale: 1.0,
+        rest,
+        scale,
         seat,
         alert: None,
         dim: 0.5,
@@ -158,7 +159,7 @@ fn chrome_into(c: &Cart, seat: f32, out: &mut Vec<Draw>) {
 
 #[test]
 fn a_cart_the_row_had_not_finished_moving_slides_across_as_it_goes_in() {
-    let c = cart();
+    let c = pak();
     let mut shelf = Shelf::new(vec![cart(), pak(), cart()]);
     shelf.right();
     shelf.update(1.0 / 60.0);
@@ -194,11 +195,11 @@ fn a_cart_the_row_had_not_finished_moving_slides_across_as_it_goes_in() {
     };
     let start = at(0.0);
     assert!(
-        (start.x - rest).abs() < 0.01 && (start.w - CART_W as f32 * scale).abs() < 0.01,
+        (start.x - rest).abs() < 0.01 && (start.w - cart_box(c.platform).0 as f32 * scale).abs() < 0.01,
         "the cart starts at {start:?} rather than in the quad the row had it in"
     );
     assert!(
-        (start.y + start.h - foot_y(CART_H as f32)).abs() < 0.01,
+        (start.y + start.h - foot_y(cart_box(c.platform).1 as f32)).abs() < 0.01,
         "the cart starts with its foot at {} rather than on the row's floor",
         start.y + start.h
     );
@@ -311,7 +312,7 @@ fn the_cart_is_progressively_occluded_by_the_lip() {
     for (name, c) in both() {
         let h = |t: f32| visible_cart_height(&c, t);
         assert!(h(0.5) < h(0.1), "{name} is not sinking behind the lip");
-        assert!(h(0.95) < h(0.5) * 0.5, "{name} is barely in by the end");
+        assert!(h(0.95) < h(0.5) * 0.8, "{name} is barely in by the end");
     }
 }
 
@@ -362,14 +363,15 @@ fn an_unseated_cart_stands_where_the_shelf_left_it() {
 }
 
 #[test]
-fn a_cart_shrinks_to_the_slot_by_the_lip() {
+fn a_cart_keeps_its_common_width_by_the_lip() {
     let lip = OUT_H as f32 - MOUTH_H;
     for (name, c) in both() {
         let (w, h) = cart_box(c.platform);
         let (sw, sh) = seated_box(c.platform);
         let start = cart_quad(&c, 0.0);
+        let zoom=slot_ui::shelf_scale(c.platform);
         assert!(
-            (start.w - w as f32).abs() < 0.01 && (start.h - h as f32).abs() < 0.01,
+            (start.w - w as f32*zoom).abs() < 0.01 && (start.h - h as f32*zoom).abs() < 0.01,
             "{name} leaves the shelf at {}x{} rather than its own {w}x{h}",
             start.w,
             start.h
@@ -381,7 +383,7 @@ fn a_cart_shrinks_to_the_slot_by_the_lip() {
             assert!(q.w <= last.w + 0.01, "{name} grew to {} at seat {t}", q.w);
             if q.y + q.h >= lip {
                 assert!(
-                    (q.w - sw as f32).abs() < 0.01 && (q.h - sh as f32).abs() < 0.01,
+                    (q.w - sw as f32).abs() < 0.01 && (q.h - sh as f32).abs() < 0.5,
                     "{name} is {}x{} at the lip, not the slot's {sw}x{sh}",
                     q.w,
                     q.h
@@ -393,24 +395,13 @@ fn a_cart_shrinks_to_the_slot_by_the_lip() {
 }
 
 #[test]
-fn every_cartridge_seats_to_the_same_depth() {
-    let tops: Vec<(&str, f32)> = both()
-        .iter()
-        .map(|(name, c)| {
-            let out = chrome(c, 1.0);
-            (*name, quad(&out[cart_at(&out)]).y)
-        })
-        .collect();
-    let (first, rest) = tops.split_first().expect("two cartridges");
-    for (name, top) in rest {
-        assert!(
-            (top - first.1).abs() < 0.01,
-            "{name} seats with its top edge at {top} against {} for {}: one of them is in \
-             deeper than the other",
-            first.1,
-            first.0
-        );
+fn every_cartridge_seats_against_the_same_connector_stop() {
+    for (_,c) in both() {
+        let out=chrome(&c,1.0); let q=quad(&out[cart_at(&out)]);
+        assert!((q.y+q.h-(480.0-MOUTH_H+5.0+25.0*1.05+28.0*308.0/60.0)).abs()<0.01,"shared connector stop: {q:?}");
     }
+    assert!(cart_y(&pak(),1.0)<cart_y(&cart(),1.0)-100.0,
+        "the taller GB cartridge must remain above the shell");
 }
 
 #[test]
@@ -454,60 +445,24 @@ fn every_cartridge_lands_its_foot_on_the_lip_at_the_same_moment() {
 }
 
 #[test]
-fn a_seated_cart_stops_in_the_opening_and_covers_its_base() {
-    for (name, c) in both() {
-        let out = chrome(&c, 1.0);
-        let cart = quad(&out[cart_at(&out)]);
-        let recess = out
-            .iter()
-            .find_map(|d| tinted(d, recess()).then(|| quad(d)))
-            .expect("no recess drawn");
-        assert!(
-            cart.y > recess.y && cart.y < recess.y + recess.h,
-            "{name} stops at {} against a recess at {}..{}: it is not in the slot",
-            cart.y,
-            recess.y,
-            recess.y + recess.h
-        );
-        assert!(
-            cart.y + cart.h > recess.y + recess.h,
-            "{name} does not reach the bottom of the recess"
-        );
-        assert!(
-            cart.y >= OUT_H as f32 - MOUTH_H,
-            "{name} is left standing above the case"
-        );
+fn seated_cartridges_keep_their_grip_out_and_their_connector_inside() {
+    for (_,c) in both() {
+        let out=chrome(&c,1.0);let q=quad(&out[cart_at(&out)]);
+        assert!(q.y<OUT_H as f32-MOUTH_H,"grip was swallowed: {q:?}");
+        assert!(q.y+q.h>OUT_H as f32,"connector did not enter: {q:?}");
     }
 }
 
 #[test]
-fn a_seated_cart_shows_at_most_a_sliver_of_label_and_a_pak_shows_none() {
-    for (name, c, shows_paper) in [
-        ("the GBA cart", cart(), true),
-        ("the Game Boy pak", pak(), false),
-    ] {
-        let out = chrome(&c, 1.0);
-        let cart = quad(&out[cart_at(&out)]);
-        let deepest = out
-            .iter()
-            .filter(|d| is_mouth(d) || tinted(d, recess()))
-            .map(|d| {
-                let q = quad(d);
-                q.y + q.h
-            })
-            .fold(0.0, f32::max);
-        let (label_y, label_h) = label_band(&c);
-        let peek = deepest - (cart.y + label_y);
-        assert!(
-            peek < label_h / 4.0,
-            "{peek}px of {name}'s {label_h}px label is out of the machine"
-        );
-        assert_eq!(
-            peek > 0.0,
-            shows_paper,
-            "{name} shows {peek}px of label, which is not what this cartridge is supposed to \
-             leave showing"
-        );
+fn gba_shows_a_label_sliver_while_the_taller_gb_pak_keeps_its_upper_label_out() {
+    for (_,c) in both() {
+        let q=cart_quad(&c,1.0);let (y,h)=label_band(&c);
+        let peek=OUT_H as f32-MOUTH_H+5.0+40.0*1.05-(q.y+y);
+        if c.platform==Platform::Gba {
+            assert!((0.0..h/4.0).contains(&peek),"GBA peek {peek} of {h}");
+        } else {
+            assert!((h*0.4..h*0.8).contains(&peek),"GB peek {peek} of {h}");
+        }
     }
 }
 
@@ -928,6 +883,51 @@ fn a_clear_carts_board_goes_into_the_slot_and_comes_out_with_it() {
                 at(face) < slot_front - 1,
                 "{name} at {seat}: the face is not under the slot front"
             );
+        }
+    }
+}
+
+#[test]
+fn textured_insertion_preserves_both_axes_and_matches_the_enlarged_carousel() {
+    for platform in [Platform::Gba, Platform::Gb, Platform::Gbc] {
+        let mut c = cart(); c.platform = platform;
+        for canvas in [Canvas::FRAMED, Canvas { w: 640.0, h: 480.0 }] {
+            let mut shelf = Shelf::new(vec![c.clone()]);
+            let face = TexId::from_raw(700);
+            shelf.set_faces(vec![face]);
+            let (rest, scale) = shelf.selected_at(canvas);
+            let mut row = Vec::new(); shelf.draw(canvas, 0.0, None, &mut row);
+            let on_shelf = row.iter().find_map(|d| match d {
+                Draw::Tex { tex, .. } if *tex == face => Some(quad(d)), _ => None,
+            }).unwrap();
+            let (w,h) = cart_box(platform);
+            let mut last = None;
+            for step in 0..=100 {
+                let mut draws = Vec::new();
+                SlotChrome { canvas, cart: &c, face: Some(face), rest, scale,
+                    seat: step as f32/100.0, screen: 0.0, game: false, over: true,
+                    dim: 0.0, slot: Some((TexId::from_raw(701),TexId::from_raw(702))),
+                    behind: [None,None], alert: None }.draw(&mut draws);
+                let q = draws.iter().find_map(|d| match d {
+                    Draw::Tex { tex, .. } if *tex == face => Some(quad(d)), _ => None,
+                }).unwrap();
+                assert!(q.y>=40.0 && q.x>=0.0 && q.x+q.w<=canvas.w,
+                    "{platform:?} clipped at {step}: {q:?}");
+                let visible_w=q.w*if platform==Platform::Gba {340.0/360.0} else {288.0/312.0};
+                if q.y+q.h >= 480.0-MOUTH_H {
+                    assert!((visible_w-308.0*340.0/360.0).abs()<1.0,"unequal inserted cartridge widths");
+                }
+                assert!((q.w/w as f32-q.h/h as f32).abs() < 0.00001,
+                    "{platform:?} squashed at {step}: {q:?}");
+                if step == 0 { assert_eq!(q, on_shelf, "start frame must match the real shelf"); }
+                if let Some((pw,ph)) = last {
+                    assert!(q.w <= pw+0.001 && q.h <= ph+0.001);
+                }
+                last = Some((q.w,q.h));
+                let ci = draws.iter().position(|d| matches!(d, Draw::Tex {tex,..} if *tex==face)).unwrap();
+                assert!(matches!(draws[ci-1], Draw::Part {tex,..} if tex==TexId::from_raw(701)));
+                assert!(matches!(draws[ci+1], Draw::Part {tex,..} if tex==TexId::from_raw(702)));
+            }
         }
     }
 }

@@ -18,14 +18,14 @@ fn sound_uses_the_shared_pointer_over_a_transparent_menu_background() {
     for y in 0..pointer.h {
         for x in 0..pointer.w {
             let a = ((y * pointer.w + x) * 4) as usize;
-            let b = (((140 + y) * OUT_W + 18 + x) * 4) as usize;
+            let b = (((136 + y) * OUT_W + 18 + x) * 4) as usize;
             if pointer.rgba[a + 3] > 0 {
                 assert_eq!(&face.rgba[b..b + 4], &pointer.rgba[a..a + 4]);
             }
         }
     }
     // No old full-width highlight or opaque screen hiding the wallpaper/game.
-    for y in 88..400 {
+    for y in 88..378 {
         assert_eq!(face.rgba[((y * OUT_W + 710) * 4 + 3) as usize], 0);
     }
     assert!(face.rgba.chunks_exact(4).any(|p| p == [154, 154, 164, 255]));
@@ -96,8 +96,8 @@ fn device_icons_have_equal_visible_heights_and_the_check_uses_the_value_edge() {
             .unwrap()
     };
     assert_eq!(right(92), 687);
-    assert!((right(92) as i32 - right(144) as i32).abs() <= 1);
-    assert!((right(92) as i32 - right(196) as i32).abs() <= 1);
+    assert!((right(92) as i32 - right(140) as i32).abs() <= 1);
+    assert!((right(92) as i32 - right(188) as i32).abs() <= 1);
 }
 
 #[test]
@@ -109,4 +109,24 @@ fn progress_ring_animates_inside_a_fixed_small_transparent_box() {
     assert_eq!(first.rgba, slot::bluetooth::progress_face(12).rgba);
     assert_eq!(first.rgba[((16 * 32 + 16) * 4 + 3) as usize], 0);
     assert!(first.rgba.chunks_exact(4).any(|p| p[3] > 0 && p[3] < 255));
+}
+
+#[test]
+fn sound_hints_keep_sixteen_pixel_margins_and_round_buttons_on_both_canvases() {
+    use slot_ui::{Canvas,MENU_HINT_H,MOUTH_H};
+    let lines=["","","COMPACT","ROW SPEAKER_DEVICE Internal speaker","B Back · A Select"].map(str::to_owned);
+    let top=480-MOUTH_H as u32-MENU_HINT_H-12;
+    let mut previous=None;
+    for w in [640,720] {
+        let face=slot::bluetooth::screen_face_on(&lines,[246,244,239],Canvas{w:w as f32,h:480.});
+        assert_eq!((face.w,face.h),(w,480));
+        for y in top..top+MENU_HINT_H {for x in (0..16).chain(w-16..w) {
+            assert_eq!(face.rgba[((y*w+x)*4+3) as usize],0,"hint hits edge at {w}:{x},{y}");
+        }}
+        let button:Vec<_>=(top..top+MENU_HINT_H).flat_map(|y| (16..16+MENU_HINT_H)
+            .map(move |x|((y*w+x)*4) as usize)).map(|i|face.rgba[i..i+4].to_vec()).collect();
+        assert!(button.iter().any(|p|p[3]>128));
+        if let Some(old)=previous {assert_eq!(button,old,"native canvas squeezed the button");}
+        previous=Some(button);
+    }
 }

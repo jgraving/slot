@@ -12,7 +12,7 @@ use slot_store::{
     WallpaperTint, BLUE_LIGHT_MAX, BRIGHTNESS_MAX, FF_SPEEDS, RING_MAX, RUN_AHEAD_MAX, VOLUME_MAX,
 };
 use slot_ui::{
-    board_from, board_zoom, draw_empty_slot, draw_footer, draw_ground, draw_slot_name,
+    board_from, board_zoom, draw_empty_slot, draw_ground, draw_slot_name,
     draw_sticker, ease, footer_ink, grown, lid_at, lid_from, lift_of, on_board, repeat_gap,
     shelf_cart_at, ClockPicker, Draw, FfState, GbShell, Hud, HudKind, Icon, LinkBadge, Millis,
     Placed, Polaroids, PowerChoice, QuickMenu, QuickMenuFaces, QuickRow, QuickValue, Refusal,
@@ -76,13 +76,13 @@ const SLOT_NAME_HOLD_MS: Millis = 1200;
 const SLOT_NAME_OUT_MS: Millis = 800;
 const SLOT_NAME_ALPHA: f32 = 1.0;
 const CORE_PICKER_DIM: f32 = 0.25 / (1.0 - CORE_PICKER_RECEDE);
-const CORE_LEGEND_Y: f32 = OUT_H as f32 - MOUTH_H * 2.0;
+const CORE_LEGEND_Y: f32 = OUT_H as f32 - MOUTH_H - slot_ui::MENU_HINT_H as f32 - 12.0;
 const CORE_LEGEND_GAP: f32 = 24.0;
 const LINK_TEXT_Y: f32 = 44.0;
-const LINK_LEGEND_Y: f32 = OUT_H as f32 - MOUTH_H;
+const LINK_LEGEND_Y: f32 = OUT_H as f32 - MOUTH_H - slot_ui::MENU_HINT_H as f32 - 12.0;
 pub const LINK_SCRIM: [f32; 4] = [0.0, 0.0, 0.0, 0.5];
 const LINK_LEGEND_GAP: f32 = 40.0;
-const LINK_LEGEND_EDGE: f32 = 0.0;
+const LINK_LEGEND_EDGE: f32 = 16.0;
 const LID_SHADOW_W: f32 = 168.0;
 const LID_SHADOW_H: f32 = 18.0;
 const LID_SHADOW_DROP: f32 = 27.1;
@@ -330,7 +330,7 @@ pub struct App {
     refused_from: Option<f32>,
     alert_face: Option<TexId>,
     shutdown_faces: Vec<(TexId, u32, u32)>,
-    power_switch_faces: Option<[[TexId; 2]; 2]>,
+    power_switch_faces: Option<[[TexId; 2]; 4]>,
     core_picker: Option<CorePicker>,
     core_board_face: Option<TexId>,
     core_interior_face: Option<TexId>,
@@ -968,6 +968,13 @@ impl App {
                 WallpaperTint::Low => QuickValue::Low,
                 WallpaperTint::Medium => QuickValue::Medium,
                 WallpaperTint::High => QuickValue::High,
+            }),
+            QuickRow::ShellColour => Some(match self.state.shell_colour {
+                slot_store::ShellColour::Theme => QuickValue::MatchTheme,
+                slot_store::ShellColour::Graphite => QuickValue::Graphite,
+                slot_store::ShellColour::Platinum => QuickValue::Platinum,
+                slot_store::ShellColour::PearlBlue => QuickValue::PearlBlue,
+                slot_store::ShellColour::PearlPink => QuickValue::PearlPink,
             }),
             QuickRow::Theme => Some(if self.light() {
                 QuickValue::Light
@@ -1817,6 +1824,10 @@ impl App {
         }
     }
 
+    pub fn shell_colour(&self) -> slot_store::ShellColour {
+        self.state.shell_colour.resolved(self.light())
+    }
+
     pub fn light(&self) -> bool {
         self.state.appearance.light()
     }
@@ -2250,6 +2261,7 @@ impl App {
             | QuickRow::GbPalettes
             | QuickRow::RunAhead
             | QuickRow::Rumble
+            | QuickRow::ShellColour
             | QuickRow::Theme
             | QuickRow::Recents
             | QuickRow::ShowTitles
@@ -2383,6 +2395,7 @@ impl App {
                 s.runahead = (s.runahead + if right { 1 } else { n - 1 }) % n;
             }
             QuickRow::Theme => s.appearance = s.appearance.toggle(),
+            QuickRow::ShellColour => s.shell_colour = s.shell_colour.step(right),
             QuickRow::WallpaperTint => s.wallpaper_tint = s.wallpaper_tint.step(right),
             QuickRow::Wallpaper
             | QuickRow::Recents
@@ -3352,7 +3365,7 @@ impl App {
                     slot_ui::draw_power_switch(
                         self.canvas(),
                         elapsed as f32 / slot_ui::POWER_SWITCH_MS as f32,
-                        faces[usize::from(self.light())],
+                        faces[self.shell_colour().finish_index()],
                         out,
                     );
                     return;
@@ -3417,6 +3430,7 @@ impl App {
                     alpha: 1.,
                 });
             }
+            self.draw_status_bar(out);
             self.hud.draw(self.canvas(), self.now(), out);
             return;
         }
@@ -3430,6 +3444,7 @@ impl App {
                 };
                 let back = self.clock_back.filter(|_| *from_menu);
                 picker.draw(self.canvas(), line, hint, back, out);
+                if *from_menu { self.draw_status_bar(out); }
                 return;
             }
             Phase::QuickMenu { row } => QuickMenu {
@@ -3491,28 +3506,12 @@ impl App {
                     }
                 }
                 self.draw_favorite_removal(out);
-                draw_footer(
-                    self.canvas(),
-                    self.battery,
-                    self.battery_percent,
-                    self.bolt,
-                    self.shelf_clock,
-                    footer_ink(self.light()),
-                    out,
-                );
-                if self.bluetooth_connected || self.local_headphones() {
-                    slot_ui::draw_footer_connection(
-                        self.battery,
-                        self.battery_percent,
-                        self.audio_indicator,
-                        out,
-                    );
-                }
             }
             Phase::About => {
                 slot_ui::draw_menu_ground(self.canvas(), self.menu_ground(), out);
                 draw_sticker(self.canvas(), self.sticker_face, out);
                 self.draw_menu_footer(out);
+                self.draw_status_bar(out);
                 return;
             }
             Phase::Inserting { cart, resumed, .. } => {
@@ -3588,7 +3587,7 @@ impl App {
                 canvas: self.canvas(),
             }
             .draw(out);
-            if row.page() != QuickRow::PLAY_SCREEN {
+            {
                 slot_ui::draw_corners(
                     self.canvas(),
                     self.battery,
@@ -3604,6 +3603,9 @@ impl App {
                     out,
                 );
             }
+        }
+        if matches!(self.phase, Phase::Shelf | Phase::QuickMenu { .. } | Phase::Inserting { .. }) {
+            self.draw_status_bar(out);
         }
         self.draw_menu_footer(out);
         self.draw_close_footer(out);
@@ -3686,16 +3688,21 @@ impl App {
         if self.framed_panel() && self.screen > 0.0 {
             self.draw_seated_mouth(cart, out);
         }
-        draw_footer(
-            self.canvas(),
-            self.battery,
-            self.battery_percent,
-            self.bolt,
-            self.shelf_clock,
-            footer_ink(self.light()),
-            out,
-        );
         shift_down(&mut out[start..], self.menu_footer_offset());
+        self.draw_status_bar(out);
+    }
+
+    fn draw_status_bar(&self, out: &mut Vec<Draw>) {
+        let in_game = matches!(self.phase, Phase::Playing { .. } | Phase::Polaroids { .. });
+        slot_ui::draw_status(
+            self.canvas(), self.battery, self.battery_percent,
+            if in_game { self.hud_bolt } else { self.bolt },
+            self.shelf_clock, self.status_ink(), out,
+        );
+        slot_ui::draw_corner_connection(
+            self.battery, self.battery_percent,
+            if in_game { self.hud_audio_indicator } else { self.audio_indicator }, out,
+        );
     }
 
     fn draw_seated_mouth(&self, stem: &str, out: &mut Vec<Draw>) {
@@ -3761,7 +3768,7 @@ impl App {
             x,
             y,
             w: face.1 as f32,
-            h: MOUTH_H,
+            h: slot_ui::MENU_HINT_H as f32,
             tex: face.0,
             alpha: 1.0,
         });
@@ -3816,8 +3823,12 @@ impl App {
         self.alert_face = Some(face);
     }
 
-    pub fn set_power_switch_faces(&mut self, faces: [[TexId; 2]; 2]) {
+    pub fn set_shell_switch_faces(&mut self, faces: [[TexId; 2]; 4]) {
         self.power_switch_faces = Some(faces);
+    }
+
+    pub fn set_power_switch_faces(&mut self, faces: [[TexId; 2]; 2]) {
+        self.power_switch_faces = Some([faces[0], faces[1], faces[0], faces[1]]);
     }
 
     pub fn set_shutdown_faces(&mut self, faces: Vec<(TexId, u32, u32)>) {
@@ -4046,7 +4057,7 @@ impl App {
                     x: x.round(),
                     y: CORE_LEGEND_Y,
                     w: w as f32,
-                    h: MOUTH_H,
+                    h: slot_ui::MENU_HINT_H as f32,
                     tex,
                     alpha: lift,
                 });
@@ -4137,7 +4148,7 @@ impl App {
                 x,
                 y: LINK_LEGEND_Y,
                 w: w as f32,
-                h: MOUTH_H,
+                h: slot_ui::MENU_HINT_H as f32,
                 tex,
                 alpha: 1.0,
             });
