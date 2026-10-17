@@ -1,42 +1,62 @@
-name: release
+name: Build and release
 
 on:
   push:
+    branches: [main]
     tags: ['v*']
+    paths-ignore:
+      - '**.md'
+      - 'previews/**'
+      - '.github/resources/**'
+      - '.github/FUNDING.yml'
+      - '.github/workflows/pages.yml'
   workflow_dispatch:
 
 permissions:
   contents: read
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   build:
-    name: card tree
+    if: github.repository == 'jgraving/slot' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
+    name: Test and package ARM64
+    timeout-minutes: 35
     runs-on: ubuntu-24.04-arm
     container: rust:1-bullseye
-    outputs:
-      zip: ${{ steps.package.outputs.zip }}
+    env:
+      SLOT_SILENT: '1'
     steps:
       - uses: actions/checkout@v7
 
-      - name: Install zip, cmake and Task
+      - name: Install build dependencies
         run: |
           set -eu
           sed -i '/bullseye-security/d' /etc/apt/sources.list
           apt-get -o Acquire::Check-Valid-Until=false update
-          apt-get install -y --no-install-recommends zip cmake
+          apt-get install -y --no-install-recommends zip cmake libasound2 python3
           curl -fsSL https://taskfile.dev/install.sh | sh -s -- -b /usr/local/bin
 
-      - name: Build the tree
-        run: task dist:device OUT="slot-${GITHUB_REF_NAME}"
+      - name: Build the card tree
+        run: task dist:device OUT=dist-release
 
-      - name: Check what is about to ship
+      - name: Run device regression checks
         run: |
           set -eu
-          out="slot-${GITHUB_REF_NAME}"
-          file "$out/System/slot" | grep -q aarch64
-          file "$out/System/mgba_libretro.so" | grep -q aarch64
-          file "$out/System/gpsp_libretro.so" | grep -q aarch64
-          test -x "$out/System/slot"
+          cargo test -p slot --no-default-features --test favorites --test power --test cartridge_ticks --test power_click --test sfx --test sleep --test quick_menu --test menu_repeat --test night_display --test link_ui --test link_screen --test link_art_builder --test core_picker --test sound_menu_style -- --test-threads=1
+          cargo test -p slot-ui --test favorite --test power_switch --test quick_menu --test toast --test shelf --test native_shelf --test chrome --test board --test shell_material --test cart --test legend --test link_art
+          cargo test -p slot-store --test shell_colour --test config --test durability
+          cargo test -p slot-input --test gesture
+          cargo test -p slot-gfx --no-default-features --test grade
+          cargo test -p slot-power --test device
+          python3 card/test-bluetooth.py
+
+      - name: Check emulator source materials
+        run: |
+          set -eu
+          out=dist-release
           gpsp_src_sha="$(cat vendor/gpsp-src.sha)"
           test -f "$out/System/licenses/gpsp-${gpsp_src_sha}.tar.gz"
           test -f "$out/System/licenses/gpsp-${gpsp_src_sha}.meta"
@@ -49,43 +69,70 @@ jobs:
             test -f "$out/System/licenses/mgba-$(basename "$p")"
           done
 
-      - name: Package
-        id: package
-        run: |
-          set -eu
-          out="slot-${GITHUB_REF_NAME}"
-          zip="$out-h700.zip"
-          zip -qry "$zip" "$out"
-          echo "zip=$zip" >> "$GITHUB_OUTPUT"
+      - name: Validate binaries and package downloads
+        run: python3 tools/package-release.py dist-release release-assets "$GITHUB_SHA"
 
       - uses: actions/upload-artifact@v7
         with:
-          name: ${{ steps.package.outputs.zip }}
-          path: ${{ steps.package.outputs.zip }}
+          name: release-downloads
+          path: release-assets/*
           if-no-files-found: error
 
   publish:
-    name: release
+    name: Publish downloadable release
     needs: build
-    if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
       - uses: actions/download-artifact@v8
         with:
-          name: ${{ needs.build.outputs.zip }}
+          name: release-downloads
+          path: release-assets
 
-      - name: Create the release
+      - name: Publish the complete release
         env:
           GH_TOKEN: ${{ github.token }}
-          ZIP: ${{ needs.build.outputs.zip }}
+        shell: bash
         run: |
-          set -eu
-          cat > notes.md <<NOTES
-          Unzip and copy the contents of \`slot-${GITHUB_REF_NAME}/\` onto SD2.
+          set -euo pipefail
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            tag="$GITHUB_REF_NAME"
+            title="Slot SP — $tag"
+          else
+            date="$(date -u +%Y.%m.%d)"
+            tag="build-${date}-${GITHUB_SHA:0:7}"
+            title="Slot SP — $date (${GITHUB_SHA:0:7})"
+          fi
+          cat > notes.md <<'NOTES'
+          ## Choose your download
 
-          Emulation by mGBA (MPL-2.0) and gpSP (GPL-2.0). Their licences, patches and gpSP's source are in \`System/licenses/\`.
+          - **[slot-System.zip](../../releases/latest/download/slot-System.zip)** — update an existing slot installation. Extract onto the content card (SD2), replacing the `System` files. Your games, saves and configuration stay in their existing folders.
+          - **[slot-SD2.zip](../../releases/latest/download/slot-SD2.zip)** — the full SD2 starter tree for a new setup. Extract its contents onto SD2 after following the [BaseOS setup guide](https://slot-cfw.fyi). This is not a bootable OS image. Use the System ZIP for routine updates.
+          - **SHA256SUMS** — download checksums. **build-info.json** identifies the exact source commit and build.
+
+          Back up your card and shut down the handheld before updating. No ROMs or BIOS files are included. Games must be unzipped.
+
+          ## The SP experience
+
+          Four matching shell finishes, a rebuilt cartridge bay and EXT.1 port, larger cartridges, scrolling menus, saved day/night display presets, Bluetooth/USB audio controls, separate output volumes, and configurable sleep/shutdown behavior. See the [README](https://github.com/jgraving/slot#readme) for previews and setup.
+
+          Built and regression-tested on ARM64; slot, mGBA and gpSP are verified AArch64 binaries. Device/accessory support varies. Bluetooth volume synchronization remains experimental, and physical link/suspend behavior needs device-specific testing.
+
+          mGBA (MPL-2.0) and gpSP (GPL-2.0) licenses, provenance, patches, and gpSP's source archive are bundled in `System/licenses`. See the repository for slot's GPL-3.0-or-later source and credits.
           NOTES
-          gh release create "$GITHUB_REF_NAME" "$ZIP" --repo "$GITHUB_REPOSITORY" \
-            --title "$GITHUB_REF_NAME" --notes-file notes.md
+          # Bind the links to this release, so older release notes stay accurate.
+          sed -i "s|../../releases/latest/download/|https://github.com/$GITHUB_REPOSITORY/releases/download/$tag/|g" notes.md
+          printf '\nSource: [%s](https://github.com/%s/commit/%s)\n\n[Build and checks](https://github.com/%s/actions/runs/%s)\n' \
+            "$GITHUB_SHA" "$GITHUB_REPOSITORY" "$GITHUB_SHA" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" >> notes.md
+          # Upload everything to a draft before making the release visible/latest.
+          # A retry may resume its own draft, but never changes a published release.
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json isDraft > existing.json 2>/dev/null; then
+            jq -e '.isDraft == true' existing.json
+            gh release upload "$tag" release-assets/* --clobber --repo "$GITHUB_REPOSITORY"
+          else
+            gh release create "$tag" release-assets/* --target "$GITHUB_SHA" \
+              --repo "$GITHUB_REPOSITORY" --title "$title" --notes-file notes.md --draft
+          fi
+          gh release edit "$tag" --repo "$GITHUB_REPOSITORY" --title "$title" \
+            --notes-file notes.md --draft=false --latest

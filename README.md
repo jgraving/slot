@@ -1,84 +1,65 @@
 <div align="center">
 
-<img src=".github/resources/banner.png" width="100%" alt="slot. A bespoke, Game Boy-centric frontend for the Anbernic RG SP.">
+<img src=".github/resources/banner.png" width="100%" alt="slot. A Game Boy-centric frontend for the Anbernic RG SP.">
 
-**The feeling of your old Game Boy. The comforts of your new handheld.**
-
-[Explore the finishes](#make-it-your-sp) · [Get started](#get-started) · [Original slot guide](https://slot-cfw.fyi)
-
-[![License](https://img.shields.io/github/license/jgraving/slot)](LICENSE)
-[![Stars](https://img.shields.io/github/stars/jgraving/slot)](https://github.com/jgraving/slot/stargazers)
+[Download](https://github.com/jgraving/slot/releases/latest) · [Setup guide](https://slot-cfw.fyi) · [Original project](https://github.com/BrandonKowalski/slot)
 
 </div>
 
-## Pick a cartridge. Settle into a game.
+## slot, with a few more comforts
 
-slot turns an Anbernic handheld into a little home for your Game Boy, Game Boy Color, and Game Boy Advance collection. Browse a shelf of cartridges, choose a game, and watch it slide into an SP-inspired slot. Familiar shapes, soft movement sounds, and small physical details make choosing what to play part of the pleasure.
+A Game Boy, Game Boy Color, and Game Boy Advance frontend for Anbernic handhelds. Browse your cartridges, choose a game, and watch it slide into the slot.
 
-This is **jgraving's fork of [Brandon Kowalski's slot](https://github.com/BrandonKowalski/slot)**. It builds on that wonderful idea with a reworked cartridge bay, coordinated shell finishes, more comfortable display settings, and audio controls made for everyday use. The goal is a handheld that feels personal, familiar, and easy to live with.
-
-## Make it your SP
-
-Choose **Graphite, Platinum, Pearl Blue, or Pearl Pink** in **General → Shell Color**, or let the shell follow your theme. The cartridge bay, power switch, and link port share the same finish.
-
-The rebuilt housing draws from the real SP: rounded shoulders slope into a recessed metal slot, tiny screws sit in their wells, and fine painted-plastic grain catches the light. A quiet petrol wallpaper gives the cartridges room to stand out. Even the link port has a matching molded **EXT.1** mark.
+This fork builds on [Brandon Kowalski's slot](https://github.com/BrandonKowalski/slot) with an SP-inspired shell and some practical improvements for everyday play.
 
 <p align="center">
-<img src="previews/rgsp-shell-finishes.png" width="900" alt="Graphite, Platinum, Pearl Blue and Pearl Pink cartridge bays with matching physical-style power switches">
+<img src="previews/readme-carousel.png" width="48%" alt="The current cartridge carousel with a Graphite SP-inspired slot">
+<img src="previews/readme-shutdown.gif" width="48%" alt="The power switch snapping to OFF and fading to black">
 </p>
 
-Cartridges are larger on the shelf so their labels are easier to enjoy. When you launch a game, they shrink smoothly to their insertion size. Each format keeps its proportions, and the narrower GB and GBC bodies seat at the same width as the lower body of a GBA cartridge. The details matter because the whole thing should feel like it belongs together.
+*Current UI previews rendered from production artwork and draw commands.*
 
-## Small comforts that make a big difference
+## What's added in this fork
 
-- **A display for daytime and bedtime.** Press **Select + X** on the carousel or in a game to switch between saved day and night brightness/warmth settings. Night starts dim and warm; adjust either preset and slot remembers it.
-- **Your headphones, your settings.** Choose the speaker, wired headphones, Bluetooth headphones, or a detected USB audio output from Sound. Volume and mute are remembered separately for each output. Saved Bluetooth headphones can reconnect automatically.
-- **A quiet landing when headphones disconnect.** The return volume defaults to silent, with a setting to choose another level. Unplugging or losing a connection should not surprise everyone around you.
-- **Sleep the way you want.** Choose light sleep, deep sleep where supported, or power off when closing the lid. An optional shutdown timer runs while sleeping. A matching physical-style power switch finishes the shutdown animation.
-- **Menus with room to breathe.** Six visible rows, scrolling when needed, proportional button icons, and consistent hints keep longer settings pages manageable. The clock, battery, and connection indicators stay in the top corners.
-- **Favorites worth keeping.** A gold star marks your favorites, and removing one takes a second confirmation so an accidental press does not undo your collection.
+- **A coordinated SP shell.** Graphite, Platinum, Pearl Blue, and Pearl Pink finishes across the cartridge bay, power switch, and link port. Choose one in **General → Shell Color**, or follow your theme.
+- **Larger cartridges.** Bigger labels on the carousel, with proportional shrinking as each cartridge seats in the slot. Soft movement ticks and a physical-style shutdown switch complete the feel.
+- **Day and night settings.** **Select + X** switches between saved brightness/warmth presets on the carousel or in a game. Adjust either preset and it remembers your settings.
+- **More audio choices.** A Sound menu for speaker, wired, Bluetooth, and detected USB audio. Each output remembers its volume and mute state; saved Bluetooth headphones can reconnect automatically. Disconnect volume defaults to silent.
+- **Power options.** Choose light sleep, supported deep sleep, or shutdown on lid close, plus an optional shutdown timer while sleeping.
+- **Tidier menus.** Scrolling settings, consistent button hints, and top-corner status indicators. Favorite removal asks for a second press, so an accidental tap does not lose your place.
 
-<p align="center">
-<img src="previews/sound-layout-review.png" width="900" alt="Sound controls with readable button hints and consistent margins at two screen widths">
-</p>
+The original shelves, Favorites and Recents, circuit-board core picker, mGBA/gpSP emulation, save states, and link interface remain.
 
-Read more about [Sound and Bluetooth](BLUETOOTH.md), [day/night display presets](NIGHT-DISPLAY.md), [power options](POWER-OPTIONS.md), and the [materials and hardware references](MATERIALS.md).
+More detail: [Sound/Bluetooth](BLUETOOTH.md) · [Night display](NIGHT-DISPLAY.md) · [Power options](POWER-OPTIONS.md) · [Shell previews](previews/rgsp-shell-finishes.png) · [Design references](MATERIALS.md)
 
-## Still slot at heart
+## Download and install
 
-The original project's strengths remain: GB, GBC, and GBA shelves; Favorites and Recents; the cartridge circuit-board core picker; mGBA and gpSP; save states and playback conveniences; and its playful link connection interface. This fork carries those ideas forward with a consistent look across the carousel, settings, power switch, and cable/wireless connection screens.
+Get the current build from **[Releases](https://github.com/jgraving/slot/releases/latest)**. Downloads are public and do not require a GitHub account.
 
-<p align="center">
-<img src="previews/link-port-finishes.png" width="900" alt="The rebuilt EXT.1 link port in all four matching shell finishes">
-</p>
+| Download | Purpose |
+| --- | --- |
+| [slot-System.zip](https://github.com/jgraving/slot/releases/latest/download/slot-System.zip) | Update an existing slot installation. Contains only `System`. |
+| [slot-SD2.zip](https://github.com/jgraving/slot/releases/latest/download/slot-SD2.zip) | Full SD2 starter folder structure and defaults for a new setup. |
+| `SHA256SUMS` / `build-info.json` | Verify downloads and identify the exact source/build. |
 
-## Get started
+**Updating:** back up your card, shut down, and extract `slot-System.zip` onto the root of the content card (SD2), replacing the existing System files. Keep your games, saves, and configuration folders in place. Safely eject and boot.
 
-**New to slot?** Start with the [original installation and user guide](https://slot-cfw.fyi) for the BaseOS/SD-card setup. That guide describes the upstream project; the additions shown here require a build from **this fork**.
+**Starting fresh:** follow the [original slot guide](https://slot-cfw.fyi) for BaseOS setup, then use this fork's SD2 package. These downloads are not bootable OS images. The guide describes upstream slot; this fork's additions are documented above.
 
-**Already running slot?** The [validated ARM64 build for these changes](https://github.com/jgraving/slot/actions/runs/39045823088) includes a downloadable artifact with a `System` update ZIP. GitHub requires sign-in to download Actions artifacts, and those downloads expire. Older entries on the fork's Releases page may predate the features shown here.
+Put uncompressed ROMs in `Games/GB`, `Games/GBC`, or `Games/GBA`, with labels in the matching `Labels` folders. No ROMs or BIOS files are included. **`.zip` and `.7z` games are not supported.**
 
-1. Back up your card, especially your games, saves, and configuration, and shut down the handheld.
-2. Extract the `System` update ZIP and copy its `System` folder onto the root of the slot content card (SD2), replacing the existing System files. Keep your other folders in place. This ZIP is an application update, not a bootable OS image.
-3. Safely eject the card, boot slot, and choose your finish under **General → Shell Color**.
+Code changes on this fork's `main` are built and regression-tested before publishing a release. Each release retains its own source tag, downloads, and checksums.
 
-Put uncompressed ROMs in `Games/GB`, `Games/GBC`, or `Games/GBA`. Labels go in the corresponding `Labels` folders.
+## Compatibility
 
-> [!IMPORTANT]
-> slot supports **GB, GBC, and GBA only**. ROMs must be unzipped; `.zip` and `.7z` files are not read.
+This fork focuses on the SP experience. Audio testing includes RG SP and RG35XXSP; USB-C headphone playback is confirmed on RG SP. Bluetooth volume synchronization remains experimental, and hardware support varies. See [tested devices and audio limits](BLUETOOTH.md#tested-devices-and-known-limitations).
 
-### Hardware and current limits
+Upstream also supports RG34XX, RG34XXSP (without stick support), RG35XXSP, RG35XX Plus, RG28XX, and RG35XX-H. Every addition here has not been tested on every model. Physical link play and suspend/wake behavior need device-specific testing.
 
-The SP experience is the focus of this fork. Audio testing has included RG SP and RG35XXSP; USB-C headphone playback is confirmed on RG SP. Available outputs and sleep behavior depend on the device. Bluetooth volume synchronization remains experimental: some headphones still need their own volume adjusted. See [audio compatibility notes](BLUETOOTH.md#tested-devices-and-known-limitations).
+## Credits and license
 
-Upstream also lists RG34XX, RG34XXSP (without stick support), RG35XXSP, RG35XX Plus, RG28XX, and RG35XX-H. That inherited support does not mean every addition here has been tested on every model. Physical link play and suspend/wake behavior also need device-specific testing.
+Created by [Brandon Kowalski](https://github.com/BrandonKowalski/slot), with original skeuomorphic artwork by [MarkusMaribu](https://github.com/MarkusMaribu). Emulation by [mGBA](https://mgba.io) and [gpSP](https://github.com/libretro/gpsp). This fork adds shell/link artwork and interface, display, audio, and power refinements.
 
-The merged visual/audio build passed **534 Rust regression tests and 56 Bluetooth tests**, with slot, mGBA, and gpSP verified as native AArch64 binaries. Automated coverage complements handheld testing; it does not establish compatibility with every accessory or game.
+Development and documentation are AI-assisted, with human direction and review. Upstream also disclosed AI assistance for its frontend and website SVGs.
 
-## Built on work we love
-
-[Brandon Kowalski](https://github.com/BrandonKowalski/slot) created slot and its Game Boy-focused experience. [MarkusMaribu](https://github.com/MarkusMaribu) contributed the original skeuomorphic artwork. The [mGBA](https://mgba.io) and [gpSP](https://github.com/libretro/gpsp) teams make the emulation possible. This fork builds on their work with new shell and link-port artwork, interface refinements, and display, audio, and power improvements.
-
-Development is AI-assisted. Upstream disclosed AI assistance for its Rust frontend and website SVGs; this fork also uses AI assistance for code, artwork expressed in code, tests, and documentation, with human direction and review.
-
-slot is distributed under [GPL-3.0](LICENSE). Emulator licenses and the corresponding bundled source materials are included under `System/licenses` in device packages. Earlier upstream release notes remain in [CHANGELOG.md](CHANGELOG.md); the linked feature documents describe this fork's additions.
+[GPL-3.0-or-later](LICENSE). Device packages include emulator licenses, provenance, patches, and gpSP source under `System/licenses`. Earlier upstream release notes are in [CHANGELOG.md](CHANGELOG.md).
