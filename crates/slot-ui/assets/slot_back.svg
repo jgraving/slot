@@ -2,12 +2,16 @@
 <defs>
 <linearGradient id="paint" x2="0" y2="1"><stop stop-color="#b70000"/><stop offset=".08" stop-color="#c20000"/><stop offset=".5" stop-color="#ae0000"/><stop offset="1" stop-color="#9b0000"/></linearGradient>
 <linearGradient id="metal" x2=".8" y2="1"><stop stop-color="#c8ccca"/><stop offset=".4" stop-color="#a7aeac"/><stop offset="1" stop-color="#707976"/></linearGradient>
-<linearGradient id="throat" x2="0" y2="1"><stop stop-color="#101215"/><stop offset=".15" stop-color="#1d2023"/><stop offset="1" stop-color="#3d4143"/></linearGradient>
+<linearGradient id="throat" x2="0" y2="1"><stop stop-color="#101215"/><stop offset=".15" stop-color="#1d2023"/><stop offset="1" stop-color="#535858"/></linearGradient>
 </defs>
 <!-- Rear deck and inset throat. Detail proportions measured from the supplied SP close-up. -->
 <path d="M0 0H720V58H0Z" fill="url(#throat)"/>
 <path d="M0 0H720V25H0Z" fill="url(#paint)"/>
 <path d="M0 24.5H720" stroke="#650000" stroke-width="1"/>
+<!-- Set-back metal liner: rear edge and faint vertical tooling, behind the cart. -->
+<path d="M238 25H482" stroke="#858c8b" stroke-width=".7"/>
+<path d="M240 26H480" stroke="#0b1012" stroke-width=".8"/>
+<path d="M252 28v12m9 -12v12m14 -12v12m10 -12v12m14 -12v12m9 -12v12m15 -12v12m8 -12v12m13 -12v12m11 -12v12m12 -12v12m10 -12v12m14 -12v12m10 -12v12m13 -12v12m9 -12v12m14 -12v12m9 -12v12m12 -12v12m9 -12v12" stroke="#8b9391" stroke-width=".35" opacity=".15"/>
 <!-- Wide inverted-U molded ribs: open at the bottom, painted interior, rolled edges. -->
 <g fill="none" stroke-linejoin="round">
  <path d="M279 25V7a5 5 0 0 1 10 0v18M431 25V7a5 5 0 0 1 10 0v18" stroke="#860000" stroke-width="1.4"/>

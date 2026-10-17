@@ -1,16 +1,36 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="720" height="58" viewBox="0 0 720 58">
 <defs>
-<linearGradient id="paint" x2="0" y2="1"><stop stop-color="#b70000"/><stop offset=".08" stop-color="#c20000"/><stop offset=".5" stop-color="#ae0000"/><stop offset="1" stop-color="#9b0000"/></linearGradient>
-<linearGradient id="metal" x2=".8" y2="1"><stop stop-color="#c8ccca"/><stop offset=".4" stop-color="#a7aeac"/><stop offset="1" stop-color="#707976"/></linearGradient>
-<linearGradient id="throat" x2="0" y2="1"><stop stop-color="#101215"/><stop offset=".15" stop-color="#1d2023"/><stop offset="1" stop-color="#3d4143"/></linearGradient>
+ <linearGradient id="deck" x2="0" y2="1"><stop stop-color="#aa0000"/><stop offset="1" stop-color="#b20000"/></linearGradient>
+ <linearGradient id="face" gradientUnits="userSpaceOnUse" x1="0" y1="24" x2="0" y2="53"><stop stop-color="#c60000"/><stop offset=".35" stop-color="#b00000"/><stop offset=".75" stop-color="#930000"/><stop offset="1" stop-color="#780000"/></linearGradient>
+ <linearGradient id="roll" x2="1" y2="0"><stop stop-color="#880000"/><stop offset=".23" stop-color="#cf0000"/><stop offset=".5" stop-color="#bf0000"/><stop offset=".83" stop-color="#980000"/><stop offset="1" stop-color="#660000"/></linearGradient>
+ <linearGradient id="rollR" x2="1" y2="0"><stop stop-color="#660000"/><stop offset=".2" stop-color="#ab0000"/><stop offset=".48" stop-color="#c60000"/><stop offset=".8" stop-color="#b90000"/><stop offset="1" stop-color="#880000"/></linearGradient>
+ <linearGradient id="bevel" x2="0" y2="1"><stop stop-color="#860000"/><stop offset=".5" stop-color="#ca0000"/><stop offset="1" stop-color="#df0000"/></linearGradient>
+ <linearGradient id="merge" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="39"><stop stop-color="white"/><stop offset=".55" stop-color="white"/><stop offset="1" stop-color="black"/></linearGradient>
+ <mask id="shoulderMerge" maskUnits="userSpaceOnUse" x="0" y="0" width="720" height="58"><path d="M0 0H720V58H0Z" fill="url(#merge)"/></mask>
 </defs>
-<!-- Flat shoulders ease into the bowed centre, then a flat bottom to the scoop.
-     No end screws. The mouth is transparent, so insertion uses real occlusion. -->
-<path d="M0 25H245C272 25 294 43 330 43H390C426 43 448 25 475 25H720V58H0Z" fill="url(#paint)"/>
-<path d="M0 25.5H245C272 25.5 294 43.5 330 43.5H390C426 43.5 448 25.5 475 25.5H720" fill="none" stroke="#d00000" stroke-width="1.15"/>
-<path d="M245 24.9C272 24.9 294 42.9 330 42.9H390C426 42.9 448 24.9 475 24.9" fill="none" stroke="#770000" stroke-width=".65"/>
-<g fill="none" stroke-width=".35" opacity=".6">
-<path d="m274 33 7 2m25 7 11 1m23 2.5h6m48 -1 9 -.7m30 -9 9 -3" stroke="#c60000"/>
-<path d="m285 38 7 1.6m29 6 9 .3m78 -2.5 7 -1.1m-166 -10 8 1m206 11 11 -2" stroke="#960000"/>
+<!-- The lower shell plane is behind the raised bridge, not the bridge itself. -->
+<path d="M0 49H720V58H0Z" fill="url(#deck)"/>
+<!-- Soft contact shadow where the raised front face returns to the lower plane. -->
+<path d="M196 51H524" stroke="#8b0000" stroke-width="5" opacity=".3"/>
+<path d="M197 52H523" stroke="#790000" stroke-width="2" opacity=".35"/>
+<!-- Front-facing thickness. Flat shoulders connect the rolled end bolsters;
+     the central curve flattens before crossing the middle. -->
+<path d="M0 25H245C272 25 294 43 330 43H390C426 43 448 25 475 25H720V50Q520 53 495 53H225Q200 53 0 50Z" fill="url(#face)"/>
+<!-- Upper/inner curved surface spans back toward the throat, 3px behind the crest. -->
+<path d="M0 22H245C272 22 294 40 330 40H390C426 40 448 22 475 22H720V25H475C448 25 426 43 390 43H330C294 43 272 25 245 25H0Z" fill="url(#bevel)"/>
+<!-- Dark inner arris and a lit forward crest describe different depths. -->
+<path d="M237 22H245C272 22 294 40 330 40H390C426 40 448 22 475 22H483" fill="none" stroke="#6c0000" stroke-width=".7"/>
+<path d="M0 25H245C272 25 294 43 330 43H390C426 43 448 25 475 25H720" fill="none" stroke="#dd0000" stroke-width=".75"/>
+<!-- Raised rolled shoulders turn up and back over the lower shell at either end.
+     Their inner faces are in front of the rear deck, preserving the slot's depth. -->
+<path d="M201 53V15Q201 0 216 0H226Q238 0 238 10V53Z" fill="url(#roll)" mask="url(#shoulderMerge)"/>
+<path d="M482 53V10Q482 0 494 0H504Q519 0 519 15V53Z" fill="url(#rollR)" mask="url(#shoulderMerge)"/>
+<path d="M203 24V15Q203 2 216 2H225Q234 2 235 9" fill="none" stroke="#db0000" stroke-width=".7"/>
+<path d="M485 10Q486 2 495 2H503Q516 2 517 15V24" fill="none" stroke="#ca0000" stroke-width=".6"/>
+<path d="M237 10V22M483 10V22" stroke="#650000" stroke-width="1.4"/>
+<!-- Shallow directional edge wear. No outer screw holes. -->
+<g fill="none" stroke-width=".3" opacity=".55">
+ <path d="m277 32 7 2m28 8 8 1m23 1.4h7m51 -.7 8 -1m26 -9 7 -3" stroke="#ce0000"/>
+ <path d="m286 38 7 1.6m34 7 9 .2m72 -2 7 -1.1" stroke="#8e0000"/>
 </g>
 </svg>
