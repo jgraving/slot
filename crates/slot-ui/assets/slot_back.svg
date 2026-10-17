@@ -2,7 +2,7 @@
 <defs>
 <linearGradient id="paint" x2="0" y2="1"><stop stop-color="#b50000"/><stop offset="1" stop-color="#ae0000"/></linearGradient>
 <linearGradient id="metal" x2=".8" y2="1"><stop stop-color="#c8ccca"/><stop offset=".4" stop-color="#a7aeac"/><stop offset="1" stop-color="#707976"/></linearGradient>
-<linearGradient id="throat" x2="0" y2="1"><stop stop-color="#101215"/><stop offset=".15" stop-color="#1d2023"/><stop offset="1" stop-color="#535858"/></linearGradient>
+<linearGradient id="throat" gradientUnits="userSpaceOnUse" x1="0" y1="25" x2="0" y2="44"><stop stop-color="#292e31"/><stop offset=".08" stop-color="#858d91"/><stop offset=".24" stop-color="#aeb5b8"/><stop offset=".65" stop-color="#a2aaae"/><stop offset=".88" stop-color="#b5bdc0"/><stop offset="1" stop-color="#909a9f"/></linearGradient>
  <linearGradient id="leftWall" gradientUnits="userSpaceOnUse" x1="233" y1="0" x2="246" y2="0"><stop stop-color="#b20000"/><stop offset=".22" stop-color="#da0000"/><stop offset=".50" stop-color="#b90000"/><stop offset=".80" stop-color="#7c0000"/><stop offset="1" stop-color="#620000"/></linearGradient>
  <linearGradient id="rightWall" gradientUnits="userSpaceOnUse" x1="474" y1="0" x2="487" y2="0"><stop stop-color="#620000"/><stop offset=".22" stop-color="#8a0000"/><stop offset=".58" stop-color="#c50000"/><stop offset=".80" stop-color="#cd0000"/><stop offset="1" stop-color="#b20000"/></linearGradient>
 </defs>
@@ -13,9 +13,10 @@
 <!-- Contact shadows from the recessed end walls, confined to the slot. -->
 <path d="M247 1V25M473 1V25" stroke="#760000" stroke-width="3" opacity=".28"/>
 <!-- Set-back metal liner: rear edge and faint vertical tooling, behind the cart. -->
-<path d="M238 25H482" stroke="#858c8b" stroke-width=".7"/>
-<path d="M240 26H480" stroke="#0b1012" stroke-width=".8"/>
-<path d="M252 28v12m9 -12v12m14 -12v12m10 -12v12m14 -12v12m9 -12v12m15 -12v12m8 -12v12m13 -12v12m11 -12v12m12 -12v12m10 -12v12m14 -12v12m10 -12v12m13 -12v12m9 -12v12m14 -12v12m9 -12v12m12 -12v12m9 -12v12" stroke="#8b9391" stroke-width=".35" opacity=".15"/>
+<path d="M238 25H482" stroke="#3b4145" stroke-width=".9"/>
+<path d="M240 26H480" stroke="#c1c7c9" stroke-width=".5" opacity=".45"/>
+<path d="M252 28v12m9 -12v12m14 -12v12m10 -12v12m14 -12v12m9 -12v12m15 -12v12m8 -12v12m13 -12v12m11 -12v12m12 -12v12m10 -12v12m14 -12v12m10 -12v12m13 -12v12m9 -12v12m14 -12v12m9 -12v12m12 -12v12m9 -12v12" stroke="#6f787e" stroke-width=".3" opacity=".14"/>
+<path d="M257 28v9m31 -9v12m17 -11v8m32 -9v13m28 -12v10m31 -11v12m23 -12v8m29 -8v11" stroke="#edf0f0" stroke-width=".25" opacity=".16"/>
 <!-- Wide inverted-U molded ribs: open at the bottom, painted interior, rolled edges. -->
 <g fill="none" stroke-linejoin="round">
  <path d="M279 25V7a5 5 0 0 1 10 0v18M431 25V7a5 5 0 0 1 10 0v18" stroke="#860000" stroke-width="1.4"/>

@@ -38,7 +38,10 @@ fn svg_slot_keeps_an_open_throat_and_shallow_bowed_lip() {
         // Cartridge passes through the transparent centre; the front then hides its foot.
         assert_eq!(front[at(360, 25)+3], 0);
         assert_eq!(front[at(360, 46)+3], 255);
-        assert!(back[at(360, 27)] < 90);
+        let metal=at(360,30);
+        assert!((115..210).contains(&back[metal]),"liner must read as silver metal");
+        assert_eq!(&back[metal..metal+4],&shell_slot_faces(ShellColour::Graphite)[0][metal..metal+4],
+            "metal liner must not inherit the shell paint color");
         // Real molded ribs are painted; the small metal screw stays neutral across finishes.
         assert!(back[at(284, 10)+3] > 250);
         let screw = at(359, 9);
