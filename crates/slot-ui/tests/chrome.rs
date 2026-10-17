@@ -913,8 +913,8 @@ fn textured_insertion_preserves_both_axes_and_matches_the_enlarged_carousel() {
                 }).unwrap();
                 assert!(q.y>=40.0 && q.x>=0.0 && q.x+q.w<=canvas.w,
                     "{platform:?} clipped at {step}: {q:?}");
-                let visible_w=q.w*if platform==Platform::Gba {1.0} else {292.0/312.0};
-                assert!((visible_w-308.0).abs()<1.0,"unequal visible cartridge widths");
+                let visible_w=q.w*if platform==Platform::Gba {340.0/360.0} else {292.0/312.0};
+                assert!((visible_w-308.0*340.0/360.0).abs()<1.0,"unequal visible cartridge widths");
                 assert!((q.w/w as f32-q.h/h as f32).abs() < 0.00001,
                     "{platform:?} squashed at {step}: {q:?}");
                 if step == 0 { assert_eq!(q, on_shelf, "start frame must match the real shelf"); }

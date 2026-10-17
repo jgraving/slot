@@ -8,10 +8,10 @@ use crate::hud::Millis;
 use crate::silhouette::GbShell;
 use crate::slot_chrome::{draw_empty_slot, MOUTH_H};
 
-// Largest common visible width that leaves the 337px-tall GB source clear of
+// The inserting bodies share a width; the GBA cap stays wider. Leave GB clear of
 // the 40px HUD and 72px SP housing, with breathing room at both edges.
 pub const GBA_SHELF_SCALE: f32 = 308.0 / CART_W as f32;
-pub const GB_SHELF_SCALE: f32 = 329.0 / crate::cart::GB_CART_W as f32;
+pub const GB_SHELF_SCALE: f32 = crate::cart::GB_SEATED_W as f32 / crate::cart::GB_CART_W as f32;
 
 pub fn shelf_scale(platform: Platform) -> f32 {
     if platform == Platform::Gba { GBA_SHELF_SCALE } else { GB_SHELF_SCALE }

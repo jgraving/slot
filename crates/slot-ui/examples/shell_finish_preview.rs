@@ -36,6 +36,13 @@ fn main() {
             png(&dir, &format!("{}.png", i+3), slot_ui::SLOT_W, slot_ui::SLOT_H, bytes);
         }
         png(&dir, "5.png", 720, 480, slot_ui::default_background().unwrap());
+        let ink=slot_ui::footer_ink(false);
+        let clock=slot_ui::word_ink("12:34",ink);
+        let percent=slot_ui::word_ink("82%",ink);
+        let audio=slot_ui::icon_face(slot_ui::Icon::Bluetooth,20.0,ink);
+        for (id,w,h,rgba) in [(6,clock.w,clock.h,&clock.rgba),(7,percent.w,percent.h,&percent.rgba),(8,audio.w,audio.h,&audio.rgba)] {
+            png(&dir,&format!("{id}.png"),w,h,rgba);
+        }
         for (frame, seat) in seats.iter().copied().enumerate() {
         let mut draws = Vec::new();
         slot_ui::draw_ground(Canvas::FRAMED, Some(TexId::from_raw(5)), &mut draws);
@@ -47,15 +54,25 @@ fn main() {
         } else {
             shelf.draw(Canvas::FRAMED, 0.0, Some((TexId::from_raw(3), TexId::from_raw(4))), &mut draws);
         }
+        let battery=Some(slot_power::Battery {percent:82,charge:slot_power::Charge::Discharging});
+        slot_ui::draw_status(Canvas::FRAMED,battery,slot_ui::Printed::new(TexId::from_raw(7),percent.w),None,
+            slot_ui::Printed::new(TexId::from_raw(6),clock.w),ink,&mut draws);
+        slot_ui::draw_corner_connection(battery,slot_ui::Printed::new(TexId::from_raw(7),percent.w),Some(TexId::from_raw(8)),&mut draws);
         let mut csv = File::create(dir.join(if animation { format!("draws-{frame:03}.csv") } else { "draws.csv".into() })).unwrap();
         writeln!(csv, "id,x,y,w,h,alpha,u,v,uw,vh").unwrap();
-        for draw in draws {
+        for (index,draw) in draws.into_iter().enumerate() {
+            if let Draw::Rect {x,y,w,h,colour}=draw {
+                let id=20+index;
+                png(&dir,&format!("{id}.png"),1,1,&colour.map(|c|(c*255.0).round() as u8));
+                writeln!(csv,"{id},{x},{y},{w},{h},1,0,0,1,1").unwrap();
+                continue;
+            }
             let (x,y,w,h,tex,alpha,uv) = match draw {
                 Draw::Tex { x,y,w,h,tex,alpha } => (x,y,w,h,tex,alpha,[0.0,0.0,1.0,1.0]),
                 Draw::Part { x,y,w,h,tex,alpha,uv } => (x,y,w,h,tex,alpha,uv),
                 _ => continue,
             };
-            let id = (0..6).find(|i| TexId::from_raw(*i) == tex).unwrap();
+            let id = (0..9).find(|i| TexId::from_raw(*i) == tex).unwrap();
             writeln!(csv, "{id},{x},{y},{w},{h},{alpha},{},{},{},{}",uv[0],uv[1],uv[2],uv[3]).unwrap();
         }
         }

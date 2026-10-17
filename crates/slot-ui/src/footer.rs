@@ -47,8 +47,21 @@ pub fn draw_corners(
     clock: Printed,
     out: &mut Vec<Draw>,
 ) {
+    draw_status(canvas, battery, percent, bolt, clock, HUD_INK, out);
+}
+
+/// Persistent status at the same top corners used by the in-game overlay.
+pub fn draw_status(
+    canvas: Canvas,
+    battery: Option<Battery>,
+    percent: Printed,
+    bolt: Option<TexId>,
+    clock: Printed,
+    ink: [u8; 3],
+    out: &mut Vec<Draw>,
+) {
     let y = (PLATE_H - GAUGE_H) / 2.0;
-    draw_gauge(CORNER_MARGIN, y, battery, percent, bolt, HUD_INK, out);
+    draw_gauge(CORNER_MARGIN, y, battery, percent, bolt, ink, out);
     let x = canvas.w - CORNER_MARGIN - clock.w as f32;
     draw_printed(x, (PLATE_H - HINT_H as f32) / 2.0, clock, out);
 }

@@ -19,7 +19,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: 9fcc08ad10ae1e7dbc1c5190fa6cfe5213778ba6
+          ref: b2793fa73e08480639c7a2683f5a2291a3fc45dc
 
       - name: Install zip, cmake and Task
         run: |
@@ -67,9 +67,9 @@ jobs:
         run: |
           set -eu
           out="slot-rgsp-shell"
-          printf 'Source: 9fcc08ad10ae1e7dbc1c5190fa6cfe5213778ba6\n' > "$out/System/shell-finish-build.txt"
-          zip="slot-rgsp-shell-System-9fcc08a.zip"
-          (cd "$out" && zip -qry "../$zip" System && zip -qry ../slot-rgsp-shell-install-9fcc08a.zip .)
+          printf 'Source: b2793fa73e08480639c7a2683f5a2291a3fc45dc\n' > "$out/System/shell-finish-build.txt"
+          zip="slot-rgsp-shell-System-b2793fa.zip"
+          (cd "$out" && zip -qry "../$zip" System && zip -qry ../slot-rgsp-shell-install-b2793fa.zip .)
           echo "zip=$zip" >> "$GITHUB_OUTPUT"
 
       - uses: actions/upload-artifact@v7
@@ -77,5 +77,5 @@ jobs:
           name: ${{ steps.package.outputs.zip }}
           path: |
             ${{ steps.package.outputs.zip }}
-            slot-rgsp-shell-install-9fcc08a.zip
+            slot-rgsp-shell-install-b2793fa.zip
           if-no-files-found: error

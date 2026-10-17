@@ -56,7 +56,7 @@ python tools/compose-shell-preview.py /tmp/shell-finishes previews/rgsp-shell-fi
 ```
 
 The preview exports the same textures and draw commands used in production.
-Cartridges now share a ~308px visible width, with source padding accounted for.
+The GB/GBC bodies match the narrower inserting body of the GBA, whose top grip remains wider.
 This is a screen layout choice, not physical screen sizing.
 
 ## GBA SP insertion housing, SVG rebuild
@@ -113,8 +113,8 @@ the screen, like a close view of the real SP. The two small inverted-U ribs rema
 
 The existing art includes transparent horizontal margins, particularly on GB/GBC;
 its opaque body, rather than the entire texture rectangle, sets physical width.
-Preserve the uniform source aspect ratio. The GBA cap is 308px wide; the GB/GBC
-texture is 329px, whose 292/312 opaque body is ~308px. The same widths are used
+Preserve the uniform source aspect ratio. The GBA cap is 308px wide and its 340/360 inserting body is ~291px;
+the GB/GBC texture is 311px, whose 292/312 opaque body is also ~291px. The same widths are used
 on the carousel and when seated, avoiding any size jump or horizontal squash. A shared connector stop ~28 mm beyond the straight mouth plane
 leaves roughly 7 mm of GBA grip and 37 mm of GB/GBC body outside that plane.
 The central scoop reveals a little more. This depth is a photographic estimate,
@@ -126,8 +126,8 @@ highlights and lower-right shadows. The same paint palette and grain remain;
 timing, slider geometry and sound are unchanged.
 
 The enlarged GB/GBC shelf placement is centered in the usable area below the HUD,
-rather than underneath its top plate. The 355px-tall GB/GBC drawing leaves about 6px of clearance below the HUD
-and above the housing. This limits the common visible width to about 308px. The cartridge
+rather than underneath its top plate. The 336px-tall GB/GBC drawing leaves about 16px of clearance below the HUD
+and above the housing. The cartridge
 geometry checks retain fractional uniform scaling instead of requiring the
 scaled lower edge to land on an integer pixel.
 
@@ -152,7 +152,7 @@ molded edges, the thumb groove and a local contact shade remain; the extracted
 paint grain is never applied to this slider. Housing paint and markings retain
 the selected finish.
 
-## Larger SP housing and equal-width cartridges
+## Larger SP housing and matching insertion bodies
 
 The vector art is now 720×72 instead of 720×58. The aperture is enlarged by
 308/240 (about 28%) horizontally, with its original curved-to-flat cut edge,
@@ -160,10 +160,32 @@ matte metal liner and recessed end walls preserved. Rounded shoulders and two
 corner screw wells follow the supplied full SP photograph. The actual device
 outline is centered at x=122..598 and remains fully visible on both panels.
 
-The common ~308px opaque cartridge width is constrained by a full GB/GBC pak
-between the 40px HUD and housing at y=408. Every source retains its native
+The 308px GBA top grip remains wider than its ~291px inserting body. GB/GBC
+bodies match that narrower body, not the top grip. Their 311px texture includes
+transparent margins and is proportionally 336px tall, comfortably between
+the 40px status area and housing at y=408. Every source retains its native
 aspect ratio. GB/GBC transparent margins are counted in the texture size but
 not the visible width. Insertion uses the same sizes and common connector stop.
 The tiny catch creep scales with approach distance so a tall pak already close
 to the mouth still visibly pauses. Production draw tests check every frame of
-all three types at 640×480 and 720×480 for aspect ratio, width and upper clipping.
+all three types at 640×480 and 720×480 for aspect ratio, inserting-body width and upper clipping.
+
+The central screw assembly counteracts the aperture transform: the recess, metal
+head and Y-shaped driver pocket all receive equal horizontal and vertical scale.
+A raster regression measures the untinted metal head and rejects oval bounds.
+
+## Persistent top status
+
+Battery/percentage, charging and audio-route indicators are at the same 16px top
+corners as the in-game overlay, with the clock at the top right. The carousel
+and settings use their theme ink; the game overlay retains its white HUD ink.
+Status stays visible in settings subpages, Bluetooth/audio, Date & Time and About.
+The physical SP housing at the bottom no longer carries status text or icons.
+Draw-command tests exercise the carousel and each settings surface and verify
+that clock, percentage and audio icon appear once inside the 40px top band.
+
+The latest shoulder reference replaces the separate upright end-wall piece
+with one softly rolled plastic corner. Its surface turns in plan and section
+into the opening, using a continuous curved profile and broad, low-contrast
+shading. The outer surface stays in front; the inner return remains behind
+the cartridge grip. The independent center screw stays circular.
