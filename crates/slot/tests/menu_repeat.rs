@@ -65,6 +65,8 @@ fn a_held_left_or_right_changes_a_menu_value_once() {
     a.apply_at(Action::GbaDown(Btn::A), T - 800);
     a.apply_at(Action::GbaDown(Btn::Down), T - 700);
     a.apply_at(Action::GbaUp(Btn::Down), T - 690);
+    a.apply_at(Action::GbaDown(Btn::Down), T - 650);
+    a.apply_at(Action::GbaUp(Btn::Down), T - 640);
     assert_eq!(a.quick_menu(), Some(QuickRow::Theme));
     a.apply_at(Action::GbaDown(Btn::Right), T);
     assert_eq!(a.quick_value(QuickRow::Theme), Some(QuickValue::Light));
