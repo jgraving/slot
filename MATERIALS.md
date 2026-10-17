@@ -189,3 +189,9 @@ with one softly rolled plastic corner. Its surface turns in plan and section
 into the opening, using a continuous curved profile and broad, low-contrast
 shading. The outer surface stays in front; the inner return remains behind
 the cartridge grip. The independent center screw stays circular.
+
+The screw recess, rim and metal head use the same center. Three equal driver
+arms meet at that center, with a raster centroid check for the dark pocket.
+
+The shoulder material fades continuously into the flat deck before the slot
+boundary. No rectangular clip or vertical seam divides those two surfaces.
