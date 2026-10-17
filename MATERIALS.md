@@ -145,3 +145,9 @@ plastic. A neutral cool-silver lighting gradient and sparse subpixel vertical
 brushing describe the metal. Only the narrow contact below the upper plastic lip
 stays dark. Liner pixels remain untinted across all four shell finishes; this is
 an appearance reference, not a claim about the original metal alloy.
+
+The moving switch slider uses uniform smooth plastic fills. Broad cap/grip
+reflection gradients and the bright lower gloss streak are removed. Only thin
+molded edges, the thumb groove and a local contact shade remain; the extracted
+paint grain is never applied to this slider. Housing paint and markings retain
+the selected finish.
