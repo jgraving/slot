@@ -1,0 +1,81 @@
+name: RG SP shell finish device build
+
+on:
+  push:
+    branches: [build-rgsp-shell-finishes]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    timeout-minutes: 30
+    name: card tree
+    runs-on: ubuntu-24.04-arm
+    container: rust:1-bullseye
+    outputs:
+      zip: ${{ steps.package.outputs.zip }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: 35cc5a8d67655f54c17e3d1ce07e01dedbb1030a
+
+      - name: Install zip, cmake and Task
+        run: |
+          set -eu
+          sed -i '/bullseye-security/d' /etc/apt/sources.list
+          apt-get -o Acquire::Check-Valid-Until=false update
+          apt-get install -y --no-install-recommends zip cmake libasound2
+          curl -fsSL https://taskfile.dev/install.sh | sh -s -- -b /usr/local/bin
+
+      - name: Build the tree
+        run: task dist:device OUT="slot-rgsp-shell"
+
+      - name: Test favorites and power behavior
+        run: |
+          cargo test -p slot --no-default-features --test favorites --test power --test cartridge_ticks --test power_click --test sfx --test sleep --test quick_menu --test menu_repeat --test night_display -- --test-threads=1
+          cargo test -p slot-ui --test favorite --test power_switch --test quick_menu --test toast --test shelf --test native_shelf --test chrome --test board --test shell_material
+          cargo test -p slot-store --test shell_colour --test config --test durability
+          cargo test -p slot-input --test gesture
+          cargo test -p slot-gfx --no-default-features --test grade
+          cargo test -p slot-power --test device
+          python3 card/test-bluetooth.py
+
+      - name: Check what is about to ship
+        run: |
+          set -eu
+          out="slot-rgsp-shell"
+          file "$out/System/slot" | grep -q aarch64
+          file "$out/System/mgba_libretro.so" | grep -q aarch64
+          file "$out/System/gpsp_libretro.so" | grep -q aarch64
+          test -x "$out/System/slot"
+          gpsp_src_sha="$(cat vendor/gpsp-src.sha)"
+          test -f "$out/System/licenses/gpsp-${gpsp_src_sha}.tar.gz"
+          test -f "$out/System/licenses/gpsp-${gpsp_src_sha}.meta"
+          for p in cores/gpsp/*.patch; do
+            test -f "$out/System/licenses/gpsp-$(basename "$p")"
+          done
+          mgba_src_commit="$(grep '^commit=' vendor/mgba_libretro.so.meta | cut -d= -f2)"
+          test -f "$out/System/licenses/mgba-${mgba_src_commit}.meta"
+          for p in cores/mgba/*.patch; do
+            test -f "$out/System/licenses/mgba-$(basename "$p")"
+          done
+
+      - name: Package
+        id: package
+        run: |
+          set -eu
+          out="slot-rgsp-shell"
+          printf 'Source: 35cc5a8d67655f54c17e3d1ce07e01dedbb1030a\n' > "$out/System/shell-finish-build.txt"
+          zip="slot-rgsp-shell-System-35cc5a8.zip"
+          (cd "$out" && zip -qry "../$zip" System && zip -qry ../slot-rgsp-shell-install-35cc5a8.zip .)
+          echo "zip=$zip" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ${{ steps.package.outputs.zip }}
+          path: |
+            ${{ steps.package.outputs.zip }}
+            slot-rgsp-shell-install-35cc5a8.zip
+          if-no-files-found: error
