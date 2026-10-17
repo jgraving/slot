@@ -1,25 +1,16 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="720" height="58" viewBox="0 0 720 58">
 <defs>
- <linearGradient id="paint" x2="0" y2="1"><stop stop-color="#b50000"/><stop offset=".1" stop-color="#c40000"/><stop offset=".38" stop-color="#ae0000"/><stop offset="1" stop-color="#910000"/></linearGradient>
- <linearGradient id="rib" x2="1" y2="0"><stop stop-color="#740000"/><stop offset=".3" stop-color="#ca0000"/><stop offset=".65" stop-color="#b50000"/><stop offset="1" stop-color="#870000"/></linearGradient>
- <linearGradient id="metal" x2="0.7" y2="1"><stop stop-color="#dadcde"/><stop offset=".45" stop-color="#9a9da1"/><stop offset="1" stop-color="#53575c"/></linearGradient>
+<linearGradient id="paint" x2="0" y2="1"><stop stop-color="#b70000"/><stop offset=".08" stop-color="#c20000"/><stop offset=".5" stop-color="#ae0000"/><stop offset="1" stop-color="#9b0000"/></linearGradient>
+<linearGradient id="metal" x2=".8" y2="1"><stop stop-color="#c8ccca"/><stop offset=".4" stop-color="#a7aeac"/><stop offset="1" stop-color="#707976"/></linearGradient>
+<linearGradient id="throat" x2="0" y2="1"><stop stop-color="#101215"/><stop offset=".15" stop-color="#1d2023"/><stop offset="1" stop-color="#3d4143"/></linearGradient>
 </defs>
-<!-- Shallow bowed insertion lip. Transparent opening receives the cartridge. -->
-<path d="M0 0H226Q230 0 231 5L234 19Q240 23 256 26Q360 43 464 26Q480 23 486 19L489 5Q490 0 494 0H720V58H0Z" fill="url(#paint)"/>
-<path d="M0 .6H226Q229 .6 230 5L233 19Q239 24 256 27Q360 44 464 27Q481 24 487 19L490 5Q491 .6 494 .6H720" fill="none" stroke="#d00000" stroke-width="1"/>
-<path d="M234 20Q240 24 256 27Q360 44 464 27Q480 24 486 20" fill="none" stroke="#740000" stroke-width=".65"/>
-<!-- Recessed case screws at the outside shoulders, distinct from the molded ribs. -->
-<g fill="#6b0000"><circle cx="211" cy="32" r="8.2"/><circle cx="509" cy="32" r="8.2"/></g>
-<g fill="#c70000"><path d="M203 32a8 8 0 0 0 16 0v.8a8 8 0 0 1 -16 0Z"/><path d="M501 32a8 8 0 0 0 16 0v.8a8 8 0 0 1 -16 0Z"/></g>
-<g fill="#14161a"><circle cx="211" cy="31.7" r="6.5"/><circle cx="509" cy="31.7" r="6.5"/></g>
-<g fill="#30333a"><circle cx="211" cy="34.2" r="2.5"/><circle cx="509" cy="34.2" r="2.5"/></g>
-<g stroke="#0b0c0e" stroke-width=".8"><path d="M209.4 34.2h3.2m-1.6 -1.6v3.2M507.4 34.2h3.2m-1.6 -1.6v3.2"/></g>
-<g fill="none" stroke="#950000" stroke-width=".5"><circle cx="231" cy="31" r="1.5"/><circle cx="489" cy="31" r="1.5"/></g>
-<!-- Sparse directional wear on the handled edge; deliberately below one pixel. -->
-<g stroke="#c50000" fill="none" stroke-width=".35" opacity=".7">
- <path d="m267 31 7 1m19 5 11 .8m27 1.6 5 .1m47 -.4 8 -.5m38 -4 12 -2m-184 7 5 .8"/>
-</g>
-<g stroke="#960000" fill="none" stroke-width=".3" opacity=".65">
- <path d="m280 35 9 1m27 5 6 .2m79 -3 7 -.8m-126 -23 9 -1m205 29 12 -2"/>
+<!-- Flat shoulders ease into the bowed centre, then a flat bottom to the scoop.
+     No end screws. The mouth is transparent, so insertion uses real occlusion. -->
+<path d="M0 25H245C272 25 294 43 330 43H390C426 43 448 25 475 25H720V58H0Z" fill="url(#paint)"/>
+<path d="M0 25.5H245C272 25.5 294 43.5 330 43.5H390C426 43.5 448 25.5 475 25.5H720" fill="none" stroke="#d00000" stroke-width="1.15"/>
+<path d="M245 24.9C272 24.9 294 42.9 330 42.9H390C426 42.9 448 24.9 475 24.9" fill="none" stroke="#770000" stroke-width=".65"/>
+<g fill="none" stroke-width=".35" opacity=".6">
+<path d="m274 33 7 2m25 7 11 1m23 2.5h6m48 -1 9 -.7m30 -9 9 -3" stroke="#c60000"/>
+<path d="m285 38 7 1.6m29 6 9 .3m78 -2.5 7 -1.1m-166 -10 8 1m206 11 11 -2" stroke="#960000"/>
 </g>
 </svg>

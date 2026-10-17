@@ -504,9 +504,9 @@ impl Shelf {
             let (cw, ch) = cart_box(cart.platform);
             let scale = scale * shelf_scale(cart.platform);
             let (w0, h0) = (cw as f32 * scale, ch as f32 * scale);
-            let (sw, sh) = crate::seated_box(cart.platform);
-            let (w, h) = (w0 + (sw as f32 - w0) * depart,
-                h0 + (sh as f32 - h0) * depart);
+            let (sw, _) = crate::seated_box(cart.platform);
+            let w = w0 + (sw as f32 - w0) * depart;
+            let h = w * h0 / w0;
             let away = offset.signum() * (1.0 + offset.abs());
             let x = centre - w / 2.0 + away * PART * recede;
             if x + w <= 0.0 || x >= canvas.w || alpha <= 0.0 {

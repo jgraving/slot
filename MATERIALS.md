@@ -1,4 +1,4 @@
-# RG SP painted shell and quiet tray
+# RG SP painted shell and matte background
 
 ## Photo-derived paint grain
 
@@ -20,13 +20,10 @@ to ±8. Only this unrecognizable surface signal is embedded; no device photograp
 logo or lettering is shipped. This is photo-derived image texture, not a scan
 of physical roughness, normals or a calibrated PBR material.
 
-The extraction script also retains the existing carousel's silhouette/alpha
-while recovering the original insertion-lip cross-section and both small U-shaped
-fasteners as a separate structural-relief layer, without the old coarse grain or
-play emblem. The thumb scoop retains its original alpha contour and a rolled lip.
-The resulting neutral geometry and shared grain are tinted once and cached for
-each shell. The carousel and power switch use the same paint sampler and RGB
-palette. The switch retains its neutral recess, slider and existing timing.
+The extraction script produces only the paint grain. Original SVG geometry supplies
+the slot silhouette, lip, molded ribs and recessed screws. Both layers are tinted
+once and cached for each shell. The carousel and power switch use the same paint
+sampler and RGB palette. The switch retains its neutral recess, slider and timing.
 
 The four hand-tuned palette approximations are Graphite, Platinum, Pearl Blue
 and Pearl Pink, based on the official finishes and the review photography:
@@ -42,10 +39,10 @@ the light/dark text theme. Cards without `shell_colour` keep Match Theme.
 
 ## Wallpaper
 
-`tools/build-tray-wallpaper.py` builds an original quiet molded storage tray:
-a satin neutral surface, shallow cartridge impression, a single perimeter lip,
-three embossed grip ribs and three small colored studs. Both default and blurred
-wallpapers replace the wood/sticker artwork. Custom wallpapers are unchanged.
+`tools/build-tray-wallpaper.py` now creates a plain muted petrol matte surface
+with a soft lighting falloff and very fine grain. The rejected tray outlines,
+cartridge impression, grip marks and colored studs have all been removed.
+Custom wallpapers are unchanged.
 
 ## Reproduction and preview
 
@@ -68,10 +65,33 @@ experiment is included.
 geometry, replacing the old photographic masks and extracted fasteners entirely.
 Proportion references: iFixit, [GBA SP bottom shell replacement](https://www.ifixit.com/Guide/Nintendo+Game+Boy+Advance+SP+Bottom+Shell+Replacement/12735),
 photos `2kN4kwkSbK6PyaUD`, `OCO3qBtqtET3xTk4`, and `Ldow6GCmi5DecKU3`.
-These show a shallow bowed lip, two molded ribs, and a central case screw.
+The supplied close-up sets the final proportions: flat shoulders ease into a
+curved central scoop with a flat middle; the two ribs are open-bottom inverted U
+shapes. A larger recessed metal screw carries an explicit Y-shaped tri-point
+pocket. The two outer case screws are deliberately omitted.
 No reference photograph is embedded in these SVGs. Red encodes paint relief;
 neutral elements preserve the dark throat and small metal screw. The original
 fine RG SP paint grain is applied after SVG rasterization for every finish.
 Sparse subpixel vector scratches follow the handled edge, with paired lighter
 and darker strokes suggesting shallow wear rather than a coarse leather bump.
 The accepted cartridge sizes and insertion timing are retained.
+
+## Motion validation
+
+Insertion and shelf departure use one width-derived scale for both axes, preserving
+the source cartridge aspect ratio exactly instead of interpolating rounded endpoint
+widths/heights independently. The seated foot uses that same height so every
+platform seats at the same top edge. Tests sample GBA, GB and GBC over the full
+stroke at 720 and 640 pixels, including the actual enlarged carousel start and
+rear/cart/front draw ordering.
+
+The earlier ad-hoc GIF used scale 1.0 rather than the enlarged carousel scale;
+the checked-in exporter now always obtains both position and scale from Shelf.
+Reproduce the reviewed insertion/ejection preview with:
+
+```sh
+cargo run -p slot-ui --example shell_finish_preview -- /tmp/slot-motion animation gba
+python tools/compose-slot-motion.py /tmp/slot-motion /tmp/slot-motion.gif
+```
+
+Use `gb` or `gbc` in place of `gba` for the other cartridge shapes.

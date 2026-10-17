@@ -15,7 +15,7 @@ fn painted_shells_preserve_geometry_and_leave_the_switch_cavity_neutral() {
         assert_eq!(handle.rgba, slider.rgba);
         let cavity = ((110*600+230)*4) as usize;
         assert_eq!(&switch.rgba[cavity..cavity+4], &dark.rgba[cavity..cavity+4]);
-        let at = ((12*SLOT_W+80)*4) as usize;
+        let at = ((50*SLOT_W+80)*4) as usize;
         let base = shell_rgb(colour);
         for c in 0..3 { assert!((faces[1][at+c] as i16-base[c] as i16).abs() < 20); }
     }
@@ -24,7 +24,7 @@ fn painted_shells_preserve_geometry_and_leave_the_switch_cavity_neutral() {
 #[test]
 fn paint_has_fine_low_contrast_grain_instead_of_deep_pebbles() {
     let front = shell_slot_faces(ShellColour::Platinum)[1];
-    let values: Vec<f32> = (40..180).map(|x| front[((14*SLOT_W+x)*4) as usize] as f32).collect();
+    let values: Vec<f32> = (40..180).map(|x| front[((50*SLOT_W+x)*4) as usize] as f32).collect();
     let avg = values.iter().sum::<f32>()/values.len() as f32;
     let rms = (values.iter().map(|v| (v-avg).powi(2)).sum::<f32>()/values.len() as f32).sqrt();
     assert!((0.3..4.0).contains(&rms), "grain RMS {rms}");
@@ -37,11 +37,23 @@ fn svg_slot_keeps_an_open_throat_and_shallow_bowed_lip() {
         let at = |x: usize, y: usize| (y * SLOT_W as usize + x) * 4;
         // Cartridge passes through the transparent centre; the front then hides its foot.
         assert_eq!(front[at(360, 25)+3], 0);
-        assert_eq!(front[at(360, 42)+3], 255);
-        assert!(back[at(360, 25)] < 25);
+        assert_eq!(front[at(360, 46)+3], 255);
+        assert!(back[at(360, 27)] < 50);
         // Real molded ribs are painted; the small metal screw stays neutral across finishes.
-        assert!(back[at(305, 10)+3] > 250);
+        assert!(back[at(284, 10)+3] > 250);
         let screw = at(359, 9);
         assert_eq!(&back[screw..screw+4], &shell_slot_faces(ShellColour::Graphite)[0][screw..screw+4]);
     }
+}
+
+#[test]
+fn lip_has_flat_shoulders_and_a_flat_centre_with_curved_transitions() {
+    let front = shell_slot_faces(ShellColour::Platinum)[1];
+    let top = |x: usize| (0..58).find(|y| front[(y*720+x)*4+3] > 200).unwrap();
+    assert_eq!(top(100),top(230));
+    assert_eq!(top(340),top(360));
+    assert_eq!(top(360),top(380));
+    assert!(top(275)>top(230) && top(275)<top(340));
+    // Removed end screws must be ordinary painted surface.
+    for x in [211,509] { assert!(front[(50*720+x)*4] > 150); }
 }
