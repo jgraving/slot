@@ -19,7 +19,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: bdfa1442873f2213e4324381d3282dae83c11170
+          ref: d9940d63c15323aae7b7055b72e17d531ecf427b
 
       - name: Install zip, cmake and Task
         run: |
@@ -34,7 +34,7 @@ jobs:
 
       - name: Test favorites and power behavior
         run: |
-          cargo test -p slot --no-default-features --test favorites --test power --test cartridge_ticks --test power_click --test sfx --test sleep --test quick_menu --test menu_repeat --test night_display --test link_ui --test link_screen --test link_art_builder --test core_picker -- --test-threads=1
+          cargo test -p slot --no-default-features --test favorites --test power --test cartridge_ticks --test power_click --test sfx --test sleep --test quick_menu --test menu_repeat --test night_display --test link_ui --test link_screen --test link_art_builder --test core_picker --test sound_menu_style -- --test-threads=1
           cargo test -p slot-ui --test favorite --test power_switch --test quick_menu --test toast --test shelf --test native_shelf --test chrome --test board --test shell_material --test cart --test legend --test link_art
           cargo test -p slot-store --test shell_colour --test config --test durability
           cargo test -p slot-input --test gesture
@@ -67,9 +67,9 @@ jobs:
         run: |
           set -eu
           out="slot-rgsp-shell"
-          printf 'Source: bdfa1442873f2213e4324381d3282dae83c11170\n' > "$out/System/shell-finish-build.txt"
-          zip="slot-rgsp-shell-System-bdfa144.zip"
-          (cd "$out" && zip -qry "../$zip" System && zip -qry ../slot-rgsp-shell-install-bdfa144.zip .)
+          printf 'Source: d9940d63c15323aae7b7055b72e17d531ecf427b\n' > "$out/System/shell-finish-build.txt"
+          zip="slot-rgsp-shell-System-d9940d6.zip"
+          (cd "$out" && zip -qry "../$zip" System && zip -qry ../slot-rgsp-shell-install-d9940d6.zip .)
           echo "zip=$zip" >> "$GITHUB_OUTPUT"
 
       - uses: actions/upload-artifact@v7
@@ -77,5 +77,5 @@ jobs:
           name: ${{ steps.package.outputs.zip }}
           path: |
             ${{ steps.package.outputs.zip }}
-            slot-rgsp-shell-install-bdfa144.zip
+            slot-rgsp-shell-install-d9940d6.zip
           if-no-files-found: error
