@@ -213,3 +213,40 @@ The center screw is at y=16.125, halfway between the top edge (1px) and liner
 (31.25px), with its circular dimensions preserved. Both corner assemblies use
 one shared local drawing: shallow recessed seats, the same viewing direction,
 and a centered head and driver cut. These are visual approximations.
+
+## Hardware review refinements
+
+The current carousel intentionally uses larger independent sizes: the GBA face is
+396px wide, while taller GB/Color textures are 328px wide (~354px tall). They
+shrink with one scalar before crossing the mouth, preserving aspect ratio and
+the existing 308px GBA grip / ~291px inserting-body match. The housing moves
+down 14px to y=422 without scaling its 72px SVG; its lower portion continues
+off-screen. Earlier carousel/seated equality notes above describe the previous
+revision.
+
+Menus show at most six rows at a 48px pitch. The viewport follows the selection,
+wraps with the existing navigation and displays a proportional scrollbar when
+needed. Button artwork is uniformly downsampled to 24px; its text is rendered at
+native size. Back/Resume stays left and Change/Select stays right, 12px above
+the housing, matching Sound. Core picker and link hints use this same height.
+All four existing colors remain under General → Shell Color; selection, theme
+independence and persistence are exercised in app tests. Graphite is now
+RGB 40/43/49. Paint grain is area-filtered from 128px to 43px and reduced in
+contrast for a finer real-world scale on both housing and power switch.
+
+Directional perimeter lighting and explicit recessed inner ramps replace the
+radial shoulder highlights. The deeper slopes remain on the rear layer and
+stop at the metal boundary, leaving the front deck flat.
+
+Link cable/wireless seating, failure and unplug timing are unchanged. The
+existing port artwork includes the molded triangle and EXT.1 label. Link UI,
+plug/wireless animation geometry and builder tests, plus production-draw stills,
+cover this surface; physical link hardware testing remains a separate step.
+
+Reproduce the new menu and link review boards with:
+
+```sh
+cargo run -p slot --no-default-features --example layout_review -- /tmp/layout-review
+python tools/compose-layout-review.py /tmp/layout-review previews/menu-layout-review.png
+python tools/compose-layout-review.py /tmp/layout-review previews/link-layout-review.png link
+```

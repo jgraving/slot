@@ -7,10 +7,15 @@
 
 <!-- One continuous shoulder field in both layers. It fades to the deck in
      both axes, and is clipped to the actual material boundary, never the liner. -->
-<radialGradient id="shoulderRound" gradientUnits="userSpaceOnUse" cx="151" cy="12" r="75">
- <stop stop-color="#c80000"/><stop offset=".32" stop-color="#c10000"/>
- <stop offset=".64" stop-color="#ad0000"/><stop offset="1" stop-color="#890000"/>
-</radialGradient>
+<!-- Rolled perimeter lighting is directional, not a spherical highlight. -->
+<linearGradient id="shoulderRound" gradientUnits="userSpaceOnUse" x1="122" y1="0" x2="166" y2="0">
+ <stop stop-color="#8b0000"/><stop offset=".18" stop-color="#a50000"/>
+ <stop offset=".55" stop-color="#bb0000"/><stop offset="1" stop-color="#b50000"/>
+</linearGradient>
+<linearGradient id="innerRoll" gradientUnits="userSpaceOnUse" x1="184" y1="0" x2="222" y2="0">
+ <stop stop-color="#b50000"/><stop offset=".2" stop-color="#c60000"/>
+ <stop offset=".5" stop-color="#a20000"/><stop offset=".78" stop-color="#690000"/><stop offset="1" stop-color="#4b0000"/>
+</linearGradient>
 <linearGradient id="shoulderFade" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="68"><stop offset=".28" stop-color="white"/><stop offset=".72" stop-color="#606060"/><stop offset="1" stop-color="black"/></linearGradient>
 <mask id="shoulderBlend"><rect x="120" y="0" width="480" height="72" fill="url(#shoulderFade)"/></mask>
 <linearGradient id="shoulderJoin" gradientUnits="userSpaceOnUse" x1="160" y1="0" x2="222" y2="0"><stop stop-color="white"/><stop offset=".3" stop-color="#e0e0e0"/><stop offset=".65" stop-color="#707070"/><stop offset="1" stop-color="black"/></linearGradient>

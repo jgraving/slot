@@ -244,7 +244,7 @@ pub fn shell_asset(mould: Mould, clear: bool) -> &'static [u8] {
     load(bytes, w, h, slot)
 }
 
-/// Footer buttons. Each file is already the footer height.
+/// Source button artwork. Menu hints downsample uniformly to their own height.
 #[derive(Copy, Clone)]
 pub(crate) enum ButtonLegend {
     A,

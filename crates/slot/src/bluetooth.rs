@@ -770,7 +770,7 @@ pub fn screen_face_with_ink(lines: &[String], footer_ink: [u8; 3]) -> UndoFace {
     let row_top = if compact {
         88
     } else if clean {
-        (OUT_H - row_count * 52) / 2 + 4
+        (OUT_H - slot_ui::MOUTH_H as u32 - slot_ui::HINT_H - 12 - row_count * 48) / 2 + 4
     } else {
         184
     };
@@ -788,7 +788,7 @@ pub fn screen_face_with_ink(lines: &[String], footer_ink: [u8; 3]) -> UndoFace {
                 line.strip_prefix("SELECTED ")
                     .or_else(|| line.strip_prefix("ROW "))
                     .unwrap_or(line),
-                row_top + (i as u32 - 3) * 52 + 4,
+                row_top + (i as u32 - 3) * 48 + 4,
                 40u32,
                 30.0,
                 1,
@@ -835,7 +835,7 @@ pub fn screen_face_with_ink(lines: &[String], footer_ink: [u8; 3]) -> UndoFace {
                     0
                 };
                 for &i in indices {
-                    blit(&mut rgba, &faces[i], x, OUT_H - slot_ui::MOUTH_H as u32);
+                    blit(&mut rgba, &faces[i], x, OUT_H - slot_ui::MOUTH_H as u32 - slot_ui::HINT_H - 12);
                     x += seen(i) + gap;
                 }
             }

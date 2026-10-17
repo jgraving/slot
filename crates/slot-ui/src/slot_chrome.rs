@@ -9,7 +9,8 @@ use crate::shelf::foot_y;
 
 pub const ALERT_PX: f32 = 44.0;
 
-pub const MOUTH_H: f32 = 72.0;
+// Keep the original 72px texture scale, with its lower 14px below the display.
+pub const MOUTH_H: f32 = 58.0;
 const BAND_Y: f32 = OUT_H as f32 - MOUTH_H;
 
 pub const MOUTH_W: f32 = SEATED_W as f32 + 14.0;
@@ -247,7 +248,7 @@ fn strip(canvas: Canvas, tex: TexId, alpha: f32) -> Draw {
         x: 0.0,
         y: BAND_Y,
         w: canvas.w,
-        h: MOUTH_H,
+        h: crate::bitmaps::SLOT_H as f32,
         tex,
         alpha,
         uv: canvas.window(crate::bitmaps::SLOT_W as f32),

@@ -522,7 +522,8 @@ impl QuickValue {
     }
 }
 
-pub const QUICK_PITCH: f32 = 52.0;
+pub const QUICK_PITCH: f32 = 48.0;
+pub const QUICK_VISIBLE_ROWS: usize = 6;
 pub const QUICK_EDGE: f32 = 32.0;
 pub const QUICK_LABEL_X: f32 = 64.0;
 const POINTER_GAP: f32 = 14.0;
@@ -536,7 +537,7 @@ const GROUND_SCRIM: f32 = 0.65;
 const TYPE_DROP: f32 = 4.0;
 const CARET_GAP: f32 = 14.0;
 const CARET_PX: f32 = 24.0;
-const LEGEND_Y: f32 = 427.0;
+const LEGEND_Y: f32 = OUT_H as f32 - MOUTH_H - HINT_H as f32 - 12.0;
 const DIM_INK: [u8; 3] = [0x9a, 0x9a, 0xa4];
 const PANEL_GAP: f32 = 12.0;
 
@@ -649,7 +650,7 @@ pub fn quick_legend_faces(ink: [u8; 3]) -> [UndoFace; 5] {
             hint,
             false,
         ),
-        with_hint(button_face(ButtonLegend::A), "Open", hint, false),
+        with_hint(button_face(ButtonLegend::A), "Select", hint, false),
         with_hint(button_face(ButtonLegend::B), "Resume", hint, true),
         with_hint(button_face(ButtonLegend::X), "Restart", hint, false),
     ]
@@ -728,7 +729,7 @@ fn with_hint(button: UndoFace, label: &str, ink: Option<[u8; 3]>, hint_on_right:
         None => word_face(label),
     };
     let w = button.w + CAP_GAP + word.w + HINT_EDGE;
-    let h = button.h;
+    let h = HINT_H;
     let mut rgba = vec![0u8; (w * h * 4) as usize];
     let text_y = h.saturating_sub(word.h) / 2;
     let (button_x, text_x) = match hint_on_right {
@@ -742,20 +743,23 @@ fn with_hint(button: UndoFace, label: &str, ink: Option<[u8; 3]>, hint_on_right:
 
 fn button_face(which: ButtonLegend) -> UndoFace {
     let (rgba, w, h) = button_legend(which);
+    let target_h = HINT_H;
+    let target_w = (w as f32 * target_h as f32 / h as f32).round() as u32;
     UndoFace {
-        rgba: rgba.to_vec(),
-        w,
-        h,
+        rgba: crate::art::cover_rgba(rgba, w, h, target_w, target_h).expect("button dimensions"),
+        w: target_w,
+        h: target_h,
     }
 }
 
 fn button_pair(left: ButtonLegend, right: ButtonLegend) -> UndoFace {
-    let (a, aw, ah) = button_legend(left);
-    let (b, bw, bh) = button_legend(right);
+    let a = button_face(left);
+    let b = button_face(right);
+    let (aw, ah, bw, bh) = (a.w, a.h, b.w, b.h);
     let (w, h) = (aw + bw, ah.max(bh));
     let mut rgba = vec![0u8; (w * h * 4) as usize];
-    blit(&mut rgba, w, a, aw, ah, 0, 0);
-    blit(&mut rgba, w, b, bw, bh, aw, 0);
+    blit(&mut rgba, w, &a.rgba, aw, ah, 0, 0);
+    blit(&mut rgba, w, &b.rgba, bw, bh, aw, 0);
     UndoFace { rgba, w, h }
 }
 
@@ -820,8 +824,11 @@ impl QuickMenu<'_> {
             .map(|l| l[1].1)
             .max()
             .unwrap_or(0);
-        for row in self.row.shown(self.hidden) {
-            let y = quick_row_top(row, self.hidden) + TYPE_DROP;
+        let shown = self.row.shown(self.hidden);
+        let first = quick_window_start(self.row, self.hidden);
+        let top = quick_page_top(self.row, self.hidden);
+        for (i, row) in shown.iter().copied().enumerate().skip(first).take(QUICK_VISIBLE_ROWS) {
+            let y = top + QUICK_PITCH * (i - first) as f32 + TYPE_DROP;
             let lit = row == self.row;
             if let Some(&(tex, w, h)) = faces.labels.get(row.index()).map(|l| &l[lit as usize]) {
                 let x = match row.centred() {
@@ -860,6 +867,15 @@ impl QuickMenu<'_> {
             let vx = rx - CARET_GAP + pad - w as f32;
             push(out, tex, vx, y, w, h);
             push(out, left_tex, vx + pad - CARET_GAP - lw as f32, y, lw, lh);
+        }
+        if shown.len() > QUICK_VISIBLE_ROWS {
+            // A small proportional scroll thumb shows that more rows are available.
+            let height = QUICK_PITCH * QUICK_VISIBLE_ROWS as f32;
+            let thumb = height * QUICK_VISIBLE_ROWS as f32 / shown.len() as f32;
+            let x = self.canvas.w - 12.0;
+            out.push(Draw::Rect { x, y: top, w: 2.0, h: height, colour: [1.0,1.0,1.0,0.12] });
+            out.push(Draw::Rect { x, y: top + (height-thumb)*first as f32/(shown.len()-QUICK_VISIBLE_ROWS) as f32,
+                w: 2.0, h: thumb, colour: [1.0,1.0,1.0,0.6] });
         }
         if self.over_game || self.footer_legends {
             return;
@@ -907,13 +923,23 @@ pub fn draw_menu_ground(canvas: Canvas, ground: Option<TexId>, out: &mut Vec<Dra
     }
 }
 
+pub fn quick_window_start(selected: QuickRow, hidden: &[QuickRow]) -> usize {
+    let count = selected.shown(hidden).len();
+    selected.position(hidden).saturating_sub(QUICK_VISIBLE_ROWS / 2)
+        .min(count.saturating_sub(QUICK_VISIBLE_ROWS))
+}
+
+fn quick_page_top(row: QuickRow, hidden: &[QuickRow]) -> f32 {
+    let rows = QUICK_PITCH * row.shown(hidden).len().min(QUICK_VISIBLE_ROWS) as f32;
+    if row.page() == QuickRow::PLAY_SCREEN {
+        LEGEND_Y - PANEL_GAP - rows
+    } else {
+        (LEGEND_Y - rows) / 2.0
+    }
+}
+
 pub fn quick_row_top(row: QuickRow, hidden: &[QuickRow]) -> f32 {
-    let rows = QUICK_PITCH * row.shown(hidden).len() as f32;
-    let top = match row.page() == QuickRow::PLAY_SCREEN {
-        true => OUT_H as f32 - MOUTH_H - PANEL_GAP - rows,
-        false => (LEGEND_Y - rows) / 2.0,
-    };
-    top + QUICK_PITCH * row.position(hidden) as f32
+    quick_page_top(row, hidden) + QUICK_PITCH * (row.position(hidden)-quick_window_start(row, hidden)) as f32
 }
 
 fn push(out: &mut Vec<Draw>, tex: TexId, x: f32, y: f32, w: u32, h: u32) {

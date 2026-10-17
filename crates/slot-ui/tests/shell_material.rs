@@ -144,8 +144,8 @@ fn slot_end_returns_have_recessed_volume_inside_the_aperture() {
             let values:Vec<_>=(18..26).flat_map(|y|(x0..x1).map(move |x|back[(y*720+x)*4] as f32)).collect();
             values.iter().sum::<f32>()/values.len() as f32
         };
-        assert!(mean(175,185)>mean(195,205)+3.0,"left rolled return lost its depth");
-        assert!(mean(535,545)>mean(515,525)+3.0,"right rolled return lost its depth");
+        assert!(mean(178,188)>mean(210,216)+20.0,"left rolled return lost its depth");
+        assert!(mean(532,542)>mean(504,510)+20.0,"right rolled return lost its depth");
     }
 }
 

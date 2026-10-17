@@ -88,7 +88,7 @@ pub use quick_menu::{
     core_button_legends, draw_menu_ground, link_button_legends, quick_caret_face, quick_label_face,
     quick_legend_faces, quick_pointer_face, quick_row_top, quick_text_centre, quick_value_face,
     sound_button_legends, sound_forget_confirmation, QuickMenu, QuickMenuFaces, QuickRow,
-    QuickValue, QUICK_EDGE, QUICK_LABEL_X, QUICK_PITCH,
+    QuickValue, QUICK_EDGE, QUICK_LABEL_X, QUICK_PITCH, QUICK_VISIBLE_ROWS, quick_window_start,
 };
 pub use rebuild::{rebuild_count_face, rebuild_title_face, RebuildScreen};
 pub use refusal::Refusal;

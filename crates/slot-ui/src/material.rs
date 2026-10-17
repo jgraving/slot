@@ -4,7 +4,7 @@ use slot_store::ShellColour;
 
 pub fn shell_rgb(colour: ShellColour) -> [u8; 3] {
     match colour {
-        ShellColour::Theme | ShellColour::Graphite => [72, 76, 83],
+        ShellColour::Theme | ShellColour::Graphite => [40, 43, 49],
         ShellColour::Platinum => [190, 193, 198],
         ShellColour::PearlBlue => [119, 150, 170],
         ShellColour::PearlPink => [198, 155, 170],
@@ -14,10 +14,12 @@ pub fn shell_rgb(colour: ShellColour) -> [u8; 3] {
 pub(crate) fn paint_grain(x: usize, y: usize) -> f32 {
     static GRAIN: OnceLock<Vec<u8>> = OnceLock::new();
     let grain = GRAIN.get_or_init(|| {
-        crate::art::decode_png_bytes(include_bytes!("../../../assets/rgsp_paint_grain.png"))
-            .expect("embedded RG SP paint sample").0
+        let src = crate::art::decode_png_bytes(include_bytes!("../../../assets/rgsp_paint_grain.png"))
+            .expect("embedded RG SP paint sample").0;
+        // Three source pixels per display pixel: fine paint, not oversized pebbles.
+        crate::art::cover_rgba(&src, 128, 128, 43, 43).expect("paint grain dimensions")
     });
-    grain[((y % 128) * 128 + x % 128) * 4] as f32 - 128.0
+    (grain[((y % 43) * 43 + x % 43) * 4] as f32 - 128.0) * 0.7
 }
 
 pub fn shell_slot_faces(colour: ShellColour) -> [&'static [u8]; 2] {

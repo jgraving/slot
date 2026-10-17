@@ -76,13 +76,13 @@ const SLOT_NAME_HOLD_MS: Millis = 1200;
 const SLOT_NAME_OUT_MS: Millis = 800;
 const SLOT_NAME_ALPHA: f32 = 1.0;
 const CORE_PICKER_DIM: f32 = 0.25 / (1.0 - CORE_PICKER_RECEDE);
-const CORE_LEGEND_Y: f32 = OUT_H as f32 - MOUTH_H * 2.0;
+const CORE_LEGEND_Y: f32 = OUT_H as f32 - MOUTH_H - slot_ui::HINT_H as f32 - 12.0;
 const CORE_LEGEND_GAP: f32 = 24.0;
 const LINK_TEXT_Y: f32 = 44.0;
-const LINK_LEGEND_Y: f32 = OUT_H as f32 - MOUTH_H;
+const LINK_LEGEND_Y: f32 = OUT_H as f32 - MOUTH_H - slot_ui::HINT_H as f32 - 12.0;
 pub const LINK_SCRIM: [f32; 4] = [0.0, 0.0, 0.0, 0.5];
 const LINK_LEGEND_GAP: f32 = 40.0;
-const LINK_LEGEND_EDGE: f32 = 0.0;
+const LINK_LEGEND_EDGE: f32 = 16.0;
 const LID_SHADOW_W: f32 = 168.0;
 const LID_SHADOW_H: f32 = 18.0;
 const LID_SHADOW_DROP: f32 = 27.1;
@@ -3768,7 +3768,7 @@ impl App {
             x,
             y,
             w: face.1 as f32,
-            h: MOUTH_H,
+            h: slot_ui::HINT_H as f32,
             tex: face.0,
             alpha: 1.0,
         });
@@ -4057,7 +4057,7 @@ impl App {
                     x: x.round(),
                     y: CORE_LEGEND_Y,
                     w: w as f32,
-                    h: MOUTH_H,
+                    h: slot_ui::HINT_H as f32,
                     tex,
                     alpha: lift,
                 });
@@ -4148,7 +4148,7 @@ impl App {
                 x,
                 y: LINK_LEGEND_Y,
                 w: w as f32,
-                h: MOUTH_H,
+                h: slot_ui::HINT_H as f32,
                 tex,
                 alpha: 1.0,
             });

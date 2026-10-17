@@ -1257,18 +1257,18 @@ fn pick_names_cancel_mode_swap_and_link_across_the_strip() {
         ],
     );
     assert!(
-        keys.iter().all(|k| k.1 == OUT_H as f32 - MOUTH_H),
+        keys.iter().all(|k| k.1 == OUT_H as f32 - MOUTH_H - slot_ui::HINT_H as f32 - 12.0),
         "the keys do not fill the carousel footer"
     );
     let left = keys[0].0;
     let (x, _, w, _) = keys[keys.len() - 1];
     let right = x + w - HINT_EDGE as f32;
     assert!(
-        left.abs() < 1.0,
+        (left-16.0).abs() < 1.0,
         "Cancel is not on the left of the strip: {left}"
     );
     assert!(
-        (right - OUT_W as f32).abs() < 1.0,
+        (right - (OUT_W as f32-16.0)).abs() < 1.0,
         "Link is not on the right of the strip: {right}"
     );
     let mode_end = keys[1].0 + keys[1].2 - HINT_EDGE as f32;

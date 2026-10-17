@@ -539,10 +539,10 @@ fn the_about_footer_puts_restart_on_the_right() {
     let (lx, ly, _) = legend_box(&out, 400);
     let (rx, ry, rw) = legend_box(&out, 404);
     assert_eq!(ly, ry);
-    assert!(lx.abs() < 1.0, "Back is not on the left: {lx}");
+    assert!((lx-16.0).abs() < 1.0, "Back is not on the left: {lx}");
     let right = rx + rw - HINT_EDGE as f32;
     assert!(
-        (right - OUT_W as f32).abs() < 1.0,
+        (right - (OUT_W as f32-16.0)).abs() < 1.0,
         "Restart is not on the right: {right}"
     );
 }
@@ -762,12 +762,12 @@ fn the_carousel_menu_keeps_the_empty_footer_where_the_shelf_left_it() {
     );
     let (lx, ly, _) = legend_box(&open, 400);
     let (rx, ry, rw) = legend_box(&open, 402);
-    let footer = OUT_H as f32 - MOUTH_H;
+    let footer = OUT_H as f32 - MOUTH_H - slot_ui::HINT_H as f32 - 12.0;
     assert_eq!((ly, ry), (footer, footer));
-    assert!(lx.abs() < 1.0, "Back is not on the left: {lx}");
+    assert!((lx-16.0).abs() < 1.0, "Back is not on the left: {lx}");
     let right = rx + rw - HINT_EDGE as f32;
     assert!(
-        (right - OUT_W as f32).abs() < 1.0,
+        (right - (OUT_W as f32-16.0)).abs() < 1.0,
         "Open is not on the right: {right}"
     );
     assert!(!drawn(&open, 403), "Resume is on the carousel menu");
@@ -782,12 +782,12 @@ fn the_carousel_menu_keeps_the_empty_footer_where_the_shelf_left_it() {
     let values = frame(&a);
     let (lx, ly, _) = legend_box(&values, 400);
     let (rx, ry, rw) = legend_box(&values, 401);
-    let footer = OUT_H as f32 - MOUTH_H;
+    let footer = OUT_H as f32 - MOUTH_H - slot_ui::HINT_H as f32 - 12.0;
     assert_eq!((ly, ry), (footer, footer));
-    assert!(lx.abs() < 1.0, "Back left the left edge: {lx}");
+    assert!((lx-16.0).abs() < 1.0, "Back left the left edge: {lx}");
     let right = rx + rw - HINT_EDGE as f32;
     assert!(
-        (right - OUT_W as f32).abs() < 1.0,
+        (right - (OUT_W as f32-16.0)).abs() < 1.0,
         "Change is not on the right: {right}"
     );
     assert!(!drawn(&values, 79), "the value page seated a cart");
@@ -907,7 +907,7 @@ fn labels_leave_room_for_the_pointer_and_values_end_thirty_two_pixels_in() {
     open_at(&mut a, QuickRow::FastForward);
     let out = frame(&a);
     let right = OUT_W as f32 - QUICK_EDGE;
-    for row in QuickRow::GAME {
+    for row in QuickRow::GAME.into_iter().take(slot_ui::QUICK_VISIBLE_ROWS) {
         let lit = row == QuickRow::FastForward;
         let [x, ..] = placed(&out, label(row, lit)).expect("a label was not drawn");
         assert_eq!(x + MENU_PAD as f32, QUICK_LABEL_X, "{row:?}'s label");
