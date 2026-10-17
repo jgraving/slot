@@ -69,8 +69,8 @@ fn larger_carts_fit_between_header_and_slot_on_native_panels() {
         let (cw, ch) = slot_ui::cart_box(platform);
         let (w, h) = (cw as f32 * scale, ch as f32 * scale);
         let y = slot_ui::foot_y(ch as f32) - h;
-        assert!(w > cw as f32);
+        assert!(w >= 308.0);
         assert!(x >= 0.0 && x + w <= NATIVE.w);
-        assert!(y >= 24.0 && y + h <= 422.0, "{platform:?}: {y}..{}",y+h);
+        assert!(y >= 40.0 && y + h <= 480.0-slot_ui::MOUTH_H, "{platform:?}: {y}..{}",y+h);
     }
 }

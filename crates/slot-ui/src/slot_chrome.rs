@@ -9,7 +9,7 @@ use crate::shelf::foot_y;
 
 pub const ALERT_PX: f32 = 44.0;
 
-pub const MOUTH_H: f32 = 58.0;
+pub const MOUTH_H: f32 = 72.0;
 const BAND_Y: f32 = OUT_H as f32 - MOUTH_H;
 
 pub const MOUTH_W: f32 = SEATED_W as f32 + 14.0;
@@ -68,11 +68,11 @@ pub fn recess() -> [f32; 4] {
 
 const LIP_Y: f32 = BAND_Y;
 
-// At the accepted artwork scale the 60 mm GBA cap is 240 px wide.
+// The 60 mm GBA cap is drawn at the common 308px visible width.
 // The common connector stop is about 28 mm behind the straight mouth plane,
 // photo-calibrated from inserted SP paks; this is not an engineering tolerance.
 const MM_TO_PX: f32 = SEATED_W as f32 / 60.0;
-const SEATED_FOOT: f32 = BAND_Y + 25.0 + 28.0 * MM_TO_PX;
+const SEATED_FOOT: f32 = BAND_Y + 5.0 + 25.0 * 1.05 + 28.0 * MM_TO_PX;
 
 fn catch_at(foot: f32, seated_foot: f32) -> f32 {
     (LIP_Y - foot) / (seated_foot - foot)
@@ -360,9 +360,9 @@ fn travel(seat: f32, catch: f32) -> f32 {
     if seat < CATCH_IN {
         catch * ease(seat / CATCH_IN)
     } else if seat < CATCH_OUT {
-        catch + CREEP * (seat - CATCH_IN) / (CATCH_OUT - CATCH_IN)
+        catch + CREEP * catch * (seat - CATCH_IN) / (CATCH_OUT - CATCH_IN)
     } else {
-        let caught = catch + CREEP;
+        let caught = catch + CREEP * catch;
         caught + (1.0 - caught) * ease((seat - CATCH_OUT) / (1.0 - CATCH_OUT))
     }
 }

@@ -56,8 +56,8 @@ python tools/compose-shell-preview.py /tmp/shell-finishes previews/rgsp-shell-fi
 ```
 
 The preview exports the same textures and draw commands used in production.
-Cartridge sizes remain the accepted GBA +15%, GB/GBC +8%; no physical-sizing
-experiment is included.
+Cartridges now share a ~308px visible width, with source padding accounted for.
+This is a screen layout choice, not physical screen sizing.
 
 ## GBA SP insertion housing, SVG rebuild
 
@@ -68,13 +68,13 @@ photos `2kN4kwkSbK6PyaUD`, `OCO3qBtqtET3xTk4`, and `Ldow6GCmi5DecKU3`.
 The supplied close-up sets the final proportions: flat shoulders ease into a
 curved central scoop with a flat middle; the two ribs are open-bottom inverted U
 shapes. A larger recessed metal screw carries an explicit Y-shaped tri-point
-pocket. The two outer case screws are deliberately omitted.
+pocket. The rounded outer SP shoulders and both recessed corner case screws are restored.
 No reference photograph is embedded in these SVGs. Red encodes paint relief;
 neutral elements preserve the dark throat and small metal screw. The original
 fine RG SP paint grain is applied after SVG rasterization for every finish.
 Sparse subpixel vector scratches follow the handled edge, with paired lighter
 and darker strokes suggesting shallow wear rather than a coarse leather bump.
-The accepted cartridge sizes and insertion timing are retained.
+Cartridge aspect ratios and insertion timing are retained.
 
 ## Motion validation
 
@@ -99,9 +99,9 @@ Use `gb` or `gbc` in place of `gba` for the other cartridge shapes.
 The full front and oblique reference photographs establish the slot volume:
 the curved cut edge has a narrow inner bevel. The lower shell is flat, without
 a raised front face, lower bulge or cast shadow. The rear layer includes the
-metal liner behind the inserted cart. Device end shoulders, side outlines and
-bottom seams are omitted: the plain shell continues to both screen edges.
-Only the slot itself has edges. The two small inverted-U ribs remain.
+metal liner behind the inserted cart. The outer SP shoulders and corner screw wells bound a centered 476px housing,
+fully visible on both 640px and 720px canvases. Its lower body continues below
+the screen, like a close view of the real SP. The two small inverted-U ribs remain.
 
 ## Seating calibration and marking legibility
 
@@ -113,9 +113,9 @@ Only the slot itself has edges. The two small inverted-U ribs remain.
 
 The existing art includes transparent horizontal margins, particularly on GB/GBC;
 its opaque body, rather than the entire texture rectangle, sets physical width.
-Retain the approved shelf sizes and uniform aspect ratio. At the accepted seated
-scale the 60 mm GBA cap is 240 px; the ~57 mm GB body is ~227 px inside its padded
-240 px texture. A shared connector stop ~28 mm beyond the straight mouth plane
+Preserve the uniform source aspect ratio. The GBA cap is 308px wide; the GB/GBC
+texture is 329px, whose 292/312 opaque body is ~308px. The same widths are used
+on the carousel and when seated, avoiding any size jump or horizontal squash. A shared connector stop ~28 mm beyond the straight mouth plane
 leaves roughly 7 mm of GBA grip and 37 mm of GB/GBC body outside that plane.
 The central scoop reveals a little more. This depth is a photographic estimate,
 not an official engineering measurement or a claim of physical screen sizing.
@@ -126,14 +126,14 @@ highlights and lower-right shadows. The same paint palette and grain remain;
 timing, slider geometry and sound are unchanged.
 
 The enlarged GB/GBC shelf placement is centered in the usable area below the HUD,
-rather than underneath its top plate. Cartridge size is unchanged. The cartridge
+rather than underneath its top plate. The 355px-tall GB/GBC drawing leaves about 6px of clearance below the HUD
+and above the housing. This limits the common visible width to about 308px. The cartridge
 geometry checks retain fractional uniform scaling instead of requiring the
 scaled lower edge to land on an integer pixel.
 
 The red-circled reference identifies the aperture's recessed end returns. Narrow
 rounded inner walls and contact shadows at x=233..246 and x=474..487 restore this
-volume inside the slot. They do not restore the outside device shoulders or any
-outer shell outline. The end walls belong to the rear layer, so the cartridge grip sits in front of
+volume inside the slot. The independent outer device shoulders and corner screw wells are also restored. The end walls belong to the rear layer, so the cartridge grip sits in front of
 them. Only the curved front cut edge occludes the cartridge body.
 
 The lower lip's former face gradient and drop/contact shadow are removed. Depth
@@ -151,3 +151,19 @@ reflection gradients and the bright lower gloss streak are removed. Only thin
 molded edges, the thumb groove and a local contact shade remain; the extracted
 paint grain is never applied to this slider. Housing paint and markings retain
 the selected finish.
+
+## Larger SP housing and equal-width cartridges
+
+The vector art is now 720×72 instead of 720×58. The aperture is enlarged by
+308/240 (about 28%) horizontally, with its original curved-to-flat cut edge,
+matte metal liner and recessed end walls preserved. Rounded shoulders and two
+corner screw wells follow the supplied full SP photograph. The actual device
+outline is centered at x=122..598 and remains fully visible on both panels.
+
+The common ~308px opaque cartridge width is constrained by a full GB/GBC pak
+between the 40px HUD and housing at y=408. Every source retains its native
+aspect ratio. GB/GBC transparent margins are counted in the texture size but
+not the visible width. Insertion uses the same sizes and common connector stop.
+The tiny catch creep scales with approach distance so a tall pak already close
+to the mouth still visibly pauses. Production draw tests check every frame of
+all three types at 640×480 and 720×480 for aspect ratio, width and upper clipping.

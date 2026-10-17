@@ -235,7 +235,7 @@ fn departure_moves_every_cartridge_layer_up_and_shrinks_to_insertion_size() {
             let sticker = draws.iter().find(|d| matches!(d, Draw::Tex { tex, .. } if *tex == star)).unwrap();
             let (_, y, w, h, a) = quad(body);
             let (_, _, sw, _, sa) = quad(sticker);
-            if let Some((py, pw)) = previous { assert!(y < py && w < pw); }
+            if let Some((py, pw)) = previous { assert!(y < py && w <= pw+0.001); }
             assert_eq!(a, 1.0);
             assert_eq!(sa, 1.0);
             close(sw / w, 33.0 / slot_ui::cart_box(platform).0 as f32);

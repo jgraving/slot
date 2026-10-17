@@ -1,12 +1,15 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="720" height="58" viewBox="0 0 720 58">
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="72" viewBox="0 0 720 72">
 <defs>
  <linearGradient id="paint" x2="0" y2="1"><stop stop-color="#b50000"/><stop offset="1" stop-color="#ae0000"/></linearGradient>
  <linearGradient id="bevel" x2="0" y2="1"><stop stop-color="#860000"/><stop offset=".5" stop-color="#ca0000"/><stop offset="1" stop-color="#ce0000"/></linearGradient>
 
 
 </defs>
-<!-- Continuous shell: no device outline, end shoulders, outside seams or base line. -->
-<path d="M0 0H233V22H245C272 22 294 40 330 40H390C426 40 448 22 475 22H487V0H720V58H0Z" fill="url(#paint)"/>
+<!-- Rounded outer shoulders rise above the straight mouth plane. -->
+<path d="M122 72V36Q122 1 158 1H178Q197 1 197 20V28.1H212.42C247.07 28.1 275.3 47 321.5 47H398.5C444.7 47 472.93 28.1 507.58 28.1H523V20Q523 1 542 1H562Q598 1 598 36V72Z" fill="url(#paint)"/>
+<path d="M123 72V36Q123 2 158 2H178Q196 2 196 20V28M524 28V20Q524 2 542 2H562Q597 2 597 36V72" fill="none" stroke="#cf0000" stroke-width="1.1"/>
+<path d="M126 72V37Q126 6 157 5M594 72V37Q594 6 563 5" fill="none" stroke="#8a0000" stroke-width=".7" opacity=".45"/>
+<g transform="translate(-102 5) scale(1.2833333333 1.05)">
 <!-- Flat lower shell. Only the narrow inner cut edge is beveled; no cast shadow. -->
 <path d="M233 22H245C272 22 294 40 330 40H390C426 40 448 22 475 22H487V25H475C448 25 426 43 390 43H330C294 43 272 25 245 25H233Z" fill="url(#bevel)"/>
 <path d="M233 22H245C272 22 294 40 330 40H390C426 40 448 22 475 22H487" fill="none" stroke="#6c0000" stroke-width=".7"/>
@@ -15,4 +18,20 @@
  <path d="m277 32 7 2m28 8 8 1m23 1.4h7m51 -.7 8 -1m26 -9 7 -3" stroke="#ce0000"/>
  <path d="m286 38 7 1.6m34 7 9 .2m72 -2 7 -1.1" stroke="#8e0000"/>
 </g>
+
+</g>
+<!-- Recessed corner wells, metal heads and cross-bit depressions. -->
+<defs><radialGradient id="well"><stop stop-color="#14171a"/><stop offset=".65" stop-color="#25292d"/><stop offset="1" stop-color="#3e4349"/></radialGradient><linearGradient id="screw" x2=".5" y2="1"><stop stop-color="#a5acaf"/><stop offset="1" stop-color="#747e84"/></linearGradient></defs>
+<circle cx="158" cy="40" r="13.8" fill="#790000"/>
+<path d="M144.3 40a13.7 13.7 0 0 0 27.4 0" fill="none" stroke="#d70000" stroke-width="1"/>
+<circle cx="158" cy="39.7" r="11.8" fill="url(#well)"/>
+<circle cx="158" cy="42.5" r="6.2" fill="url(#screw)"/>
+<path d="M154.3 42.2h7.4m-3.7 -3.7v7.4" stroke="#353e44" stroke-width="1.8"/>
+<path d="M154.3 43.2h2.8v2.8" fill="none" stroke="#b1b8bb" stroke-width=".45"/>
+<circle cx="562" cy="40" r="13.8" fill="#790000"/>
+<path d="M548.3 40a13.7 13.7 0 0 0 27.4 0" fill="none" stroke="#d70000" stroke-width="1"/>
+<circle cx="562" cy="39.7" r="11.8" fill="url(#well)"/>
+<circle cx="562" cy="42.5" r="6.2" fill="url(#screw)"/>
+<path d="M558.3 42.2h7.4m-3.7 -3.7v7.4" stroke="#353e44" stroke-width="1.8"/>
+<path d="M558.3 43.2h2.8v2.8" fill="none" stroke="#b1b8bb" stroke-width=".45"/>
 </svg>
