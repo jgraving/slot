@@ -26,19 +26,19 @@ pub fn shell_slot_faces(colour: ShellColour) -> [&'static [u8]; 2] {
     let faces = FACES[index].get_or_init(|| {
         let base = shell_rgb(ShellColour::FINISHES[index]);
         [
-            include_bytes!("../../../assets/slot_back_material.png").as_slice(),
-            include_bytes!("../../../assets/slot_front_material.png").as_slice(),
+            include_str!("../assets/slot_back.svg"),
+            include_str!("../assets/slot_front.svg"),
         ].map(|bytes| {
-            let (mut rgba, w, _) = crate::art::decode_png_bytes(bytes).expect("embedded shell geometry");
+            let w = 720usize;
+            let mut rgba = crate::art::render_svg(bytes, 720, 58).expect("embedded SVG shell geometry");
             for (at, pixel) in rgba.chunks_exact_mut(4).enumerate() {
-                let painted = pixel[1] > 128;
-                let relief = pixel[0] as f32 - 128.0;
-                let cavity = pixel[0];
+                let painted = pixel[0] as f32 > pixel[1] as f32 * 1.5;
+                let relief = (pixel[0] as f32 - 174.0) * 0.68;
                 for c in 0..3 {
                     pixel[c] = if painted {
                         (base[c] as f32 + relief + paint_grain(at % w as usize, at / w as usize))
                             .clamp(0.0, 255.0) as u8
-                    } else { cavity };
+                    } else { pixel[c] };
                 }
             }
             rgba
