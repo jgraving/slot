@@ -61,3 +61,17 @@ python tools/compose-shell-preview.py /tmp/shell-finishes previews/rgsp-shell-fi
 The preview exports the same textures and draw commands used in production.
 Cartridge sizes remain the accepted GBA +15%, GB/GBC +8%; no physical-sizing
 experiment is included.
+
+## GBA SP insertion housing, SVG rebuild
+
+`crates/slot-ui/assets/slot_back.svg` and `slot_front.svg` are original vector
+geometry, replacing the old photographic masks and extracted fasteners entirely.
+Proportion references: iFixit, [GBA SP bottom shell replacement](https://www.ifixit.com/Guide/Nintendo+Game+Boy+Advance+SP+Bottom+Shell+Replacement/12735),
+photos `2kN4kwkSbK6PyaUD`, `OCO3qBtqtET3xTk4`, and `Ldow6GCmi5DecKU3`.
+These show a shallow bowed lip, two molded ribs, and a central case screw.
+No reference photograph is embedded in these SVGs. Red encodes paint relief;
+neutral elements preserve the dark throat and small metal screw. The original
+fine RG SP paint grain is applied after SVG rasterization for every finish.
+Sparse subpixel vector scratches follow the handled edge, with paired lighter
+and darker strokes suggesting shallow wear rather than a coarse leather bump.
+The accepted cartridge sizes and insertion timing are retained.

@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="58" viewBox="0 0 720 58">
+<defs>
+ <linearGradient id="paint" x2="0" y2="1"><stop stop-color="#b50000"/><stop offset=".1" stop-color="#c40000"/><stop offset=".38" stop-color="#ae0000"/><stop offset="1" stop-color="#910000"/></linearGradient>
+ <linearGradient id="rib" x2="1" y2="0"><stop stop-color="#740000"/><stop offset=".3" stop-color="#ca0000"/><stop offset=".65" stop-color="#b50000"/><stop offset="1" stop-color="#870000"/></linearGradient>
+ <linearGradient id="metal" x2="0.7" y2="1"><stop stop-color="#dadcde"/><stop offset=".45" stop-color="#9a9da1"/><stop offset="1" stop-color="#53575c"/></linearGradient>
+</defs>
+<!-- Original geometry, traced by proportion from iFixit's GBA SP underside photographs.
+     The two marks are molded shell ribs, not rivets. -->
+<path d="M0 0H720V58H0Z" fill="#101114"/>
+<path d="M0 0H720V20H0Z" fill="url(#paint)"/>
+<path d="M0 19.5H720" stroke="#690000" stroke-width="1"/>
+<path d="M234 20V30M486 20V30" stroke="#292b30" stroke-width="2"/>
+<g fill="url(#rib)">
+ <path d="M302 19V7a3 3 0 0 1 6 0v12Z"/>
+ <path d="M412 19V7a3 3 0 0 1 6 0v12Z"/>
+</g>
+<circle cx="360" cy="11" r="4.2" fill="#570000"/>
+<circle cx="360" cy="10.7" r="3.1" fill="url(#metal)"/>
+<path d="M358 10.7h4M360 8.7v4" stroke="#373a40" stroke-width=".8"/>
+<path d="M262 18l9 -.2m142 -.1 7 -.2" stroke="#c00000" stroke-width=".35"/>
+</svg>

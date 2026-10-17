@@ -31,19 +31,17 @@ fn paint_has_fine_low_contrast_grain_instead_of_deep_pebbles() {
 }
 
 #[test]
-fn both_insertion_fasteners_keep_their_relief_in_every_finish() {
+fn svg_slot_keeps_an_open_throat_and_shallow_bowed_lip() {
     for colour in ShellColour::FINISHES {
-        let back = shell_slot_faces(colour)[0];
-        for centre in [300, 420] {
-            let mut deepest = 0i16;
-            for y in 5..24 {
-                for x in centre-7..centre+8 {
-                    let mark = back[((y*SLOT_W+x)*4) as usize] as i16;
-                    let surround = back[((y*SLOT_W+centre-20)*4) as usize] as i16;
-                    deepest = deepest.max(surround-mark);
-                }
-            }
-            assert!(deepest >= 15, "{colour:?} fastener at {centre} lost its depth");
-        }
+        let [back, front] = shell_slot_faces(colour);
+        let at = |x: usize, y: usize| (y * SLOT_W as usize + x) * 4;
+        // Cartridge passes through the transparent centre; the front then hides its foot.
+        assert_eq!(front[at(360, 25)+3], 0);
+        assert_eq!(front[at(360, 42)+3], 255);
+        assert!(back[at(360, 25)] < 25);
+        // Real molded ribs are painted; the small metal screw stays neutral across finishes.
+        assert!(back[at(305, 10)+3] > 250);
+        let screw = at(359, 9);
+        assert_eq!(&back[screw..screw+4], &shell_slot_faces(ShellColour::Graphite)[0][screw..screw+4]);
     }
 }
