@@ -23,6 +23,8 @@ mod link_art;
 mod plate;
 mod polaroids;
 mod power_menu;
+mod material;
+pub use material::{shell_rgb, shell_slot_faces};
 mod quick_menu;
 mod rebuild;
 mod refusal;
@@ -79,7 +81,7 @@ pub use plate::{
 };
 pub use polaroids::{photo_face, PhotoFace, Polaroids, DOT, LEGEND, PHOTO_H, PHOTO_W};
 pub use power_menu::{
-    draw_power_switch, menu_face, power_switch_faces, PowerChoice, MENU_PAD, POWER_SWITCH_MS,
+    draw_power_switch, menu_face, power_switch_faces, power_switch_faces_for, PowerChoice, MENU_PAD, POWER_SWITCH_MS,
     POWER_SWITCH_SLIDE_MS,
 };
 pub use quick_menu::{

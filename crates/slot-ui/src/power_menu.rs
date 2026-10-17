@@ -42,43 +42,25 @@ pub const POWER_SWITCH_MS: u64 = 600;
 /// Time at which the slider reaches OFF (including the initial ON hold).
 pub const POWER_SWITCH_SLIDE_MS: u64 = 330;
 
-/// Build both finishes once, using the carousel's own pebbled housing pixels.
-/// The red source vector identifies shell material; the neutral cavity is left alone.
+/// Compatibility entry point for the automatic dark/light shell selection.
 pub fn power_switch_faces(light: bool) -> [UndoFace; 2] {
+    power_switch_faces_for(if light { slot_store::ShellColour::Platinum } else { slot_store::ShellColour::Graphite })
+}
+
+/// The switch shares the carousel's extracted paint grain and shell palette.
+pub fn power_switch_faces_for(colour: slot_store::ShellColour) -> [UndoFace; 2] {
     let mut rgba = crate::art::render_svg(include_str!("../assets/power_switch.svg"), 600, 240)
         .expect("embedded power switch housing");
-    let material = if light {
-        crate::slot_front_light()
-    } else {
-        crate::slot_front()
-    };
+    let base = crate::material::shell_rgb(colour);
     for y in 0..240usize {
         for x in 0..600usize {
             let i = (y * 600 + x) * 4;
             let r = rgba[i] as f32;
             if r > rgba[i + 1] as f32 * 1.5 && rgba[i + 3] != 0 {
-                // Sample the existing grain at native scale. Remove its broad lighting
-                // so the switch's own bevels supply the relief, without mirrored seams.
-                let tx = 12 + (x + (y / 32) * 47) % 196;
-                let ty = 12 + y % 32;
-                let m = (ty * crate::SLOT_W as usize + tx) * 4;
-                let base = if light {
-                    [210.0, 210.0, 212.0]
-                } else {
-                    [68.0, 68.0, 74.0]
-                };
-                let relief = (r - 174.0) * if light { 0.8 } else { 0.5 };
+                let relief = (r - 174.0) * 0.68;
+                let grain = crate::material::paint_grain(x, y);
                 for c in 0..3 {
-                    let mut local = 0.0;
-                    for dy in [0, 2, 4] {
-                        for dx in [0, 2, 4] {
-                            local += material
-                                [((ty + dy - 2) * crate::SLOT_W as usize + tx + dx - 2) * 4 + c]
-                                as f32;
-                        }
-                    }
-                    let grain = (material[m + c] as f32 - local / 9.0) * 0.55;
-                    rgba[i + c] = (base[c] + grain + relief).clamp(0.0, 255.0) as u8;
+                    rgba[i + c] = (base[c] as f32 + grain + relief).clamp(0.0, 255.0) as u8;
                 }
             }
         }

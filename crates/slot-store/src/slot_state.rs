@@ -3,6 +3,7 @@ use std::path::{Path, PathBuf};
 use crate::atomic::atomic_write;
 use crate::gb_palette::GbPalette;
 use crate::platform::Platform;
+use crate::ShellColour;
 
 pub const BRIGHTNESS_MAX: u8 = 9;
 pub const BLUE_LIGHT_MAX: u8 = 9;
@@ -224,6 +225,7 @@ pub struct SlotState {
     pub gb_palettes: bool,
     pub gb_palette: GbPalette,
     pub appearance: Appearance,
+    pub shell_colour: ShellColour,
     pub wallpaper: WallpaperPick,
     pub wallpaper_tint: WallpaperTint,
     pub show_recents: bool,
@@ -350,6 +352,7 @@ impl Default for SlotState {
             gb_palettes: false,
             gb_palette: GbPalette::DEFAULT,
             appearance: Appearance::Dark,
+            shell_colour: ShellColour::default(),
             wallpaper: WallpaperPick::Default,
             wallpaper_tint: WallpaperTint::Off,
             show_recents: false,
@@ -449,6 +452,7 @@ pub fn write_slot_state(root: &Path, s: &SlotState) -> std::io::Result<()> {
         s.colour_correction_gbc as u8
     ));
     text.push_str(&format!("shader_gbc={}\n", s.shader_gbc.name()));
+    text.push_str(&format!("shell_colour={}\n", s.shell_colour.key()));
     text.push_str(&format!("wallpaper_tint={}\n", s.wallpaper_tint.key()));
     text.push_str(&format!("show_recents={}\n", s.show_recents as u8));
     text.push_str(&format!("show_titles={}\n", s.show_titles as u8));
@@ -501,6 +505,7 @@ fn parse(text: &str) -> Option<SlotState> {
     let mut gb_palettes = None;
     let mut gb_palette = None;
     let mut appearance = None;
+    let mut shell_colour = None;
     let mut wallpaper = None;
     let mut wallpaper_tint = None;
     let mut show_recents = None;
@@ -550,6 +555,7 @@ fn parse(text: &str) -> Option<SlotState> {
             "gb_palettes" => gb_palettes = flag(value),
             "gb_palette" => gb_palette = GbPalette::parse(value),
             "appearance" => appearance = Appearance::parse(value),
+            "shell_colour" => shell_colour = ShellColour::parse(value),
             "wallpaper" => wallpaper = Some(WallpaperPick::parse(value)),
             "wallpaper_tint" => wallpaper_tint = WallpaperTint::parse(value),
             "show_recents" => show_recents = flag(value),
@@ -604,6 +610,7 @@ fn parse(text: &str) -> Option<SlotState> {
         gb_palettes: gb_palettes.unwrap_or(fallback.gb_palettes),
         gb_palette: gb_palette.unwrap_or(fallback.gb_palette),
         appearance: appearance.unwrap_or(fallback.appearance),
+        shell_colour: shell_colour.unwrap_or(fallback.shell_colour),
         wallpaper: wallpaper.unwrap_or(fallback.wallpaper),
         wallpaper_tint: wallpaper_tint.unwrap_or(fallback.wallpaper_tint),
         show_recents: show_recents.unwrap_or(fallback.show_recents),

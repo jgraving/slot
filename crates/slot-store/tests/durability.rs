@@ -218,6 +218,7 @@ fn a_card_from_before_the_settings_keeps_all_its_values() {
             gb_palettes: false,
             gb_palette: GbPalette::DEFAULT,
             appearance: Appearance::Dark,
+            shell_colour: slot_store::ShellColour::Theme,
             wallpaper: WallpaperPick::Default,
             wallpaper_tint: WallpaperTint::Off,
             show_recents: false,

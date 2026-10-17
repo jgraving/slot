@@ -330,7 +330,7 @@ pub struct App {
     refused_from: Option<f32>,
     alert_face: Option<TexId>,
     shutdown_faces: Vec<(TexId, u32, u32)>,
-    power_switch_faces: Option<[[TexId; 2]; 2]>,
+    power_switch_faces: Option<[[TexId; 2]; 4]>,
     core_picker: Option<CorePicker>,
     core_board_face: Option<TexId>,
     core_interior_face: Option<TexId>,
@@ -968,6 +968,13 @@ impl App {
                 WallpaperTint::Low => QuickValue::Low,
                 WallpaperTint::Medium => QuickValue::Medium,
                 WallpaperTint::High => QuickValue::High,
+            }),
+            QuickRow::ShellColour => Some(match self.state.shell_colour {
+                slot_store::ShellColour::Theme => QuickValue::MatchTheme,
+                slot_store::ShellColour::Graphite => QuickValue::Graphite,
+                slot_store::ShellColour::Platinum => QuickValue::Platinum,
+                slot_store::ShellColour::PearlBlue => QuickValue::PearlBlue,
+                slot_store::ShellColour::PearlPink => QuickValue::PearlPink,
             }),
             QuickRow::Theme => Some(if self.light() {
                 QuickValue::Light
@@ -1817,6 +1824,10 @@ impl App {
         }
     }
 
+    pub fn shell_colour(&self) -> slot_store::ShellColour {
+        self.state.shell_colour.resolved(self.light())
+    }
+
     pub fn light(&self) -> bool {
         self.state.appearance.light()
     }
@@ -2250,6 +2261,7 @@ impl App {
             | QuickRow::GbPalettes
             | QuickRow::RunAhead
             | QuickRow::Rumble
+            | QuickRow::ShellColour
             | QuickRow::Theme
             | QuickRow::Recents
             | QuickRow::ShowTitles
@@ -2383,6 +2395,7 @@ impl App {
                 s.runahead = (s.runahead + if right { 1 } else { n - 1 }) % n;
             }
             QuickRow::Theme => s.appearance = s.appearance.toggle(),
+            QuickRow::ShellColour => s.shell_colour = s.shell_colour.step(right),
             QuickRow::WallpaperTint => s.wallpaper_tint = s.wallpaper_tint.step(right),
             QuickRow::Wallpaper
             | QuickRow::Recents
@@ -3352,7 +3365,7 @@ impl App {
                     slot_ui::draw_power_switch(
                         self.canvas(),
                         elapsed as f32 / slot_ui::POWER_SWITCH_MS as f32,
-                        faces[usize::from(self.light())],
+                        faces[self.shell_colour().finish_index()],
                         out,
                     );
                     return;
@@ -3816,8 +3829,12 @@ impl App {
         self.alert_face = Some(face);
     }
 
-    pub fn set_power_switch_faces(&mut self, faces: [[TexId; 2]; 2]) {
+    pub fn set_shell_switch_faces(&mut self, faces: [[TexId; 2]; 4]) {
         self.power_switch_faces = Some(faces);
+    }
+
+    pub fn set_power_switch_faces(&mut self, faces: [[TexId; 2]; 2]) {
+        self.power_switch_faces = Some([faces[0], faces[1], faces[0], faces[1]]);
     }
 
     pub fn set_shutdown_faces(&mut self, faces: Vec<(TexId, u32, u32)>) {

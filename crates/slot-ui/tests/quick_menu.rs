@@ -101,6 +101,7 @@ fn the_rows_run_in_the_order_the_user_chose() {
         [
             "Wallpaper",
             "Wallpaper Tint",
+            "Shell Color",
             "Theme",
             "Recents",
             "Game Titles",
@@ -182,14 +183,14 @@ fn the_rows_run_in_the_order_the_user_chose() {
 #[test]
 fn a_hidden_row_is_stepped_over_and_takes_no_place() {
     let hidden = [QuickRow::WallpaperTint];
-    assert_eq!(QuickRow::Wallpaper.down(&hidden), QuickRow::Theme);
-    assert_eq!(QuickRow::Theme.up(&hidden), QuickRow::Wallpaper);
+    assert_eq!(QuickRow::Wallpaper.down(&hidden), QuickRow::ShellColour);
+    assert_eq!(QuickRow::ShellColour.up(&hidden), QuickRow::Wallpaper);
     assert_eq!(QuickRow::Wallpaper.up(&hidden), QuickRow::DateTime);
-    assert_eq!(QuickRow::Theme.position(&hidden), 1);
+    assert_eq!(QuickRow::ShellColour.position(&hidden), 1);
     assert_eq!(QuickRow::Wallpaper.down(&[]), QuickRow::WallpaperTint);
-    assert_eq!(QuickRow::Theme.position(&[]), 2);
+    assert_eq!(QuickRow::ShellColour.position(&[]), 2);
     assert_eq!(
-        slot_ui::quick_row_top(QuickRow::Theme, &hidden)
+        slot_ui::quick_row_top(QuickRow::ShellColour, &hidden)
             - slot_ui::quick_row_top(QuickRow::Wallpaper, &hidden),
         slot_ui::QUICK_PITCH
     );
@@ -225,6 +226,11 @@ fn the_values_read_as_the_menu_prints_them() {
             "15 min",
             "30 min",
             "Never",
+            "Match Theme",
+            "Graphite",
+            "Platinum",
+            "Pearl Blue",
+            "Pearl Pink",
         ]
     );
     assert_eq!(QuickValue::flag(true), QuickValue::On);

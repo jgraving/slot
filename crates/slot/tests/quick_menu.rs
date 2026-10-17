@@ -1104,7 +1104,7 @@ fn wallpaper_tint_hides_until_a_wallpaper_of_your_own_is_picked() {
     press(&mut a, Btn::Down);
     assert_eq!(
         a.quick_menu(),
-        Some(QuickRow::Theme),
+        Some(QuickRow::ShellColour),
         "the tint row showed on the default wallpaper"
     );
     press(&mut a, Btn::Up);
@@ -1121,7 +1121,7 @@ fn wallpaper_tint_hides_until_a_wallpaper_of_your_own_is_picked() {
         let below = if shown {
             QuickRow::WallpaperTint
         } else {
-            QuickRow::Theme
+            QuickRow::ShellColour
         };
         assert_eq!(a.quick_menu(), Some(below), "below {pick:?}");
         press(&mut a, Btn::Up);
@@ -1252,4 +1252,29 @@ fn a_frame_file_that_is_gone_reads_back_as_none() {
         ..SlotState::default()
     });
     assert_eq!(a.resolved_bezel(Platform::Gb), BezelPick::None);
+}
+
+#[test]
+fn shell_colour_cycles_persists_and_stays_independent_of_text_theme() {
+    use slot_store::ShellColour;
+    let (d, mut a, _) = on_carousel();
+    open_at(&mut a, QuickRow::ShellColour);
+    assert_eq!(a.quick_value(QuickRow::ShellColour), Some(QuickValue::MatchTheme));
+    for (colour, value) in [
+        (ShellColour::Graphite, QuickValue::Graphite),
+        (ShellColour::Platinum, QuickValue::Platinum),
+        (ShellColour::PearlBlue, QuickValue::PearlBlue),
+        (ShellColour::PearlPink, QuickValue::PearlPink),
+    ] {
+        press(&mut a, Btn::Right);
+        assert_eq!(a.quick_value(QuickRow::ShellColour), Some(value));
+        assert_eq!(a.shell_colour(), colour);
+        assert_eq!(read_slot_state(d.path()).shell_colour, colour);
+    }
+    press(&mut a, Btn::Down); // Theme
+    press(&mut a, Btn::Right);
+    assert!(a.light());
+    assert_eq!(a.shell_colour(), ShellColour::PearlPink);
+    let (b, _) = app_booting_at(d.path(), CLOCK_IS_SET);
+    assert_eq!(b.shell_colour(), ShellColour::PearlPink);
 }

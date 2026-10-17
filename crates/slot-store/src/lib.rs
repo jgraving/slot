@@ -10,6 +10,8 @@ mod platform;
 mod ring;
 mod scan;
 mod slot_state;
+mod shell_colour;
+pub use shell_colour::ShellColour;
 mod stamp;
 
 pub use atomic::atomic_write;

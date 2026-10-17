@@ -42,10 +42,6 @@ const GB_BOARD_PNG: &[u8] = include_bytes!("../../../assets/gb_board.png");
 const BOARD_PNG: &[u8] = include_bytes!("../../../assets/board.png");
 const SOCKET_PNG: &[u8] = include_bytes!("../../../assets/socket.png");
 const CHIP_PNG: &[u8] = include_bytes!("../../../assets/chip.png");
-const SLOT_BACK_DARK_PNG: &[u8] = include_bytes!("../../../assets/slot_back_dark.png");
-const SLOT_BACK_LIGHT_PNG: &[u8] = include_bytes!("../../../assets/slot_back_light.png");
-const SLOT_FRONT_DARK_PNG: &[u8] = include_bytes!("../../../assets/slot_front_dark.png");
-const SLOT_FRONT_LIGHT_PNG: &[u8] = include_bytes!("../../../assets/slot_front_light.png");
 const PORT_DARK_PNG: &[u8] = include_bytes!("../../../assets/link_port_dark.png");
 const PORT_LIGHT_PNG: &[u8] = include_bytes!("../../../assets/link_port_light.png");
 const PLUG_HOST_PNG: &[u8] = include_bytes!("../../../assets/link_plug_host.png");
@@ -174,23 +170,19 @@ pub fn chip() -> &'static [u8] {
 }
 
 pub fn slot_back() -> &'static [u8] {
-    static P: OnceLock<Vec<u8>> = OnceLock::new();
-    continuous_slot(SLOT_BACK_DARK_PNG, &P)
+    crate::material::shell_slot_faces(slot_store::ShellColour::Graphite)[0]
 }
 
 pub fn slot_back_light() -> &'static [u8] {
-    static P: OnceLock<Vec<u8>> = OnceLock::new();
-    continuous_slot(SLOT_BACK_LIGHT_PNG, &P)
+    crate::material::shell_slot_faces(slot_store::ShellColour::Platinum)[0]
 }
 
 pub fn slot_front() -> &'static [u8] {
-    static P: OnceLock<Vec<u8>> = OnceLock::new();
-    load(SLOT_FRONT_DARK_PNG, SLOT_W, SLOT_H, &P)
+    crate::material::shell_slot_faces(slot_store::ShellColour::Graphite)[1]
 }
 
 pub fn slot_front_light() -> &'static [u8] {
-    static P: OnceLock<Vec<u8>> = OnceLock::new();
-    load(SLOT_FRONT_LIGHT_PNG, SLOT_W, SLOT_H, &P)
+    crate::material::shell_slot_faces(slot_store::ShellColour::Platinum)[1]
 }
 
 pub fn link_port() -> &'static [u8] {
@@ -288,26 +280,4 @@ pub(crate) fn button_legend(which: ButtonLegend) -> (&'static [u8], u32, u32) {
     });
     let (rgba, w, h) = &all[which as usize];
     (rgba, *w, *h)
-}
-
-// Extend the uninterrupted moulding across the old play emblem. Reuse
-// native pixels from the same horizontal band so both finishes retain their
-// grain, bevels and exact dimensions. Prepared once when textures are loaded.
-fn continuous_slot(bytes: &'static [u8], cache: &'static OnceLock<Vec<u8>>) -> &'static [u8] {
-    cache.get_or_init(|| {
-        let (mut rgba, w, h) = decode_png_bytes(bytes).expect("slot moulding png");
-        assert_eq!((w, h), (SLOT_W, SLOT_H));
-        let original = rgba.clone();
-        let (start, end, source) = (340usize, 381usize, 250usize);
-        for y in 0..h as usize {
-            for x in start..end {
-                let sx = source + x - start;
-                let dst = (y * w as usize + x) * 4;
-                let src = (y * w as usize + sx) * 4;
-                rgba[dst..dst + 4].copy_from_slice(&original[src..src + 4]);
-            }
-        }
-        bleed(&mut rgba, w, h);
-        rgba
-    })
 }
