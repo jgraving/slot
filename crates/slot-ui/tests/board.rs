@@ -117,8 +117,16 @@ fn alpha(face: &CartFace, x: u32, y: u32) -> u8 {
 #[test]
 fn the_open_cart_starts_as_the_shelf_cart_and_lands_where_the_mockup_has_it() {
     let shelf = shelf_cart(Canvas::FRAMED);
-    assert_eq!((shelf.x, shelf.y, shelf.w), (206.0, 133.0, 308.0));
-    assert!((shelf.h - 212.0*308.0/360.0).abs() < 0.001);
+    let face=slot_ui::TexId::from_raw(900);
+    let mut row=slot_ui::Shelf::new(vec![cart("Test", "")]);
+    row.set_faces(vec![face]);
+    let mut draws=Vec::new();
+    row.draw(Canvas::FRAMED,0.0,None,&mut draws);
+    let actual=draws.iter().find_map(|d|match *d {
+        slot_ui::Draw::Tex{x,y,w,h,tex,..} if tex==face=>Some(Placed{x,y,w,h}),_=>None,
+    }).unwrap();
+    assert_eq!(shelf,actual,"core picker jumps away from the enlarged carousel");
+    assert!((shelf.w/shelf.h-CART_W as f32/CART_H as f32).abs()<0.001);
     assert_eq!(
         board_at(Canvas::FRAMED, 0.0),
         board_in(shelf_cart(Canvas::FRAMED))
