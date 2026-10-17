@@ -95,3 +95,10 @@ python tools/compose-slot-motion.py /tmp/slot-motion /tmp/slot-motion.gif
 ```
 
 Use `gb` or `gbc` in place of `gba` for the other cartridge shapes.
+
+The full front and oblique reference photographs establish the slot volume:
+rolled shoulders rise above the lower shell, the curved bridge has a set-back
+inner bevel and a forward crest, and its shaded front face returns onto a lower
+deck with a contact shadow. These are distinct SVG surfaces rather than a flat
+cutout mask. The rear layer includes the metal liner behind the inserted cart.
+The two requested inverted-U ribs remain separate from the larger rolled shoulders.
