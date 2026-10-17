@@ -8,6 +8,7 @@
  <linearGradient id="inset" x1="0.0%" y1="0.0%" x2="0.0%" y2="100.0%"><stop offset="0.0%" stop-color="#8b291f"/><stop offset="30.0%" stop-color="#a63727"/><stop offset="100.0%" stop-color="#ad3928"/></linearGradient>
  <linearGradient id="well" x1="0.0%" y1="0.0%" x2="0.0%" y2="100.0%"><stop offset="0.0%" stop-color="#101013"/><stop offset="35.0%" stop-color="#202024"/><stop offset="100.0%" stop-color="#34343a"/></linearGradient>
  <g id="labels"><path transform="translate(-12 0)" d="M351 280h13q4 0 4 4v24q0 4-4 4h-13q-4 0-4-4v-24q0-4 4-4zm30 32v-32h20m-20 14h16m13 18v-32h20m-20 14h16"/><path d="M571 280h13q4 0 4 4v24q0 4-4 4h-13q-4 0-4-4v-24q0-4 4-4zm29 32v-32l20 32v-32"/></g>
+ <linearGradient id="pip" x2="0" y2="1"><stop stop-color="#f96f44"/><stop offset=".48" stop-color="#b34a30"/><stop offset="1" stop-color="#75241c"/></linearGradient>
 </defs>
 <!-- A small section of the real shell gives the recess and parting line context. -->
 <g id="housing">
@@ -29,9 +30,11 @@
 
 <!-- Molded lettering is paths, so appearance does not depend on installed fonts. -->
 <g id="molded-markings" fill="none" stroke-linejoin="round" stroke-linecap="round">
- <use href="#labels" transform="translate(1.3 1.8)" stroke="#e07850" stroke-opacity=".65" stroke-width="4.2"/>
- <use href="#labels" stroke="#70241d" stroke-opacity=".75" stroke-width="3.5"/>
- <use href="#labels" transform="translate(.1 .7)" stroke="#ad422d" stroke-width="1.6"/>
- <g stroke-width="2.6"><circle cx="445.5" cy="295" r="12" stroke="#e07850" transform="translate(1 1.5)"/><circle cx="539.5" cy="295" r="12" stroke="#e07850" transform="translate(1 1.5)"/><circle cx="445.5" cy="295" r="12" stroke="#7f281f"/><circle cx="539.5" cy="295" r="12" stroke="#7f281f"/></g>
+ <use href="#labels" transform="translate(1.4 1.8)" stroke="#502019" stroke-opacity=".98" stroke-width="5.8"/>
+ <use href="#labels" transform="translate(-.9 -1.2)" stroke="#ff7449" stroke-opacity=".98" stroke-width="5.0"/>
+ <use href="#labels" stroke="#952d20" stroke-width="2.7"/>
+ <g fill="#502019" opacity=".95" transform="translate(1.3 1.8)"><circle cx="445.5" cy="295" r="9.5"/><circle cx="539.5" cy="295" r="9.5"/></g>
+ <g fill="url(#pip)"><circle cx="445.5" cy="295" r="9"/><circle cx="539.5" cy="295" r="9"/></g>
+ <path d="M437 295a8.5 8.5 0 0 1 14 -6.4M531 295a8.5 8.5 0 0 1 14 -6.4" stroke="#ff7449" stroke-width="1.1"/>
 </g>
 </svg>

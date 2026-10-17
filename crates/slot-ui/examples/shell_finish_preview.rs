@@ -22,7 +22,9 @@ fn main() {
         std::fs::create_dir_all(&dir).unwrap();
         let mut shelf = Shelf::new(["CLASSICS", "ADVENTURE", "ARCADE"].iter().map(|name| Cart {
             platform, stem: name.to_string(), rom: format!("{name}.gba").into(),
-            label: None, code: String::new(), shell: None, title: name.to_string(),
+            label: None, code: String::new(),
+            shell: (platform==Platform::Gbc).then(||slot_store::ShellChoice::parse("rounded 7585a4 solid").unwrap()),
+            title: name.to_string(),
         }).collect());
         for (i, cart) in shelf.carts.iter().enumerate() {
             let f = slot_ui::cart_face(cart);

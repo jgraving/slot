@@ -393,24 +393,13 @@ fn a_cart_shrinks_to_the_slot_by_the_lip() {
 }
 
 #[test]
-fn every_cartridge_seats_to_the_same_depth() {
-    let tops: Vec<(&str, f32)> = both()
-        .iter()
-        .map(|(name, c)| {
-            let out = chrome(c, 1.0);
-            (*name, quad(&out[cart_at(&out)]).y)
-        })
-        .collect();
-    let (first, rest) = tops.split_first().expect("two cartridges");
-    for (name, top) in rest {
-        assert!(
-            (top - first.1).abs() < 0.01,
-            "{name} seats with its top edge at {top} against {} for {}: one of them is in \
-             deeper than the other",
-            first.1,
-            first.0
-        );
+fn every_cartridge_seats_against_the_same_connector_stop() {
+    for (_,c) in both() {
+        let out=chrome(&c,1.0); let q=quad(&out[cart_at(&out)]);
+        assert!((q.y+q.h-559.0).abs()<0.01,"shared connector stop: {q:?}");
     }
+    assert!(cart_y(&pak(),1.0)<cart_y(&cart(),1.0)-100.0,
+        "the taller GB cartridge must remain above the shell");
 }
 
 #[test]
@@ -454,60 +443,24 @@ fn every_cartridge_lands_its_foot_on_the_lip_at_the_same_moment() {
 }
 
 #[test]
-fn a_seated_cart_stops_in_the_opening_and_covers_its_base() {
-    for (name, c) in both() {
-        let out = chrome(&c, 1.0);
-        let cart = quad(&out[cart_at(&out)]);
-        let recess = out
-            .iter()
-            .find_map(|d| tinted(d, recess()).then(|| quad(d)))
-            .expect("no recess drawn");
-        assert!(
-            cart.y > recess.y && cart.y < recess.y + recess.h,
-            "{name} stops at {} against a recess at {}..{}: it is not in the slot",
-            cart.y,
-            recess.y,
-            recess.y + recess.h
-        );
-        assert!(
-            cart.y + cart.h > recess.y + recess.h,
-            "{name} does not reach the bottom of the recess"
-        );
-        assert!(
-            cart.y >= OUT_H as f32 - MOUTH_H,
-            "{name} is left standing above the case"
-        );
+fn seated_cartridges_keep_their_grip_out_and_their_connector_inside() {
+    for (_,c) in both() {
+        let out=chrome(&c,1.0);let q=quad(&out[cart_at(&out)]);
+        assert!(q.y<OUT_H as f32-MOUTH_H,"grip was swallowed: {q:?}");
+        assert!(q.y+q.h>OUT_H as f32,"connector did not enter: {q:?}");
     }
 }
 
 #[test]
-fn a_seated_cart_shows_at_most_a_sliver_of_label_and_a_pak_shows_none() {
-    for (name, c, shows_paper) in [
-        ("the GBA cart", cart(), true),
-        ("the Game Boy pak", pak(), false),
-    ] {
-        let out = chrome(&c, 1.0);
-        let cart = quad(&out[cart_at(&out)]);
-        let deepest = out
-            .iter()
-            .filter(|d| is_mouth(d) || tinted(d, recess()))
-            .map(|d| {
-                let q = quad(d);
-                q.y + q.h
-            })
-            .fold(0.0, f32::max);
-        let (label_y, label_h) = label_band(&c);
-        let peek = deepest - (cart.y + label_y);
-        assert!(
-            peek < label_h / 4.0,
-            "{peek}px of {name}'s {label_h}px label is out of the machine"
-        );
-        assert_eq!(
-            peek > 0.0,
-            shows_paper,
-            "{name} shows {peek}px of label, which is not what this cartridge is supposed to \
-             leave showing"
-        );
+fn gba_shows_a_label_sliver_while_the_taller_gb_pak_keeps_its_upper_label_out() {
+    for (_,c) in both() {
+        let q=cart_quad(&c,1.0);let (y,h)=label_band(&c);
+        let peek=OUT_H as f32-MOUTH_H+40.0-(q.y+y);
+        if c.platform==Platform::Gba {
+            assert!((0.0..h/4.0).contains(&peek),"GBA peek {peek} of {h}");
+        } else {
+            assert!((h*0.4..h*0.8).contains(&peek),"GB peek {peek} of {h}");
+        }
     }
 }
 

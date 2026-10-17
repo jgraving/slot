@@ -24,7 +24,7 @@ const SIDE_ALPHA: f32 = 1.0;
 
 pub fn rest_y(h: f32) -> f32 {
     let y = if h > CART_H as f32 {
-        (OUT_H as f32 - MOUTH_H - h) / 2.0
+        (crate::hud::PLATE_H + OUT_H as f32 - MOUTH_H - h) / 2.0
     } else {
         (OUT_H + CART_H) as f32 / 2.0 - h
     };

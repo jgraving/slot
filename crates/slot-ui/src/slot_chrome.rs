@@ -68,7 +68,11 @@ pub fn recess() -> [f32; 4] {
 
 const LIP_Y: f32 = BAND_Y;
 
-const SEATED_Y: f32 = BAY_Y + 4.0;
+// At the accepted artwork scale the 60 mm GBA cap is 240 px wide.
+// The common connector stop is about 28 mm behind the straight mouth plane,
+// photo-calibrated from inserted SP paks; this is not an engineering tolerance.
+const MM_TO_PX: f32 = SEATED_W as f32 / 60.0;
+const SEATED_FOOT: f32 = BAND_Y + 25.0 + 28.0 * MM_TO_PX;
 
 fn catch_at(foot: f32, seated_foot: f32) -> f32 {
     (LIP_Y - foot) / (seated_foot - foot)
@@ -130,11 +134,9 @@ impl SlotChrome<'_> {
         let (cw, ch) = (cw as f32, ch as f32);
 
         let scale = self.scale.clamp(0.0, crate::shelf::shelf_scale(self.cart.platform));
-        let aspect = ch / cw;
         let w0 = cw * scale;
         let sw = seated_box(self.cart.platform).0 as f32;
-        let sh = sw * aspect;
-        let (foot0, seated_foot) = (foot_y(ch), SEATED_Y + sh);
+        let (foot0, seated_foot) = (foot_y(ch), SEATED_FOOT);
         let catch = catch_at(foot0, seated_foot);
         let travel = travel(seat, catch);
         let k = (travel / catch).min(1.0);

@@ -68,14 +68,43 @@ fn screw_edges_never_leak_the_svg_red_paint_marker() {
 }
 
 #[test]
-fn raised_bridge_has_thickness_and_returns_to_the_lower_deck() {
+fn slot_lip_has_thickness_and_blends_into_the_unbounded_shell() {
     let front = shell_slot_faces(ShellColour::Platinum)[1];
     let at = |x: usize,y: usize| (y*720+x)*4;
-    // Rolled shoulders overlap the rear wall; the centre remains an opening.
+    // Plain shell continues to either side; the centre remains an opening.
     assert!(front[at(215,10)+3]>250);
     assert!(front[at(505,10)+3]>250);
     assert_eq!(front[at(360,30)+3],0);
     // Forward crest, shaded front face, and lower deck have separate lighting.
     assert!(front[at(360,43)]>front[at(360,49)]+12);
     assert!(front[at(360,56)]>front[at(360,50)]+12);
+}
+
+#[test]
+fn shell_has_no_device_shoulders_or_outer_seams() {
+    for colour in ShellColour::FINISHES {
+        let front=shell_slot_faces(colour)[1]; let base=shell_rgb(colour);
+        for x in [40usize,100,200,215,505,520,620,680] {
+            for y in 0..58 {
+                let p=&front[(y*720+x)*4..][..4];
+                assert_eq!(p[3],255,"outer shell interrupted at {x},{y}");
+                for c in 0..3 { assert!((p[c] as i16-base[c] as i16).abs()<15,
+                    "outer outline or shoulder at {x},{y}: {p:?}"); }
+            }
+        }
+    }
+}
+
+#[test]
+fn power_labels_and_both_dots_have_readable_embossed_relief() {
+    for colour in ShellColour::FINISHES {
+        let face=power_switch_faces_for(colour)[0].rgba.clone();
+        for (x0,x1) in [(200,256),(338,375),(257,278),(313,334)] {
+            let mut lo=255u8;let mut hi=0u8;
+            for y in 165..191 { for x in x0..x1 {
+                let v=face[(y*600+x)*4];lo=lo.min(v);hi=hi.max(v);
+            }}
+            assert!(hi-lo>=65,"{colour:?} marking at {x0}: relief {}",hi-lo);
+        }
+    }
 }

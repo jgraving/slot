@@ -451,15 +451,15 @@ fn every_cartridge_is_centred_on_the_row_and_clears_both_the_plate_and_the_slot(
     let lip = OUT_H as f32 - MOUTH_H;
     for (name, h, span) in [
         ("the GBA cart", CART_H, OUT_H as f32),
-        ("the Game Boy pak", GB_CART_H, lip),
+        ("the Game Boy pak", GB_CART_H, lip + PLATE_H),
     ] {
         let (top, foot) = (rest_y(h as f32), foot_y(h as f32));
         assert_eq!(top, top.round(), "{name} top is off the pixel grid: {top}");
-        assert_eq!(
-            foot,
-            foot.round(),
-            "{name} foot is off the pixel grid: {foot}"
-        );
+        // Enlarged cartridges keep a uniform fractional scale; only their resting
+        // top is snapped. Requiring an integer foot would distort their height.
+        let zoom=if h==CART_H {1.15} else {1.08};
+        assert!((foot-top-h as f32*zoom).abs()<0.001,
+            "{name} lost its proportional enlarged height");
         assert!(
             (top + foot - span).abs() <= 1.0,
             "{name} stands at {top}..{foot}, which is not centred in {span}px"
