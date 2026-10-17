@@ -139,3 +139,9 @@ them. Only the curved front cut edge occludes the cartridge body.
 The lower lip's former face gradient and drop/contact shadow are removed. Depth
 comes from the recessed end walls and slot interior; below the cut edge the
 shell uses the same uninterrupted fine paint as the rest of the surface.
+
+The visible interior liner is matte silver metal, not a black cavity or painted
+plastic. A neutral cool-silver lighting gradient and sparse subpixel vertical
+brushing describe the metal. Only the narrow contact below the upper plastic lip
+stays dark. Liner pixels remain untinted across all four shell finishes; this is
+an appearance reference, not a claim about the original metal alloy.
