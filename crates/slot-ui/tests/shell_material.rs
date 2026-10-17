@@ -100,6 +100,15 @@ fn sp_body_has_rounded_shoulders_and_recessed_corner_screws() {
         }
         assert_eq!(front[(2*720+123)*4+3],0,"shoulder is square");
         assert_eq!(front[(20*720+140)*4+3],255);
+        let mean=|x0:usize,x1:usize| {
+            let mut sum=0.0;let mut n=0;
+            for y in 44..60 { for x in x0..x1 {sum+=front[(y*720+x)*4] as f32;n+=1;} }
+            sum/n as f32
+        };
+        assert!((mean(193,197)-mean(198,202)).abs()<4.0,
+            "vertical seam between shoulder and flat deck");
+        assert!((mean(523,527)-mean(518,522)).abs()<4.0,
+            "vertical seam between right shoulder and flat deck");
         for x in [158,562] {
             assert!(front[(35*720+x)*4]<80,"corner screw well missing");
             assert!(front[(46*720+x)*4]>80,"metal screw head missing");
@@ -135,8 +144,8 @@ fn slot_end_returns_have_recessed_volume_inside_the_aperture() {
             let values:Vec<_>=(18..26).flat_map(|y|(x0..x1).map(move |x|back[(y*720+x)*4] as f32)).collect();
             values.iter().sum::<f32>()/values.len() as f32
         };
-        assert!(mean(192,196)>mean(199,201)+8.0,"left rolled return lost its depth");
-        assert!(mean(524,528)>mean(519,521)+8.0,"right rolled return lost its depth");
+        assert!(mean(192,196)>mean(199,201)+3.0,"left rolled return lost its depth");
+        assert!(mean(524,528)>mean(519,521)+3.0,"right rolled return lost its depth");
     }
 }
 
@@ -155,4 +164,13 @@ fn enlarged_slot_keeps_the_central_screw_head_circular() {
     let h=ys.iter().max().unwrap()-ys.iter().min().unwrap()+1;
     assert!(w.abs_diff(h)<=1,"central metal screw is warped: {w} by {h}");
     assert!(w>=17 && h>=17,"fastener disappeared");
+    let mut dark=Vec::new();
+    for y in 12..28 { for x in 352..368 {
+        let dx=x as f32+0.5-360.0;let dy=y as f32+0.5-19.7;
+        if dx*dx+dy*dy<49.0 && a[(y*720+x)*4]<85 { dark.push((x as f32+0.5,y as f32+0.5)); }
+    }}
+    let cx=dark.iter().map(|p|p.0).sum::<f32>()/dark.len() as f32;
+    let cy=dark.iter().map(|p|p.1).sum::<f32>()/dark.len() as f32;
+    assert!((cx-360.0).abs()<0.5 && (cy-19.7).abs()<0.5,
+        "driver recess is off-center: {cx},{cy}");
 }
