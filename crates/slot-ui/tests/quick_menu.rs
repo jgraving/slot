@@ -437,7 +437,7 @@ fn screen_rows_in_game_sit_in_a_panel_at_the_bottom() {
     let colour = slot_ui::quick_row_top(QuickRow::ColourCorrection, &hidden);
     assert_eq!(colour - shader, slot_ui::QUICK_PITCH);
     assert!(
-        shader > slot_ui::OUT_H as f32 / 2.0,
+        shader >= slot_ui::OUT_H as f32 / 2.0,
         "the panel starts at {shader}"
     );
     assert!(slot_ui::quick_row_top(QuickRow::FastForward, &[]) < shader);

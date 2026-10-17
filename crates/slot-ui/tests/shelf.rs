@@ -143,7 +143,7 @@ fn one_cart_stands_alone_in_the_middle() {
     let row = placed(&s);
     assert_eq!(row.len(), 1, "a lone cart is not alone on the row");
     let (x, w) = row[0];
-    assert!((w - CART_W as f32 * 1.15).abs() < 0.5, "the lone cart is {w} wide");
+    assert!((w - CART_W as f32 * slot_ui::GBA_SHELF_SCALE).abs() < 0.5, "the lone cart is {w} wide");
     let centre = x + w / 2.0;
     assert!(
         (centre - 360.0).abs() < 0.5,
@@ -171,7 +171,7 @@ fn two_carts_repeat_around_the_ring() {
     );
     for (a, b) in [(centres[0], centres[1]), (centres[1], centres[2])] {
         assert!(
-            (b - a - CART_W as f32 * 1.15).abs() < 0.5,
+            (b - a - CART_W as f32 * slot_ui::GBA_SHELF_SCALE).abs() < 0.5,
             "the row is {} apart rather than one pitch",
             b - a
         );
@@ -390,7 +390,7 @@ fn the_selected_cart_is_centred_and_full_size() {
     let (x, w) = placed(&s)
         .into_iter()
         .fold((0.0, 0.0), |a, b| if b.1 > a.1 { b } else { a });
-    assert!((w - CART_W as f32 * 1.15).abs() < 0.5, "selected cart is {w} wide");
+    assert!((w - CART_W as f32 * slot_ui::GBA_SHELF_SCALE).abs() < 0.5, "selected cart is {w} wide");
     let centre = x + w / 2.0;
     assert!(
         (centre - 360.0).abs() < 0.5,
@@ -709,7 +709,7 @@ fn cart_spans(out: &[Draw]) -> Vec<(f32, f32)> {
             Draw::Rect { x, w, h, .. }
             | Draw::Tex { x, w, h, .. }
             | Draw::Part { x, w, h, .. }
-            | Draw::Turned { x, w, h, .. } => (h > 60.0).then_some((x, x + w)),
+            | Draw::Turned { x, w, h, .. } => (h > slot_ui::MOUTH_H).then_some((x, x + w)),
             Draw::Game | Draw::Shot { .. } => None,
         })
         .filter(|(x0, x1)| *x1 > 0.0 && *x0 < OUT_W as f32)
@@ -828,11 +828,11 @@ fn the_row_draws_a_game_boy_pak_at_its_own_height() {
     let (h, y) = out
         .iter()
         .find_map(|d| match *d {
-            Draw::Tex { y, w, h, .. } if (w - GB_CART_W as f32 * 1.08).abs() < 0.01 => Some((h, y)),
+            Draw::Tex { y, w, h, .. } if (w - GB_CART_W as f32 * slot_ui::GB_SHELF_SCALE).abs() < 0.01 => Some((h, y)),
             _ => None,
         })
         .expect("no cart is drawn at full size");
-    assert_eq!(h, GB_CART_H as f32 * 1.08, "the pak was drawn at the GBA height");
+    assert_eq!(h, GB_CART_H as f32 * slot_ui::GB_SHELF_SCALE, "the pak was drawn at the GBA height");
     assert_eq!(
         y,
         rest_y(GB_CART_H as f32),
@@ -1214,7 +1214,7 @@ fn a_shelf_of_game_boy_paks_keeps_its_own_gap() {
     settle(&mut s);
     let spans = face_spans(&s, 3);
     let gap = spans[1].unwrap().0 - spans[0].unwrap().1;
-    let expected = GB_CART_W as f32 * 1.08 * (1.0 - (1.0 + 0.78) / 2.0);
+    let expected = GB_CART_W as f32 * slot_ui::GB_SHELF_SCALE * (1.0 - (1.0 + 0.78) / 2.0);
     assert!(
         (gap - expected).abs() < 0.5,
         "two Game Boy paks sit {gap} apart, {expected} before"
@@ -1264,10 +1264,10 @@ fn only_a_starred_cart_wears_the_star_in_its_label_top_right_corner() {
         .collect();
     assert_eq!(stars.len(), 1, "{out:?}");
     let (right, top) = stars[0];
-    let x0 = 360.0 - CART_W as f32 * 1.15 / 2.0;
+    let x0 = 360.0 - CART_W as f32 * slot_ui::GBA_SHELF_SCALE / 2.0;
     let y0 = rest_y(CART_H as f32);
-    let (lx, ly) = (x0 + LABEL_X as f32 * 1.15, y0 + LABEL_Y as f32 * 1.15);
-    let label_right = lx + LABEL_W as f32 * 1.15;
+    let (lx, ly) = (x0 + LABEL_X as f32 * slot_ui::GBA_SHELF_SCALE, y0 + LABEL_Y as f32 * slot_ui::GBA_SHELF_SCALE);
+    let label_right = lx + LABEL_W as f32 * slot_ui::GBA_SHELF_SCALE;
     assert!(
         right <= label_right && right > label_right - 16.0,
         "star right edge {right}, label right {label_right}"

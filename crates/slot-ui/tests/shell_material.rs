@@ -1,3 +1,8 @@
+fn at(x: usize, y: usize) -> usize {
+    let x = (360.0+(x as f32-360.0)*308.0/240.0).round() as usize;
+    let y = (5.0+y as f32*1.05).round() as usize;
+    (y*720+x)*4
+}
 use slot_store::ShellColour;
 use slot_ui::{power_switch_faces_for, shell_rgb, shell_slot_faces, SLOT_W, SLOT_H};
 
@@ -15,7 +20,7 @@ fn painted_shells_preserve_geometry_and_leave_the_switch_cavity_neutral() {
         assert_eq!(handle.rgba, slider.rgba);
         let cavity = ((110*600+230)*4) as usize;
         assert_eq!(&switch.rgba[cavity..cavity+4], &dark.rgba[cavity..cavity+4]);
-        let at = ((56*SLOT_W+80)*4) as usize;
+        let at = ((66*SLOT_W+240)*4) as usize;
         let base = shell_rgb(colour);
         for c in 0..3 { assert!((faces[1][at+c] as i16-base[c] as i16).abs() < 20); }
     }
@@ -24,7 +29,7 @@ fn painted_shells_preserve_geometry_and_leave_the_switch_cavity_neutral() {
 #[test]
 fn paint_has_fine_low_contrast_grain_instead_of_deep_pebbles() {
     let front = shell_slot_faces(ShellColour::Platinum)[1];
-    let values: Vec<f32> = (40..180).map(|x| front[((56*SLOT_W+x)*4) as usize] as f32).collect();
+    let values: Vec<f32> = (230..350).map(|x| front[((66*SLOT_W+x)*4) as usize] as f32).collect();
     let avg = values.iter().sum::<f32>()/values.len() as f32;
     let rms = (values.iter().map(|v| (v-avg).powi(2)).sum::<f32>()/values.len() as f32).sqrt();
     assert!((0.3..4.0).contains(&rms), "grain RMS {rms}");
@@ -34,7 +39,7 @@ fn paint_has_fine_low_contrast_grain_instead_of_deep_pebbles() {
 fn svg_slot_keeps_an_open_throat_and_shallow_bowed_lip() {
     for colour in ShellColour::FINISHES {
         let [back, front] = shell_slot_faces(colour);
-        let at = |x: usize, y: usize| (y * SLOT_W as usize + x) * 4;
+        let at = at;
         // Cartridge passes through the transparent centre; the front then hides its foot.
         assert_eq!(front[at(360, 25)+3], 0);
         assert_eq!(front[at(360, 46)+3], 255);
@@ -52,13 +57,12 @@ fn svg_slot_keeps_an_open_throat_and_shallow_bowed_lip() {
 #[test]
 fn lip_has_flat_shoulders_and_a_flat_centre_with_curved_transitions() {
     let front = shell_slot_faces(ShellColour::Platinum)[1];
-    let top = |x: usize| (0..58).find(|y| front[(y*720+x)*4+3] > 200).unwrap();
-    assert_eq!(top(100),top(180));
+    let top = |x: usize| (0..58).find(|y| front[at(x,*y)+3] > 200).unwrap();
+    assert_eq!(top(210),top(220));
     assert_eq!(top(340),top(360));
     assert_eq!(top(360),top(380));
-    assert!(top(275)>top(180) && top(275)<top(340));
-    // Removed end screws must be ordinary painted surface.
-    for x in [211,509] { assert!(front[(56*720+x)*4] > 150); }
+    assert!(top(275)>top(220) && top(275)<top(340));
+
 }
 
 #[test]
@@ -75,26 +79,30 @@ fn lower_shell_stays_flat_without_a_bulge_or_cast_shadow() {
     for colour in ShellColour::FINISHES {
         let front=shell_slot_faces(colour)[1];let base=shell_rgb(colour);
         for x in 250..471 { for y in 44..58 {
-            let p=&front[(y*720+x)*4..][..4];
+            let p=&front[at(x,y)..][..4];
             assert_eq!(p[3],255);
             for c in 0..3 { assert!((p[c] as i16-base[c] as i16).abs()<15,
                 "bulge or shadow below slot at {x},{y}: {p:?}"); }
         }}
-        assert_eq!(front[(30*720+360)*4+3],0);
+        assert_eq!(front[at(360,30)+3],0);
     }
 }
 
 #[test]
-fn shell_has_no_device_shoulders_or_outer_seams() {
+fn sp_body_has_rounded_shoulders_and_recessed_corner_screws() {
     for colour in ShellColour::FINISHES {
-        let front=shell_slot_faces(colour)[1]; let base=shell_rgb(colour);
-        for x in [40usize,100,200,215,505,520,620,680] {
-            for y in 0..58 {
-                let p=&front[(y*720+x)*4..][..4];
-                assert_eq!(p[3],255,"outer shell interrupted at {x},{y}");
-                for c in 0..3 { assert!((p[c] as i16-base[c] as i16).abs()<15,
-                    "outer outline or shoulder at {x},{y}: {p:?}"); }
+        let [back,front]=shell_slot_faces(colour);
+        for x in [40usize,100,620,680] {
+            for y in 0..72 {
+                assert_eq!(back[(y*720+x)*4+3],0);
+                assert_eq!(front[(y*720+x)*4+3],0);
             }
+        }
+        assert_eq!(front[(2*720+123)*4+3],0,"shoulder is square");
+        assert_eq!(front[(20*720+140)*4+3],255);
+        for x in [158,562] {
+            assert!(front[(35*720+x)*4]<80,"corner screw well missing");
+            assert!(front[(46*720+x)*4]>80,"metal screw head missing");
         }
     }
 }
@@ -116,7 +124,7 @@ fn power_labels_and_both_dots_have_readable_embossed_relief() {
 #[test]
 fn slot_end_returns_have_recessed_volume_inside_the_aperture() {
     for colour in ShellColour::FINISHES {
-        let [back,front]=shell_slot_faces(colour);let at=|x:usize,y:usize|(y*720+x)*4;
+        let [back,front]=shell_slot_faces(colour);let at=at;
         assert_eq!(back[at(239,10)+3],255);
         assert_eq!(front[at(239,10)+3],0,"grip must pass in front of the left end wall");
         assert_eq!(back[at(481,10)+3],255);

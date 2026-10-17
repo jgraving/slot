@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="720" height="58" viewBox="0 0 720 58">
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="72" viewBox="0 0 720 72">
 <defs>
 <linearGradient id="paint" x2="0" y2="1"><stop stop-color="#b50000"/><stop offset="1" stop-color="#ae0000"/></linearGradient>
 <linearGradient id="metal" x2=".8" y2="1"><stop stop-color="#c8ccca"/><stop offset=".4" stop-color="#a7aeac"/><stop offset="1" stop-color="#707976"/></linearGradient>
@@ -7,7 +7,10 @@
  <linearGradient id="rightWall" gradientUnits="userSpaceOnUse" x1="474" y1="0" x2="487" y2="0"><stop stop-color="#620000"/><stop offset=".22" stop-color="#8a0000"/><stop offset=".58" stop-color="#c50000"/><stop offset=".80" stop-color="#cd0000"/><stop offset="1" stop-color="#b20000"/></linearGradient>
 </defs>
 <!-- Rear deck and inset throat. Detail proportions measured from the supplied SP close-up. -->
-<path d="M0 0H720V58H0Z" fill="url(#paint)"/>
+<!-- Rounded SP body: open-ended at the screen bottom, not an infinite deck. -->
+<path d="M122 72V36Q122 1 158 1H562Q598 1 598 36V72Z" fill="url(#paint)"/>
+<path d="M123 72V36Q123 2 158 2H562Q597 2 597 36V72" fill="none" stroke="#d00000" stroke-width="1.2"/>
+<g transform="translate(-102 5) scale(1.2833333333 1.05)">
 <path d="M233 25H487V58H233Z" fill="url(#throat)"/>
 <path d="M233 24.5H487" stroke="#650000" stroke-width="1"/>
 <!-- Contact shadows from the recessed end walls, confined to the slot. -->
@@ -41,4 +44,5 @@
 <path d="M233 0H241Q246 0 246 6V22Q246 25 250 26L245 25H233Z" fill="url(#leftWall)"/>
 <path d="M479 0H487V25H475L470 26Q474 25 474 22V6Q474 0 479 0Z" fill="url(#rightWall)"/>
 <path d="M245.5 6V22Q245.5 25 249 26M474.5 6V22Q474.5 25 471 26" fill="none" stroke="#660000" stroke-width=".7"/>
+</g>
 </svg>

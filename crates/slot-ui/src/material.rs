@@ -30,13 +30,13 @@ pub fn shell_slot_faces(colour: ShellColour) -> [&'static [u8]; 2] {
             include_str!("../assets/slot_front.svg"),
         ].map(|bytes| {
             let w = 720usize;
-            let mut rgba = crate::art::render_svg(bytes, 720, 58).expect("embedded SVG shell geometry");
+            let mut rgba = crate::art::render_svg(bytes, 720, crate::bitmaps::SLOT_H).expect("embedded SVG shell geometry");
             for (at, pixel) in rgba.chunks_exact_mut(4).enumerate() {
                 let painted = pixel[0] as f32 > pixel[1] as f32 * 1.5;
                 let relief = (pixel[0] as f32 - 174.0) * 0.68;
                 // SVG antialiasing can mix the red paint marker with neutral metal.
                 // Remove that marker from mixed edge pixels as well as solid paint.
-                let neutral_edge = !painted && pixel[0] > pixel[1] && pixel[0] > pixel[2];
+                let neutral_edge = !painted && pixel[0] > pixel[1];
                 let neutral = pixel[1].max(pixel[2]);
                 for c in 0..3 {
                     pixel[c] = if painted {

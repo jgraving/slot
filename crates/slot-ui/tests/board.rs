@@ -117,8 +117,8 @@ fn alpha(face: &CartFace, x: u32, y: u32) -> u8 {
 #[test]
 fn the_open_cart_starts_as_the_shelf_cart_and_lands_where_the_mockup_has_it() {
     let shelf = shelf_cart(Canvas::FRAMED);
-    assert_eq!((shelf.x, shelf.y, shelf.w), (153.0, 118.0, 414.0));
-    assert!((shelf.h - 243.8).abs() < 0.001);
+    assert_eq!((shelf.x, shelf.y, shelf.w), (206.0, 133.0, 308.0));
+    assert!((shelf.h - 212.0*308.0/360.0).abs() < 0.001);
     assert_eq!(
         board_at(Canvas::FRAMED, 0.0),
         board_in(shelf_cart(Canvas::FRAMED))
@@ -209,10 +209,11 @@ fn the_board_fills_the_cart_so_opening_does_not_squash_it() {
         "the back half is shorter than the lid: {board:?}"
     );
     assert_eq!(board_at(Canvas::FRAMED, 0.0), cart);
-    assert!(
-        board_at(Canvas::FRAMED, 1.0).h <= cart.h,
-        "the resting board grew taller than the cart"
-    );
+    for i in 0..=20 {
+        let p=board_at(Canvas::FRAMED,i as f32/20.0);
+        assert!((p.w/p.h-cart.w/cart.h).abs()<0.001,
+            "opening the smaller carousel cartridge distorted its board");
+    }
 }
 
 #[test]
