@@ -38,6 +38,7 @@ const ARC_INK: &str = "#f6f4ef";
 pub struct LinkArt {
     pub port: CartFace,
     pub port_light: CartFace,
+    pub port_finishes: [CartFace; 4],
     pub plug_host: CartFace,
     pub plug_join: CartFace,
     pub adapter: CartFace,
@@ -58,6 +59,8 @@ pub fn link_art() -> LinkArt {
     LinkArt {
         port: bitmap_face(bitmaps::link_port(), PORT_W, PORT_H),
         port_light: bitmap_face(bitmaps::link_port_light(), PORT_W, PORT_H),
+        port_finishes: slot_store::ShellColour::FINISHES.map(|colour|
+            bitmap_face(crate::material::shell_link_port(colour), PORT_W, PORT_H)),
         plug_host: bitmap_face(bitmaps::link_plug_host(), PLUG_W, PLUG_H),
         plug_join: bitmap_face(bitmaps::link_plug_join(), PLUG_W, PLUG_H),
         adapter: bitmap_face(bitmaps::link_adapter(), ADAPTER_W, ADAPTER_H),

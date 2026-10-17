@@ -250,3 +250,33 @@ cargo run -p slot --no-default-features --example layout_review -- /tmp/layout-r
 python tools/compose-layout-review.py /tmp/layout-review previews/menu-layout-review.png
 python tools/compose-layout-review.py /tmp/layout-review previews/link-layout-review.png link
 ```
+
+## EXT.1 material and readable hint follow-up
+
+The link screen no longer loads the old coarse port photographs. Its 720×58
+opaque connector-occlusion plane is now original vector art tinted with the
+selected Graphite, Platinum, Pearl Blue or Pearl Pink and the same filtered
+paint grain as the slot and power switch. The dark/light text theme no longer
+overrides this housing color. Plug, adapter, failure and unplug motion remain
+unchanged.
+
+The compact slanted EXT.1 glyph paths and small upward alignment triangle
+approximate the molded original SP mark, with shallow painted highlights and
+shadows rather than printed text. Nintendo's [original instruction booklet](https://csassets.nintendo.com/noaext/image/private/t_KA_PDF/agsmanual_english?_a=DATAg1AAZAA0)
+names the link connector EXT.1 (and the adjacent power/audio connector EXT.2).
+Visual references: [Platinum SP rear/bottom photograph](https://i.ebayimg.com/images/g/z08AAOSwZ0lgvwHS/s-l1200.jpg)
+and [Pearl Blue SP rear photograph](https://assets.pawnamerica.com/ProductImages/c0e7e926-e0de-4b1e-b21e-304377e26771.JPG).
+The in-game view is a stylized close-up; marking outlines, relief and placement
+are visual approximations, not exact scans or engineering measurements. No
+reference photo is embedded in the new face.
+
+Following handheld feedback, menu hint buttons are now 32px tall, uniformly
+scaled from their source art; hint text stays at its native size. This
+supersedes the preceding 24px-button note. Sound uses the same 16px side margins
+as the other menus and renders directly at 640px or 720px, avoiding horizontal
+compression of its buttons on the narrower canvas.
+
+```sh
+python tools/compose-layout-review.py /tmp/layout-review previews/sound-layout-review.png sound
+python tools/compose-layout-review.py /tmp/layout-review previews/link-port-finishes.png ports
+```

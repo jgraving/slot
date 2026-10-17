@@ -132,7 +132,7 @@ struct Clocks {
 struct ShelfLook {
     slot: [[TexId; 2]; 4],
     bolt: [TexId; 2],
-    port: [Option<TexId>; 2],
+    port: [Option<TexId>; 4],
     legend: [Vec<(TexId, u32)>; 2],
     applied: Option<(bool, ShellColour, bool, bool)>,
 }
@@ -295,7 +295,7 @@ impl Frontend {
         self.look = Some(ShelfLook {
             slot,
             bolt,
-            port: [None, None],
+            port: [None; 4],
             legend: [Vec::new(), Vec::new()],
             applied: None,
         });
@@ -322,13 +322,13 @@ impl Frontend {
         let ready = self.look.as_ref().map(|look| {
             let i = usize::from(light);
             let legend_ready = !look.legend[i].is_empty();
-            let port_ready = look.port[i].is_some();
+            let port_ready = look.port[colour.finish_index()].is_some();
             (
                 look.applied == Some((light, colour, legend_ready, port_ready)),
                 look.slot[colour.finish_index()],
                 look.bolt[i],
                 look.bolt[0],
-                look.port[i],
+                look.port[colour.finish_index()],
                 look.legend[i].clone(),
                 legend_ready,
                 port_ready,
@@ -576,6 +576,7 @@ impl Frontend {
             None
         };
         let sound_footer_ink = slot_ui::footer_ink(self.session.app().light());
+        let sound_canvas=self.session.app().canvas();
         if let Some(menu) = &mut self.session.app_mut().bluetooth {
             menu.progress_face = progress;
             let lines = menu.lines();
@@ -583,7 +584,7 @@ impl Frontend {
                 menu.face = Some(upload(
                     compositor,
                     &mut self.bluetooth_tex,
-                    crate::bluetooth::screen_face_with_ink(&lines, sound_footer_ink),
+                    crate::bluetooth::screen_face_on(&lines, sound_footer_ink, sound_canvas),
                 ));
                 self.bluetooth_lines = lines;
             }
@@ -636,10 +637,10 @@ impl Frontend {
                     w: f.w,
                     h: f.h,
                 };
-                let port_dark = up(&art.port);
-                let port_light = up(&art.port_light);
+                let ports=art.port_finishes.each_ref().map(&mut up);
+                let port_dark=ports[0];
                 if let Some(look) = &mut self.look {
-                    look.port = [Some(port_dark.tex), Some(port_light.tex)];
+                    look.port = ports.map(|p|Some(p.tex));
                     look.applied = None;
                 }
                 let sprites = LinkSprites {

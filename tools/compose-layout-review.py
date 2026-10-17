@@ -1,10 +1,18 @@
-"""Composite layout_review's production draws. ROOT OUTPUT.png [menu|link]."""
+"""Composite layout_review's production draws. ROOT OUTPUT.png [menu|link|sound|ports]."""
 from pathlib import Path
 import csv,sys,math
 from PIL import Image,ImageDraw,ImageFont
 root=Path(sys.argv[1]);kind=sys.argv[3] if len(sys.argv)>3 else 'menu'
 names=['menu-general','menu-general-bottom','menu-game-top','menu-game-bottom'] if kind=='menu' else ['link-cable-pick','link-cable-seated','link-wireless-seated','link-cable-unplug']
-board=Image.new('RGB',(1440,1040),'#191d23');d=ImageDraw.Draw(board);font=ImageFont.load_default(size=20)
+if kind=='sound':names=['sound-720','sound-640']
+if kind=='ports':
+ board=Image.new('RGB',(1040,4*146),'#191d23');d=ImageDraw.Draw(board);font=ImageFont.load_default(size=20)
+ for n,p in enumerate(['graphite','platinum','pearl_blue','pearl_pink']):
+  y=n*146;im=Image.open(root/f'port-{p}/0.png').convert('RGB')
+  d.text((16,y+8),p.replace('_',' ').title()+' - native strip and 2x marking detail',font=font,fill='white')
+  board.paste(im,(0,y+40));board.paste(im.crop((280,0,440,58)).resize((320,116),Image.Resampling.NEAREST),(720,y+30))
+ board.save(sys.argv[2]);sys.exit()
+board=Image.new('RGB',(1440,520 if kind=='sound' else 1040),'#191d23');d=ImageDraw.Draw(board);font=ImageFont.load_default(size=20)
 for n,name in enumerate(names):
  folder=root/name;frame=Image.new('RGBA',(720,480),'black')
  for r in csv.DictReader((folder/'draws.csv').open()):

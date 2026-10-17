@@ -442,7 +442,7 @@ fn screen_rows_in_game_sit_in_a_panel_at_the_bottom() {
     );
     assert!(slot_ui::quick_row_top(QuickRow::FastForward, &[]) < shader);
     let last=slot_ui::quick_row_top(QuickRow::Bezel,&hidden)+44.0;
-    assert!(last < slot_ui::OUT_H as f32-slot_ui::MOUTH_H-slot_ui::HINT_H as f32-12.0,
+    assert!(last < slot_ui::OUT_H as f32-slot_ui::MOUTH_H-slot_ui::MENU_HINT_H as f32-12.0,
         "screen controls overlap the hint row");
 }
 
@@ -488,7 +488,7 @@ fn long_pages_scroll_six_rows_with_the_selection_and_keep_clear_of_status_and_hi
                     Draw::Tex {tex,y,h,..} if shown.iter().any(|r| [id(r.index()*2),id(r.index()*2+1)].contains(tex))=>Some((*tex,*y,*h)),_=>None,
                 }).collect();
                 assert_eq!(labels.len(),shown.len().min(QUICK_VISIBLE_ROWS));
-                assert!(labels.iter().all(|(_,y,h)|*y>=40. && y+h <= 480.-MOUTH_H-HINT_H as f32-12.));
+                assert!(labels.iter().all(|(_,y,h)|*y>=40. && y+h <= 480.-MOUTH_H-MENU_HINT_H as f32-12.));
                 assert!(labels.iter().any(|(tex,..)|*tex==id(selected.index()*2+1)));
             }
         }

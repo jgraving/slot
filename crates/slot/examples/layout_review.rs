@@ -57,9 +57,23 @@ fn main(){
    gba_bezel:None,gb_bezel:None,gbc_bezel:None,bezel:None,over_game:false,footer_legends:true,footer_top:480.,canvas:Canvas::FRAMED}.draw(&mut out);
   draw_empty_slot(Canvas::FRAMED,slot,&mut out);
   for (i,(tex,w)) in [faces.legend[0],faces.legend[if row.opens(){2}else{1}]].into_iter().enumerate(){
-   out.push(Draw::Tex{x:if i==0{16.}else{720.-16.-w as f32+HINT_EDGE as f32},y:480.-MOUTH_H-HINT_H as f32-12.,w:w as f32,h:HINT_H as f32,tex,alpha:1.});
+   out.push(Draw::Tex{x:if i==0{16.}else{720.-16.-w as f32+HINT_EDGE as f32},y:480.-MOUTH_H-MENU_HINT_H as f32-12.,w:w as f32,h:MENU_HINT_H as f32,tex,alpha:1.});
   }
   s.save(out);
+ }
+ for (colour,face) in ShellColour::FINISHES.into_iter().zip(link_art().port_finishes) {
+  let mut s=Scene::new(&root,&format!("port-{}",colour.key()));
+  s.add(&face.rgba,face.w,face.h);
+ }
+ for w in [640,720] {
+  let mut s=Scene::new(&root,&format!("sound-{w}"));
+  let canvas=Canvas{w:w as f32,h:480.};
+  let lines=["","","COMPACT","ROW SPEAKER_DEVICE Internal speaker","SELECTED ACTIVE DEVICE WF-C510",
+   "ROW USB_DEVICE USB headphones","ROW Pair audio device","ROW DISCONNECT 0%","ROW BLUETOOTH On","B Back · A Connect · Y Forget"].map(str::to_owned);
+  let f=slot::bluetooth::screen_face_on(&lines,footer_ink(false),canvas);let tex=s.add(&f.rgba,f.w,f.h);
+  let [back,front]=shell_slot_faces(ShellColour::Platinum);let slot=Some((s.add(back,720,SLOT_H),s.add(front,720,SLOT_H)));
+  let mut out=vec![Draw::Rect{x:0.,y:0.,w:w as f32,h:480.,colour:[0.08,0.10,0.11,1.]}];
+  draw_empty_slot(canvas,slot,&mut out);out.push(Draw::Tex{x:0.,y:0.,w:w as f32,h:480.,tex,alpha:1.});s.save(out);
  }
  for (name,kind,menu,now) in [
   ("link-cable-pick",LinkKind::Cable,GameMenu::Pick(LinkRow::Host),0),

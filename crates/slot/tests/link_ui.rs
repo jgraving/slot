@@ -1257,7 +1257,7 @@ fn pick_names_cancel_mode_swap_and_link_across_the_strip() {
         ],
     );
     assert!(
-        keys.iter().all(|k| k.1 == OUT_H as f32 - MOUTH_H - slot_ui::HINT_H as f32 - 12.0),
+        keys.iter().all(|k| k.1 == OUT_H as f32 - MOUTH_H - slot_ui::MENU_HINT_H as f32 - 12.0),
         "the keys do not fill the carousel footer"
     );
     let left = keys[0].0;

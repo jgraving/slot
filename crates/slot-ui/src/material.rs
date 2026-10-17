@@ -52,3 +52,21 @@ pub fn shell_slot_faces(colour: ShellColour) -> [&'static [u8]; 2] {
     });
     [&faces[0], &faces[1]]
 }
+
+/// The close-up EXT.1 face shares the cartridge bay and switch paint, not a
+/// theme-specific photographic texture. The connector occlusion strip stays 58px.
+pub fn shell_link_port(colour: ShellColour) -> &'static [u8] {
+    static PORTS: [OnceLock<Vec<u8>>; 4] = [const { OnceLock::new() }; 4];
+    let index=colour.finish_index();
+    PORTS[index].get_or_init(|| {
+        let base=shell_rgb(ShellColour::FINISHES[index]);
+        let mut rgba=crate::art::render_svg(include_str!("../assets/link_port.svg"),720,58)
+            .expect("embedded EXT.1 port geometry");
+        for (at,pixel) in rgba.chunks_exact_mut(4).enumerate() {
+            let relief=(pixel[0] as f32-174.0)*0.68;
+            let grain=paint_grain(at%720,at/720);
+            for c in 0..3 {pixel[c]=(base[c] as f32+relief+grain).clamp(0.0,255.0) as u8;}
+        }
+        rgba
+    })
+}

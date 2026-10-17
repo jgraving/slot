@@ -762,7 +762,7 @@ fn the_carousel_menu_keeps_the_empty_footer_where_the_shelf_left_it() {
     );
     let (lx, ly, _) = legend_box(&open, 400);
     let (rx, ry, rw) = legend_box(&open, 402);
-    let footer = OUT_H as f32 - MOUTH_H - slot_ui::HINT_H as f32 - 12.0;
+    let footer = OUT_H as f32 - MOUTH_H - slot_ui::MENU_HINT_H as f32 - 12.0;
     assert_eq!((ly, ry), (footer, footer));
     assert!((lx-16.0).abs() < 1.0, "Back is not on the left: {lx}");
     let right = rx + rw - HINT_EDGE as f32;
@@ -782,7 +782,7 @@ fn the_carousel_menu_keeps_the_empty_footer_where_the_shelf_left_it() {
     let values = frame(&a);
     let (lx, ly, _) = legend_box(&values, 400);
     let (rx, ry, rw) = legend_box(&values, 401);
-    let footer = OUT_H as f32 - MOUTH_H - slot_ui::HINT_H as f32 - 12.0;
+    let footer = OUT_H as f32 - MOUTH_H - slot_ui::MENU_HINT_H as f32 - 12.0;
     assert_eq!((ly, ry), (footer, footer));
     assert!((lx-16.0).abs() < 1.0, "Back left the left edge: {lx}");
     let right = rx + rw - HINT_EDGE as f32;

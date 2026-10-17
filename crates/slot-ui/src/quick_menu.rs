@@ -1,7 +1,7 @@
 use crate::bitmaps::{button_legend, ButtonLegend};
 use crate::draw::{Canvas, Draw, TexId, OUT_H, OUT_W};
 use crate::plate::{
-    blit, centred_hints, word_face, word_ink, UndoFace, CAP_GAP, HINT_EDGE, HINT_H, LEGEND_GAP,
+    blit, centred_hints, word_face, word_ink, UndoFace, CAP_GAP, HINT_EDGE, LEGEND_GAP,
 };
 use crate::power_menu::{MENU_H, MENU_INK, MENU_PAD, MENU_PX};
 use crate::slot_chrome::{opening, MOUTH_H};
@@ -523,6 +523,7 @@ impl QuickValue {
 }
 
 pub const QUICK_PITCH: f32 = 48.0;
+pub const MENU_HINT_H: u32 = 32;
 pub const QUICK_VISIBLE_ROWS: usize = 6;
 pub const QUICK_EDGE: f32 = 32.0;
 pub const QUICK_LABEL_X: f32 = 64.0;
@@ -537,7 +538,7 @@ const GROUND_SCRIM: f32 = 0.65;
 const TYPE_DROP: f32 = 4.0;
 const CARET_GAP: f32 = 14.0;
 const CARET_PX: f32 = 24.0;
-const LEGEND_Y: f32 = OUT_H as f32 - MOUTH_H - HINT_H as f32 - 12.0;
+const LEGEND_Y: f32 = OUT_H as f32 - MOUTH_H - MENU_HINT_H as f32 - 12.0;
 const DIM_INK: [u8; 3] = [0x9a, 0x9a, 0xa4];
 const PANEL_GAP: f32 = 12.0;
 
@@ -729,7 +730,7 @@ fn with_hint(button: UndoFace, label: &str, ink: Option<[u8; 3]>, hint_on_right:
         None => word_face(label),
     };
     let w = button.w + CAP_GAP + word.w + HINT_EDGE;
-    let h = HINT_H;
+    let h = MENU_HINT_H;
     let mut rgba = vec![0u8; (w * h * 4) as usize];
     let text_y = h.saturating_sub(word.h) / 2;
     let (button_x, text_x) = match hint_on_right {
@@ -743,7 +744,7 @@ fn with_hint(button: UndoFace, label: &str, ink: Option<[u8; 3]>, hint_on_right:
 
 fn button_face(which: ButtonLegend) -> UndoFace {
     let (rgba, w, h) = button_legend(which);
-    let target_h = HINT_H;
+    let target_h = MENU_HINT_H;
     let target_w = (w as f32 * target_h as f32 / h as f32).round() as u32;
     UndoFace {
         rgba: crate::art::cover_rgba(rgba, w, h, target_w, target_h).expect("button dimensions"),
@@ -887,7 +888,7 @@ impl QuickMenu<'_> {
         };
         let other = if self.row.opens() { open } else { change };
         for (tex, w, x) in centred_hints(self.canvas, &[back, other], LEGEND_GAP) {
-            push(out, tex, x, LEGEND_Y, w, HINT_H);
+            push(out, tex, x, LEGEND_Y, w, MENU_HINT_H);
         }
     }
 }
