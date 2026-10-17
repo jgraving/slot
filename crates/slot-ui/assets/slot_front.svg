@@ -2,16 +2,11 @@
 <defs>
  <linearGradient id="paint" x2="0" y2="1"><stop stop-color="#b50000"/><stop offset="1" stop-color="#ae0000"/></linearGradient>
  <linearGradient id="bevel" x2="0" y2="1"><stop stop-color="#860000"/><stop offset=".5" stop-color="#ca0000"/><stop offset="1" stop-color="#ce0000"/></linearGradient>
- <linearGradient id="leftWall" gradientUnits="userSpaceOnUse" x1="233" y1="0" x2="246" y2="0"><stop stop-color="#b20000"/><stop offset=".22" stop-color="#da0000"/><stop offset=".50" stop-color="#b90000"/><stop offset=".80" stop-color="#7c0000"/><stop offset="1" stop-color="#620000"/></linearGradient>
- <linearGradient id="rightWall" gradientUnits="userSpaceOnUse" x1="474" y1="0" x2="487" y2="0"><stop stop-color="#620000"/><stop offset=".22" stop-color="#8a0000"/><stop offset=".58" stop-color="#c50000"/><stop offset=".80" stop-color="#cd0000"/><stop offset="1" stop-color="#b20000"/></linearGradient>
+
+
 </defs>
 <!-- Continuous shell: no device outline, end shoulders, outside seams or base line. -->
 <path d="M0 0H233V22H245C272 22 294 40 330 40H390C426 40 448 22 475 22H487V0H720V58H0Z" fill="url(#paint)"/>
-<!-- Recessed end walls stay inside the aperture. These are the inner returns
-     circled in the reference, not the removed outer device shoulders. -->
-<path d="M233 0H241Q246 0 246 6V22Q246 25 250 26L245 25H233Z" fill="url(#leftWall)"/>
-<path d="M479 0H487V25H475L470 26Q474 25 474 22V6Q474 0 479 0Z" fill="url(#rightWall)"/>
-<path d="M245.5 6V22Q245.5 25 249 26M474.5 6V22Q474.5 25 471 26" fill="none" stroke="#660000" stroke-width=".7"/>
 <!-- Flat lower shell. Only the narrow inner cut edge is beveled; no cast shadow. -->
 <path d="M233 22H245C272 22 294 40 330 40H390C426 40 448 22 475 22H487V25H475C448 25 426 43 390 43H330C294 43 272 25 245 25H233Z" fill="url(#bevel)"/>
 <path d="M233 22H245C272 22 294 40 330 40H390C426 40 448 22 475 22H487" fill="none" stroke="#6c0000" stroke-width=".7"/>
