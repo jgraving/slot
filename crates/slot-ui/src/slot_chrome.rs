@@ -130,18 +130,18 @@ impl SlotChrome<'_> {
         let (cw, ch) = (cw as f32, ch as f32);
 
         let scale = self.scale.clamp(0.0, crate::shelf::shelf_scale(self.cart.platform));
-        let (w0, h0) = (cw * scale, ch * scale);
-        let (sw, sh) = seated_box(self.cart.platform);
-        let (sw, _sh) = (sw as f32, sh as f32);
-        let sh = sw * ch / cw;
+        let aspect = ch / cw;
+        let w0 = cw * scale;
+        let sw = seated_box(self.cart.platform).0 as f32;
+        let sh = sw * aspect;
         let (foot0, seated_foot) = (foot_y(ch), SEATED_Y + sh);
         let catch = catch_at(foot0, seated_foot);
         let travel = travel(seat, catch);
         let k = (travel / catch).min(1.0);
         // One scalar drives both axes. Never interpolate width and height independently:
         // even rounded source/seated dimensions must not squash the cartridge.
-        let cw = w0 + (sw - w0) * k;
-        let ch = cw * h0 / w0;
+        let image_scale = scale + (sw / cw - scale) * k;
+        let (cw, ch) = (cw * image_scale, ch * image_scale);
         let centre = self.rest + w0 / 2.0;
         let x = centre + (canvas.w / 2.0 - centre) * k - cw / 2.0;
         let y = foot0 + (seated_foot - foot0) * travel - ch;

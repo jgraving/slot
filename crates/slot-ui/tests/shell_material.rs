@@ -57,3 +57,12 @@ fn lip_has_flat_shoulders_and_a_flat_centre_with_curved_transitions() {
     // Removed end screws must be ordinary painted surface.
     for x in [211,509] { assert!(front[(50*720+x)*4] > 150); }
 }
+
+#[test]
+fn screw_edges_never_leak_the_svg_red_paint_marker() {
+    for layer in shell_slot_faces(ShellColour::Graphite) {
+        for pixel in layer.chunks_exact(4).filter(|p|p[3]>0) {
+            assert!(pixel[0] <= pixel[1]+2, "red marker leaked at a metal/paint boundary: {pixel:?}");
+        }
+    }
+}
