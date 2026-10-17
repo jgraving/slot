@@ -20,13 +20,10 @@ to ±8. Only this unrecognizable surface signal is embedded; no device photograp
 logo or lettering is shipped. This is photo-derived image texture, not a scan
 of physical roughness, normals or a calibrated PBR material.
 
-The extraction script also retains the existing carousel's silhouette/alpha
-while recovering the original insertion-lip cross-section and both small U-shaped
-fasteners as a separate structural-relief layer, without the old coarse grain or
-play emblem. The thumb scoop retains its original alpha contour and a rolled lip.
-The resulting neutral geometry and shared grain are tinted once and cached for
-each shell. The carousel and power switch use the same paint sampler and RGB
-palette. The switch retains its neutral recess, slider and existing timing.
+The extraction script produces only the paint grain. Original SVG geometry supplies
+the slot silhouette, lip, molded ribs and recessed screws. Both layers are tinted
+once and cached for each shell. The carousel and power switch use the same paint
+sampler and RGB palette. The switch retains its neutral recess, slider and timing.
 
 The four hand-tuned palette approximations are Graphite, Platinum, Pearl Blue
 and Pearl Pink, based on the official finishes and the review photography:
