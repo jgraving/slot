@@ -97,8 +97,8 @@ python tools/compose-slot-motion.py /tmp/slot-motion /tmp/slot-motion.gif
 Use `gb` or `gbc` in place of `gba` for the other cartridge shapes.
 
 The full front and oblique reference photographs establish the slot volume:
-the curved lip has a set-back inner bevel and a forward crest, and its shaded
-front face blends smoothly into the lower shell. The rear layer includes the
+the curved cut edge has a narrow inner bevel. The lower shell is flat, without
+a raised front face, lower bulge or cast shadow. The rear layer includes the
 metal liner behind the inserted cart. Device end shoulders, side outlines and
 bottom seams are omitted: the plain shell continues to both screen edges.
 Only the slot itself has edges. The two small inverted-U ribs remain.
@@ -129,3 +129,12 @@ The enlarged GB/GBC shelf placement is centered in the usable area below the HUD
 rather than underneath its top plate. Cartridge size is unchanged. The cartridge
 geometry checks retain fractional uniform scaling instead of requiring the
 scaled lower edge to land on an integer pixel.
+
+The red-circled reference identifies the aperture's recessed end returns. Narrow
+rounded inner walls and contact shadows at x=233..246 and x=474..487 restore this
+volume inside the slot. They do not restore the outside device shoulders or any
+outer shell outline. Their inner edges also occlude the cartridge at the mouth.
+
+The lower lip's former face gradient and drop/contact shadow are removed. Depth
+comes from the recessed end walls and slot interior; below the cut edge the
+shell uses the same uninterrupted fine paint as the rest of the surface.

@@ -8,6 +8,8 @@
 <path d="M0 0H720V58H0Z" fill="url(#paint)"/>
 <path d="M233 25H487V58H233Z" fill="url(#throat)"/>
 <path d="M233 24.5H487" stroke="#650000" stroke-width="1"/>
+<!-- Contact shadows from the recessed end walls, confined to the slot. -->
+<path d="M247 1V25M473 1V25" stroke="#760000" stroke-width="3" opacity=".28"/>
 <!-- Set-back metal liner: rear edge and faint vertical tooling, behind the cart. -->
 <path d="M238 25H482" stroke="#858c8b" stroke-width=".7"/>
 <path d="M240 26H480" stroke="#0b1012" stroke-width=".8"/>
