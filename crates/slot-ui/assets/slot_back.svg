@@ -1,24 +1,29 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="720" height="58" viewBox="0 0 720 58">
 <defs>
- <linearGradient id="paint" x2="0" y2="1"><stop stop-color="#b50000"/><stop offset=".1" stop-color="#c40000"/><stop offset=".38" stop-color="#ae0000"/><stop offset="1" stop-color="#910000"/></linearGradient>
- <linearGradient id="rib" x2="1" y2="0"><stop stop-color="#740000"/><stop offset=".3" stop-color="#ca0000"/><stop offset=".65" stop-color="#b50000"/><stop offset="1" stop-color="#870000"/></linearGradient>
- <linearGradient id="metal" x2="0.7" y2="1"><stop stop-color="#dadcde"/><stop offset=".45" stop-color="#9a9da1"/><stop offset="1" stop-color="#53575c"/></linearGradient>
+<linearGradient id="paint" x2="0" y2="1"><stop stop-color="#b70000"/><stop offset=".08" stop-color="#c20000"/><stop offset=".5" stop-color="#ae0000"/><stop offset="1" stop-color="#9b0000"/></linearGradient>
+<linearGradient id="metal" x2=".8" y2="1"><stop stop-color="#c8ccca"/><stop offset=".4" stop-color="#a7aeac"/><stop offset="1" stop-color="#707976"/></linearGradient>
+<linearGradient id="throat" x2="0" y2="1"><stop stop-color="#101215"/><stop offset=".15" stop-color="#1d2023"/><stop offset="1" stop-color="#3d4143"/></linearGradient>
 </defs>
-<!-- Original geometry, traced by proportion from iFixit's GBA SP underside photographs.
-     The two marks are molded shell ribs, not rivets. -->
-<path d="M0 0H720V58H0Z" fill="#101114"/>
-<path d="M0 0H720V20H0Z" fill="url(#paint)"/>
-<path d="M0 19.5H720" stroke="#690000" stroke-width="1"/>
-<path d="M234 20V30M486 20V30" stroke="#292b30" stroke-width="2"/>
-<g fill="url(#rib)">
- <path d="M302 19V7a3 3 0 0 1 6 0v12Z"/>
- <path d="M412 19V7a3 3 0 0 1 6 0v12Z"/>
+<!-- Rear deck and inset throat. Detail proportions measured from the supplied SP close-up. -->
+<path d="M0 0H720V58H0Z" fill="url(#throat)"/>
+<path d="M0 0H720V25H0Z" fill="url(#paint)"/>
+<path d="M0 24.5H720" stroke="#650000" stroke-width="1"/>
+<!-- Wide inverted-U molded ribs: open at the bottom, painted interior, rolled edges. -->
+<g fill="none" stroke-linejoin="round">
+ <path d="M279 25V7a5 5 0 0 1 10 0v18M431 25V7a5 5 0 0 1 10 0v18" stroke="#860000" stroke-width="1.4"/>
+ <path d="M280.2 25V7.2a3.8 3.8 0 0 1 7.6 0V25M432.2 25V7.2a3.8 3.8 0 0 1 7.6 0V25" stroke="#c20000" stroke-width=".7"/>
 </g>
-<circle cx="360" cy="11" r="4.2" fill="#570000"/>
-<circle cx="360" cy="10.7" r="3.1" fill="url(#metal)"/>
-<path d="M358 10.7h4M360 8.7v4" stroke="#373a40" stroke-width=".8"/>
-<path d="M262 18l9 -.2m142 -.1 7 -.2" stroke="#c00000" stroke-width=".35"/>
+<!-- Recessed screw seat, beveled metal head, and a cut Y/tri-point driver pocket. -->
+<circle cx="360" cy="14" r="9.1" fill="#780000"/>
+<path d="M351 14a9 9 0 0 0 18 0" fill="none" stroke="#c40000" stroke-width=".7"/>
+<circle cx="360" cy="13.7" r="7.4" fill="#3d4342"/>
+<circle cx="360" cy="13.3" r="6.9" fill="url(#metal)"/>
+<path d="m357.7 8.5 2.9 3.3 4.4 -.4 .2 2.5 -4.1 .8 -2.2 3.9 -2.1 -1.3 1.8 -3.9 -2.8 -3.5Z" fill="#d4d8d4"/>
+<path d="m357.8 9.1 2.7 3.2 4.1 -.4 .1 1.5 -4 .8 -2.2 3.6 -1.2 -.8 1.8 -3.6 -2.6 -3.5Z" fill="#4e5855"/>
+<path d="m358 9.5 2.5 3.2 3.8 -.3m-3.8 .3 -2.3 4.6" fill="none" stroke="#323b38" stroke-width=".55"/>
+<!-- Sparse shallow hairlines, not a repeating scratched overlay. -->
 <g fill="none" stroke-width=".3" opacity=".55">
- <path d="m284 3 .2 7m41 -8 -.1 5m61 -3 .3 8m16 -10 -.1 6m48 -5 .2 6" stroke="#ca0000"/>
- <path d="m284.5 3 .2 7m41 -8 -.1 5m61 -3 .3 8m16 -10 -.1 6m48 -5 .2 6" stroke="#930000"/>
-</g></svg>
+<path d="m303 3 .2 8m23 -7 -.1 6m65 -5 .3 9m16 -10 -.1 7m49 -6 .2 7" stroke="#ca0000"/>
+<path d="m303.5 3 .2 8m23 -7 -.1 6m65 -5 .3 9m16 -10 -.1 7m49 -6 .2 7" stroke="#930000"/>
+</g>
+</svg>

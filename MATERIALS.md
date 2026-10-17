@@ -1,4 +1,4 @@
-# RG SP painted shell and quiet tray
+# RG SP painted shell and matte background
 
 ## Photo-derived paint grain
 
@@ -39,10 +39,10 @@ the light/dark text theme. Cards without `shell_colour` keep Match Theme.
 
 ## Wallpaper
 
-`tools/build-tray-wallpaper.py` builds an original quiet molded storage tray:
-a satin neutral surface, shallow cartridge impression, a single perimeter lip,
-three embossed grip ribs and three small colored studs. Both default and blurred
-wallpapers replace the wood/sticker artwork. Custom wallpapers are unchanged.
+`tools/build-tray-wallpaper.py` now creates a plain muted petrol matte surface
+with a soft lighting falloff and very fine grain. The rejected tray outlines,
+cartridge impression, grip marks and colored studs have all been removed.
+Custom wallpapers are unchanged.
 
 ## Reproduction and preview
 
@@ -65,10 +65,33 @@ experiment is included.
 geometry, replacing the old photographic masks and extracted fasteners entirely.
 Proportion references: iFixit, [GBA SP bottom shell replacement](https://www.ifixit.com/Guide/Nintendo+Game+Boy+Advance+SP+Bottom+Shell+Replacement/12735),
 photos `2kN4kwkSbK6PyaUD`, `OCO3qBtqtET3xTk4`, and `Ldow6GCmi5DecKU3`.
-These show a shallow bowed lip, two molded ribs, and a central case screw.
+The supplied close-up sets the final proportions: flat shoulders ease into a
+curved central scoop with a flat middle; the two ribs are open-bottom inverted U
+shapes. A larger recessed metal screw carries an explicit Y-shaped tri-point
+pocket. The two outer case screws are deliberately omitted.
 No reference photograph is embedded in these SVGs. Red encodes paint relief;
 neutral elements preserve the dark throat and small metal screw. The original
 fine RG SP paint grain is applied after SVG rasterization for every finish.
 Sparse subpixel vector scratches follow the handled edge, with paired lighter
 and darker strokes suggesting shallow wear rather than a coarse leather bump.
 The accepted cartridge sizes and insertion timing are retained.
+
+## Motion validation
+
+Insertion and shelf departure use one width-derived scale for both axes, preserving
+the source cartridge aspect ratio exactly instead of interpolating rounded endpoint
+widths/heights independently. The seated foot uses that same height so every
+platform seats at the same top edge. Tests sample GBA, GB and GBC over the full
+stroke at 720 and 640 pixels, including the actual enlarged carousel start and
+rear/cart/front draw ordering.
+
+The earlier ad-hoc GIF used scale 1.0 rather than the enlarged carousel scale;
+the checked-in exporter now always obtains both position and scale from Shelf.
+Reproduce the reviewed insertion/ejection preview with:
+
+```sh
+cargo run -p slot-ui --example shell_finish_preview -- /tmp/slot-motion animation gba
+python tools/compose-slot-motion.py /tmp/slot-motion /tmp/slot-motion.gif
+```
+
+Use `gb` or `gbc` in place of `gba` for the other cartridge shapes.

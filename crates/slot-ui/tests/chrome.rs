@@ -381,7 +381,7 @@ fn a_cart_shrinks_to_the_slot_by_the_lip() {
             assert!(q.w <= last.w + 0.01, "{name} grew to {} at seat {t}", q.w);
             if q.y + q.h >= lip {
                 assert!(
-                    (q.w - sw as f32).abs() < 0.01 && (q.h - sh as f32).abs() < 0.01,
+                    (q.w - sw as f32).abs() < 0.01 && (q.h - sh as f32).abs() < 0.5,
                     "{name} is {}x{} at the lip, not the slot's {sw}x{sh}",
                     q.w,
                     q.h
@@ -928,6 +928,45 @@ fn a_clear_carts_board_goes_into_the_slot_and_comes_out_with_it() {
                 at(face) < slot_front - 1,
                 "{name} at {seat}: the face is not under the slot front"
             );
+        }
+    }
+}
+
+#[test]
+fn textured_insertion_preserves_both_axes_and_matches_the_enlarged_carousel() {
+    for platform in [Platform::Gba, Platform::Gb, Platform::Gbc] {
+        let mut c = cart(); c.platform = platform;
+        for canvas in [Canvas::FRAMED, Canvas { w: 640.0, h: 480.0 }] {
+            let mut shelf = Shelf::new(vec![c.clone()]);
+            let face = TexId::from_raw(700);
+            shelf.set_faces(vec![face]);
+            let (rest, scale) = shelf.selected_at(canvas);
+            let mut row = Vec::new(); shelf.draw(canvas, 0.0, None, &mut row);
+            let on_shelf = row.iter().find_map(|d| match d {
+                Draw::Tex { tex, .. } if *tex == face => Some(quad(d)), _ => None,
+            }).unwrap();
+            let (w,h) = cart_box(platform);
+            let mut last = None;
+            for step in 0..=100 {
+                let mut draws = Vec::new();
+                SlotChrome { canvas, cart: &c, face: Some(face), rest, scale,
+                    seat: step as f32/100.0, screen: 0.0, game: false, over: true,
+                    dim: 0.0, slot: Some((TexId::from_raw(701),TexId::from_raw(702))),
+                    behind: [None,None], alert: None }.draw(&mut draws);
+                let q = draws.iter().find_map(|d| match d {
+                    Draw::Tex { tex, .. } if *tex == face => Some(quad(d)), _ => None,
+                }).unwrap();
+                assert!((q.w/w as f32-q.h/h as f32).abs() < 0.00001,
+                    "{platform:?} squashed at {step}: {q:?}");
+                if step == 0 { assert_eq!(q, on_shelf, "start frame must match the real shelf"); }
+                if let Some((pw,ph)) = last {
+                    assert!(q.w <= pw+0.001 && q.h <= ph+0.001);
+                }
+                last = Some((q.w,q.h));
+                let ci = draws.iter().position(|d| matches!(d, Draw::Tex {tex,..} if *tex==face)).unwrap();
+                assert!(matches!(draws[ci-1], Draw::Part {tex,..} if tex==TexId::from_raw(701)));
+                assert!(matches!(draws[ci+1], Draw::Part {tex,..} if tex==TexId::from_raw(702)));
+            }
         }
     }
 }
