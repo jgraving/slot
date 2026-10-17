@@ -68,16 +68,17 @@ fn screw_edges_never_leak_the_svg_red_paint_marker() {
 }
 
 #[test]
-fn slot_lip_has_thickness_and_blends_into_the_unbounded_shell() {
-    let front = shell_slot_faces(ShellColour::Platinum)[1];
-    let at = |x: usize,y: usize| (y*720+x)*4;
-    // Plain shell continues to either side; the centre remains an opening.
-    assert!(front[at(215,10)+3]>250);
-    assert!(front[at(505,10)+3]>250);
-    assert_eq!(front[at(360,30)+3],0);
-    // Forward crest, shaded front face, and lower deck have separate lighting.
-    assert!(front[at(360,43)]>front[at(360,49)]+12);
-    assert!(front[at(360,56)]>front[at(360,50)]+12);
+fn lower_shell_stays_flat_without_a_bulge_or_cast_shadow() {
+    for colour in ShellColour::FINISHES {
+        let front=shell_slot_faces(colour)[1];let base=shell_rgb(colour);
+        for x in 250..471 { for y in 44..58 {
+            let p=&front[(y*720+x)*4..][..4];
+            assert_eq!(p[3],255);
+            for c in 0..3 { assert!((p[c] as i16-base[c] as i16).abs()<15,
+                "bulge or shadow below slot at {x},{y}: {p:?}"); }
+        }}
+        assert_eq!(front[(30*720+360)*4+3],0);
+    }
 }
 
 #[test]
@@ -106,5 +107,18 @@ fn power_labels_and_both_dots_have_readable_embossed_relief() {
             }}
             assert!(hi-lo>=65,"{colour:?} marking at {x0}: relief {}",hi-lo);
         }
+    }
+}
+
+#[test]
+fn slot_end_returns_have_recessed_volume_inside_the_aperture() {
+    for colour in ShellColour::FINISHES {
+        let front=shell_slot_faces(colour)[1];let at=|x:usize,y:usize|(y*720+x)*4;
+        assert_eq!(front[at(239,10)+3],255);
+        assert_eq!(front[at(481,10)+3],255);
+        assert_eq!(front[at(255,10)+3],0);
+        assert_eq!(front[at(465,10)+3],0);
+        assert!(front[at(236,12)]>front[at(244,12)]+20,"left depression lost its depth");
+        assert!(front[at(483,12)]>front[at(476,12)]+20,"right depression lost its depth");
     }
 }
