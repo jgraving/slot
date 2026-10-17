@@ -34,11 +34,15 @@ pub fn shell_slot_faces(colour: ShellColour) -> [&'static [u8]; 2] {
             for (at, pixel) in rgba.chunks_exact_mut(4).enumerate() {
                 let painted = pixel[0] as f32 > pixel[1] as f32 * 1.5;
                 let relief = (pixel[0] as f32 - 174.0) * 0.68;
+                // SVG antialiasing can mix the red paint marker with neutral metal.
+                // Remove that marker from mixed edge pixels as well as solid paint.
+                let neutral_edge = !painted && pixel[0] > pixel[1] && pixel[0] > pixel[2];
+                let neutral = pixel[1].max(pixel[2]);
                 for c in 0..3 {
                     pixel[c] = if painted {
                         (base[c] as f32 + relief + paint_grain(at % w as usize, at / w as usize))
                             .clamp(0.0, 255.0) as u8
-                    } else { pixel[c] };
+                    } else if neutral_edge { neutral } else { pixel[c] };
                 }
             }
             rgba
