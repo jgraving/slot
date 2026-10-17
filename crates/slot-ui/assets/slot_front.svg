@@ -8,6 +8,13 @@
 <path d="M0 0H226Q230 0 231 5L234 19Q240 23 256 26Q360 43 464 26Q480 23 486 19L489 5Q490 0 494 0H720V58H0Z" fill="url(#paint)"/>
 <path d="M0 .6H226Q229 .6 230 5L233 19Q239 24 256 27Q360 44 464 27Q481 24 487 19L490 5Q491 .6 494 .6H720" fill="none" stroke="#d00000" stroke-width="1"/>
 <path d="M234 20Q240 24 256 27Q360 44 464 27Q480 24 486 20" fill="none" stroke="#740000" stroke-width=".65"/>
+<!-- Recessed case screws at the outside shoulders, distinct from the molded ribs. -->
+<g fill="#6b0000"><circle cx="211" cy="32" r="8.2"/><circle cx="509" cy="32" r="8.2"/></g>
+<g fill="#c70000"><path d="M203 32a8 8 0 0 0 16 0v.8a8 8 0 0 1 -16 0Z"/><path d="M501 32a8 8 0 0 0 16 0v.8a8 8 0 0 1 -16 0Z"/></g>
+<g fill="#14161a"><circle cx="211" cy="31.7" r="6.5"/><circle cx="509" cy="31.7" r="6.5"/></g>
+<g fill="#30333a"><circle cx="211" cy="34.2" r="2.5"/><circle cx="509" cy="34.2" r="2.5"/></g>
+<g stroke="#0b0c0e" stroke-width=".8"><path d="M209.4 34.2h3.2m-1.6 -1.6v3.2M507.4 34.2h3.2m-1.6 -1.6v3.2"/></g>
+<g fill="none" stroke="#950000" stroke-width=".5"><circle cx="231" cy="31" r="1.5"/><circle cx="489" cy="31" r="1.5"/></g>
 <!-- Sparse directional wear on the handled edge; deliberately below one pixel. -->
 <g stroke="#c50000" fill="none" stroke-width=".35" opacity=".7">
  <path d="m267 31 7 1m19 5 11 .8m27 1.6 5 .1m47 -.4 8 -.5m38 -4 12 -2m-184 7 5 .8"/>
