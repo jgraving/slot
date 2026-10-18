@@ -32,11 +32,14 @@ pub enum Toast {
     SleepUnavailable,
     NightOn,
     NightOff,
+    CardRepair,
+    CardRepaired,
+    CardRepairFailed,
     Palette(GbPalette),
 }
 
 impl Toast {
-    const FIXED: [Toast; 24] = [
+    const FIXED: [Toast; 27] = [
         Toast::BluetoothConnected,
         Toast::BluetoothDisconnected,
         Toast::UsbConnected,
@@ -61,6 +64,9 @@ impl Toast {
         Toast::SleepUnavailable,
         Toast::NightOn,
         Toast::NightOff,
+        Toast::CardRepair,
+        Toast::CardRepaired,
+        Toast::CardRepairFailed,
     ];
 
     pub fn all() -> Vec<Toast> {
@@ -89,12 +95,20 @@ impl Toast {
     }
 
     pub fn alarm(self) -> bool {
-        self == Toast::CardUnwritable
+        matches!(self, Toast::CardUnwritable | Toast::CardRepair)
+    }
+
+    pub fn hold_ms(self) -> crate::hud::Millis {
+        match self {
+            Toast::CardRepaired | Toast::CardRepairFailed => REPAIR_HOLD_MS,
+            _ => crate::hud::HUD_MS,
+        }
     }
 
     pub fn detail(self) -> Option<&'static str> {
         match self {
             Toast::CardUnwritable => Some("Progress is not being saved"),
+            Toast::CardRepair => Some("Press SELECT + START to repair"),
             _ => None,
         }
     }
@@ -121,14 +135,19 @@ impl Toast {
             Toast::ShaderDot => "Shader: Dot",
             Toast::ShaderSimpletex => "Shader: Simpletex",
             Toast::CardUnwritable => "Can't write to SD card",
-            Toast::DeepSleepWake => "Deep sleep: Power wakes",
+            Toast::DeepSleepWake => "Wake with Power",
             Toast::NightOn => "Night mode On",
             Toast::NightOff => "Night mode Off",
-            Toast::SleepUnavailable => "Deep sleep unavailable",
+            Toast::SleepUnavailable => "Sleep unavailable",
+            Toast::CardRepair => "Can't write to SD card",
+            Toast::CardRepaired => "SD card repaired",
+            Toast::CardRepairFailed => "Card repair failed",
             Toast::Palette(p) => p.label(),
         }
     }
 }
+
+const REPAIR_HOLD_MS: crate::hud::Millis = 6_000;
 
 const TOAST_W: u32 = 240;
 const TOAST_H: u32 = 22;

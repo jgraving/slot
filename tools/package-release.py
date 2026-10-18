@@ -17,7 +17,7 @@ def package(root: Path, output: Path, source: str) -> None:
     if output == root or root in output.parents:
         raise ValueError('output must be outside the card tree')
     system = root / 'System'
-    for name in ('slot', 'mgba_libretro.so', 'gpsp_libretro.so'):
+    for name in ('slot', 'mgba_libretro.so', 'gpsp_libretro.so', 'fsck.exfat'):
         binary = system / name
         header = binary.read_bytes()[:20]
         if len(header) < 20 or header[:6] != b'\x7fELF\x02\x01' or int.from_bytes(header[18:20], 'little') != 183:
@@ -29,6 +29,8 @@ def package(root: Path, output: Path, source: str) -> None:
         raise ValueError('missing emulator source archive or provenance')
     if not any(licenses.glob('gpsp-*.patch')) or not any(licenses.glob('mgba-*.patch')):
         raise ValueError('missing emulator source patches')
+    if not any(licenses.glob('exfatprogs-*.tar.gz')) or not (licenses / 'exfatprogs-GPL-2.0.txt').is_file():
+        raise ValueError('missing SD repair tool source or license')
     metadata = {
         'repository': 'jgraving/slot',
         'source_commit': source,

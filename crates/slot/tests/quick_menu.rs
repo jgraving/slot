@@ -54,7 +54,7 @@ fn open_at(a: &mut App, row: QuickRow) {
         if depth > 0 {
             press(a, Btn::A);
         }
-        for _ in 0..step.position(a.hidden_rows()) {
+        for _ in 0..step.position(&a.hidden_rows()) {
             press(a, Btn::Down);
         }
     }
@@ -234,6 +234,7 @@ fn up_and_down_move_the_bar_and_wrap_at_the_ends() {
         QuickRow::Bluetooth,
         QuickRow::Game,
         QuickRow::Power,
+        QuickRow::Controls,
         QuickRow::About,
         QuickRow::General,
     ] {
@@ -264,24 +265,6 @@ fn fast_forward_steps_through_its_speeds_wraps_at_both_ends_and_saves_each_one()
             a.quick_value(QuickRow::FastForward),
             QuickValue::speed(want)
         );
-    }
-}
-
-#[test]
-fn run_ahead_steps_through_its_frames_wraps_at_both_ends_and_saves_each_one() {
-    let (d, mut a, _) = on_carousel();
-    open_at(&mut a, QuickRow::RunAhead);
-    assert_eq!(a.quick_value(QuickRow::RunAhead), Some(QuickValue::Off));
-    for (btn, want) in [
-        (Btn::Right, 1),
-        (Btn::Right, 0),
-        (Btn::Left, 1),
-        (Btn::Left, 0),
-    ] {
-        press(&mut a, btn);
-        assert_eq!(a.runahead(), want, "{btn:?}");
-        assert_eq!(read_slot_state(d.path()).runahead, want, "not on the card");
-        assert_eq!(a.quick_value(QuickRow::RunAhead), QuickValue::frames(want));
     }
 }
 
@@ -364,7 +347,6 @@ fn the_game_page_flips_eject_save_turbo_and_rewind_and_saves_each() {
     press(&mut a, Btn::Right);
     assert_eq!(card(&d), (true, true, false));
     assert!(!a.may_rewind(), "rewind still offered with it off");
-    press(&mut a, Btn::Down);
     press(&mut a, Btn::Down);
     press(&mut a, Btn::Left);
     assert_eq!(card(&d), (true, false, false));
@@ -539,10 +521,10 @@ fn the_about_footer_puts_restart_on_the_right() {
     let (lx, ly, _) = legend_box(&out, 400);
     let (rx, ry, rw) = legend_box(&out, 404);
     assert_eq!(ly, ry);
-    assert!((lx-16.0).abs() < 1.0, "Back is not on the left: {lx}");
+    assert!((lx - 16.0).abs() < 1.0, "Back is not on the left: {lx}");
     let right = rx + rw - HINT_EDGE as f32;
     assert!(
-        (right - (OUT_W as f32-16.0)).abs() < 1.0,
+        (right - (OUT_W as f32 - 16.0)).abs() < 1.0,
         "Restart is not on the right: {right}"
     );
 }
@@ -660,11 +642,11 @@ fn fake_faces(a: &mut App) {
     let id = TexId::from_raw;
     a.set_quick_menu_faces(QuickMenuFaces {
         labels: (0..QuickRow::ALL.len())
-            .map(|i| [(id(100 + i), 200, 40), (id(150 + i), 200, 40)])
+            .map(|i| [(id(1000 + i), 200, 40), (id(1100 + i), 200, 40)])
             .collect(),
         pointer: (id(700), 32, 48),
         values: (0..QuickValue::ALL.len())
-            .map(|i| [(id(200 + i), 60, 40), (id(210 + i), 60, 40)])
+            .map(|i| [(id(2000 + i), 60, 40), (id(2100 + i), 60, 40)])
             .collect(),
         carets: [(id(300), 10, 40), (id(301), 10, 40)],
         legend: [
@@ -673,6 +655,9 @@ fn fake_faces(a: &mut App) {
             (id(402), 80),
             (id(403), 90),
             (id(404), 85),
+            (id(405), 75),
+            (id(406), 95),
+            (id(407), 90),
         ],
         legend_light: [
             (id(400), 70),
@@ -680,24 +665,28 @@ fn fake_faces(a: &mut App) {
             (id(402), 80),
             (id(403), 90),
             (id(404), 85),
+            (id(405), 75),
+            (id(406), 95),
+            (id(407), 90),
         ],
+        descriptions: [(id(410), 300, 44), (id(411), 340, 44)],
     });
     a.set_quick_clock_faces((id(500), 150, 40), (id(501), 150, 40));
 }
 
 fn label(row: QuickRow, lit: bool) -> usize {
     if lit {
-        150 + row.index()
+        1100 + row.index()
     } else {
-        100 + row.index()
+        1000 + row.index()
     }
 }
 
 fn value(v: QuickValue, lit: bool) -> usize {
     if lit {
-        210 + v.index()
+        2100 + v.index()
     } else {
-        200 + v.index()
+        2000 + v.index()
     }
 }
 
@@ -764,10 +753,10 @@ fn the_carousel_menu_keeps_the_empty_footer_where_the_shelf_left_it() {
     let (rx, ry, rw) = legend_box(&open, 402);
     let footer = OUT_H as f32 - MOUTH_H - slot_ui::MENU_HINT_H as f32 - 12.0;
     assert_eq!((ly, ry), (footer, footer));
-    assert!((lx-16.0).abs() < 1.0, "Back is not on the left: {lx}");
+    assert!((lx - 16.0).abs() < 1.0, "Back is not on the left: {lx}");
     let right = rx + rw - HINT_EDGE as f32;
     assert!(
-        (right - (OUT_W as f32-16.0)).abs() < 1.0,
+        (right - (OUT_W as f32 - 16.0)).abs() < 1.0,
         "Open is not on the right: {right}"
     );
     assert!(!drawn(&open, 403), "Resume is on the carousel menu");
@@ -784,10 +773,10 @@ fn the_carousel_menu_keeps_the_empty_footer_where_the_shelf_left_it() {
     let (rx, ry, rw) = legend_box(&values, 401);
     let footer = OUT_H as f32 - MOUTH_H - slot_ui::MENU_HINT_H as f32 - 12.0;
     assert_eq!((ly, ry), (footer, footer));
-    assert!((lx-16.0).abs() < 1.0, "Back left the left edge: {lx}");
+    assert!((lx - 16.0).abs() < 1.0, "Back left the left edge: {lx}");
     let right = rx + rw - HINT_EDGE as f32;
     assert!(
-        (right - (OUT_W as f32-16.0)).abs() < 1.0,
+        (right - (OUT_W as f32 - 16.0)).abs() < 1.0,
         "Change is not on the right: {right}"
     );
     assert!(!drawn(&values, 79), "the value page seated a cart");
@@ -814,7 +803,7 @@ fn the_legend_says_change_on_a_value_row_and_open_on_a_row_that_opens() {
     let (_d, mut a, _) = on_carousel();
     fake_faces(&mut a);
     a.apply(Action::QuickMenu);
-    for row in QuickRow::General.shown(a.hidden_rows()) {
+    for row in QuickRow::General.shown(&a.hidden_rows()) {
         assert_eq!(a.quick_menu(), Some(row));
         let out = frame(&a);
         assert!(drawn(&out, 400), "no B BACK on {row:?}");
@@ -851,12 +840,14 @@ fn the_arrows_stand_only_around_the_selected_rows_value() {
         press(&mut a, Btn::Up);
     }
     press(&mut a, Btn::A);
+    for _ in 0..QuickRow::ShowTitles.position(&a.hidden_rows()) {
+        press(&mut a, Btn::Down);
+    }
     let out = frame(&a);
     assert!(drawn(&out, 500), "the date and time is not grey");
 
-    for _ in 0..QuickRow::DateTime.position(a.hidden_rows()) {
-        press(&mut a, Btn::Down);
-    }
+    press(&mut a, Btn::Down);
+    assert_eq!(a.quick_menu(), Some(QuickRow::DateTime));
     let out = frame(&a);
     assert!(
         !drawn(&out, 300) && !drawn(&out, 301),
@@ -870,7 +861,7 @@ fn the_pointer_stands_left_of_the_selected_row_and_only_it_is_lit() {
     let (_d, mut a, _) = on_carousel();
     fake_faces(&mut a);
     a.apply(Action::QuickMenu);
-    for row in QuickRow::General.shown(a.hidden_rows()) {
+    for row in QuickRow::General.shown(&a.hidden_rows()) {
         let out = frame(&a);
         let pointers: Vec<_> = out
             .iter()
@@ -889,8 +880,10 @@ fn the_pointer_stands_left_of_the_selected_row_and_only_it_is_lit() {
             "{row:?}: the pointer is off the row"
         );
         for other in QuickRow::General
-            .shown(a.hidden_rows())
+            .shown(&a.hidden_rows())
             .into_iter()
+            .skip(slot_ui::quick_window(row, &a.hidden_rows()).0)
+            .take(slot_ui::QUICK_VISIBLE_ROWS)
             .filter(|r| *r != row)
         {
             assert!(drawn(&out, label(other, false)), "{other:?} is not grey");
@@ -907,7 +900,11 @@ fn labels_leave_room_for_the_pointer_and_values_end_thirty_two_pixels_in() {
     open_at(&mut a, QuickRow::FastForward);
     let out = frame(&a);
     let right = OUT_W as f32 - QUICK_EDGE;
-    for row in QuickRow::GAME.into_iter().take(slot_ui::QUICK_VISIBLE_ROWS) {
+    for row in QuickRow::FastForward
+        .shown(&a.hidden_rows())
+        .into_iter()
+        .take(slot_ui::QUICK_VISIBLE_ROWS)
+    {
         let lit = row == QuickRow::FastForward;
         let [x, ..] = placed(&out, label(row, lit)).expect("a label was not drawn");
         assert_eq!(x + MENU_PAD as f32, QUICK_LABEL_X, "{row:?}'s label");
@@ -975,7 +972,7 @@ fn no_row_in_hand_runs_its_arrows_into_its_label() {
             .enumerate()
             .map(|(i, r)| {
                 let w = slot_ui::quick_label_face(*r, true).w;
-                [(id(100 + i), w, 40), (id(150 + i), w, 40)]
+                [(id(1000 + i), w, 40), (id(1100 + i), w, 40)]
             })
             .collect(),
         pointer: (id(700), 32, 48),
@@ -984,7 +981,7 @@ fn no_row_in_hand_runs_its_arrows_into_its_label() {
             .enumerate()
             .map(|(i, v)| {
                 let w = slot_ui::quick_value_face(v.text(), true).w;
-                [(id(200 + i), w, 40), (id(230 + i), w, 40)]
+                [(id(2000 + i), w, 40), (id(2100 + i), w, 40)]
             })
             .collect(),
         carets: [false, true].map(|right| {
@@ -997,6 +994,9 @@ fn no_row_in_hand_runs_its_arrows_into_its_label() {
             (id(402), 80),
             (id(403), 90),
             (id(404), 85),
+            (id(405), 75),
+            (id(406), 95),
+            (id(407), 90),
         ],
         legend_light: [
             (id(400), 70),
@@ -1004,7 +1004,11 @@ fn no_row_in_hand_runs_its_arrows_into_its_label() {
             (id(402), 80),
             (id(403), 90),
             (id(404), 85),
+            (id(405), 75),
+            (id(406), 95),
+            (id(407), 90),
         ],
+        descriptions: [(id(410), 300, 44), (id(411), 340, 44)],
     });
     for page in [
         &QuickRow::SCREEN_GBA[..],
@@ -1019,7 +1023,7 @@ fn no_row_in_hand_runs_its_arrows_into_its_label() {
             }
             open_at(&mut a, row);
             let out = frame(&a);
-            let [lx, _, lw, _] = placed(&out, 150 + row.index()).expect("the lit label");
+            let [lx, _, lw, _] = placed(&out, 1100 + row.index()).expect("the lit label");
             let label_ends = lx + lw - MENU_PAD as f32;
             if let Some([cx, ..]) = placed(&out, 300) {
                 assert!(
@@ -1259,7 +1263,10 @@ fn shell_colour_cycles_persists_and_stays_independent_of_text_theme() {
     use slot_store::ShellColour;
     let (d, mut a, _) = on_carousel();
     open_at(&mut a, QuickRow::ShellColour);
-    assert_eq!(a.quick_value(QuickRow::ShellColour), Some(QuickValue::MatchTheme));
+    assert_eq!(
+        a.quick_value(QuickRow::ShellColour),
+        Some(QuickValue::MatchTheme)
+    );
     for (colour, value) in [
         (ShellColour::Graphite, QuickValue::Graphite),
         (ShellColour::Platinum, QuickValue::Platinum),
@@ -1281,27 +1288,110 @@ fn shell_colour_cycles_persists_and_stays_independent_of_text_theme() {
 
 #[test]
 fn clock_battery_and_audio_stay_at_the_top_on_carousel_and_settings_pages() {
-    for page in [None, Some(QuickRow::General), Some(QuickRow::Theme),
-        Some(QuickRow::Bluetooth), Some(QuickRow::DateTime), Some(QuickRow::About)] {
-        let (_d,mut a,_)=on_carousel();
+    for page in [
+        None,
+        Some(QuickRow::General),
+        Some(QuickRow::Theme),
+        Some(QuickRow::Bluetooth),
+        Some(QuickRow::DateTime),
+        Some(QuickRow::About),
+    ] {
+        let (_d, mut a, _) = on_carousel();
         a.tick_ms(10);
-        a.set_shelf_clock_face(TexId::from_raw(901),60);
-        a.set_battery_percent_face(TexId::from_raw(902),36);
-        a.audio_indicator=Some(TexId::from_raw(903));
-        if let Some(row)=page {
-            open_at(&mut a,row);
-            if matches!(row,QuickRow::Bluetooth | QuickRow::DateTime | QuickRow::About) { press(&mut a,Btn::A); }
+        a.set_shelf_clock_face(TexId::from_raw(901), 60);
+        a.set_battery_percent_face(TexId::from_raw(902), 36);
+        a.audio_indicator = Some(TexId::from_raw(903));
+        if let Some(row) = page {
+            open_at(&mut a, row);
+            if matches!(
+                row,
+                QuickRow::Bluetooth | QuickRow::DateTime | QuickRow::About
+            ) {
+                press(&mut a, Btn::A);
+            }
         }
-        let draws=frame(&a);
-        for id in [901,902,903] {
-            let positions:Vec<_>=draws.iter().filter_map(|d| match *d {
-                Draw::Tex{tex,x,y,w,h,..} if tex==TexId::from_raw(id)=>Some((x,y,w,h)),
-                _=>None,
-            }).collect();
-            assert_eq!(positions.len(),1,"{page:?} lost or duplicated status {id}");
-            let (x,y,w,h)=positions[0];
-            assert!(y>=0.0 && y+h<=40.0,"{page:?} status {id} touches the SP: {y}");
-            assert!(x>=0.0 && x+w<=OUT_W as f32);
+        let draws = frame(&a);
+        for id in [901, 902, 903] {
+            let positions: Vec<_> = draws
+                .iter()
+                .filter_map(|d| match *d {
+                    Draw::Tex {
+                        tex, x, y, w, h, ..
+                    } if tex == TexId::from_raw(id) => Some((x, y, w, h)),
+                    _ => None,
+                })
+                .collect();
+            assert_eq!(
+                positions.len(),
+                1,
+                "{page:?} lost or duplicated status {id}"
+            );
+            let (x, y, w, h) = positions[0];
+            assert!(
+                y >= 0.0 && y + h <= 40.0,
+                "{page:?} status {id} touches the SP: {y}"
+            );
+            assert!(x >= 0.0 && x + w <= OUT_W as f32);
         }
     }
+}
+
+#[test]
+fn power_timer_combines_upstream_intervals_with_never_and_persists() {
+    let (d, mut a, _) = on_carousel();
+    open_at(&mut a, QuickRow::SleepTimeout);
+    assert_eq!(
+        a.quick_value(QuickRow::SleepTimeout),
+        Some(QuickValue::Minutes3)
+    );
+    for want in [
+        QuickValue::Minutes5,
+        QuickValue::Minutes10,
+        QuickValue::Minutes15,
+        QuickValue::Minutes30,
+        QuickValue::Never,
+        QuickValue::Minutes1,
+        QuickValue::Minutes3,
+    ] {
+        press(&mut a, Btn::Right);
+        assert_eq!(a.quick_value(QuickRow::SleepTimeout), Some(want));
+        let (rebooted, _) = app_booting_at(d.path(), CLOCK_IS_SET);
+        assert_eq!(rebooted.quick_value(QuickRow::SleepTimeout), Some(want));
+    }
+}
+
+#[test]
+fn control_pages_keep_the_selected_shell_and_compact_button_hints() {
+    let (_d, mut a, _) = on_carousel();
+    fake_faces(&mut a);
+    let id = TexId::from_raw;
+    a.set_slot_faces(id(2000), id(2001));
+    a.set_plugged_face(id(2002));
+    open_at(&mut a, QuickRow::GameA);
+    let out = frame(&a);
+    for expected in [2000, 2001] {
+        assert!(out.iter().any(|d| match *d {
+            Draw::Tex { tex, .. } | Draw::Part { tex, .. } => tex == id(expected),
+            _ => false,
+        }));
+    }
+    assert!(
+        !drawn(&out, 2002),
+        "upstream bitmap replaced the selected shell"
+    );
+    let hints: Vec<_> = out
+        .iter()
+        .filter_map(|draw| match *draw {
+            Draw::Tex { tex, y, h, .. }
+                if [400, 405, 406, 407].into_iter().map(id).any(|t| t == tex) =>
+            {
+                Some((y, h))
+            }
+            _ => None,
+        })
+        .collect();
+    assert_eq!(hints.len(), 3);
+    assert!(hints
+        .iter()
+        .all(|(y, h)| *h == slot_ui::MENU_HINT_H as f32 && y + h < OUT_H as f32 - MOUTH_H));
 }

@@ -42,6 +42,8 @@ const GB_BOARD_PNG: &[u8] = include_bytes!("../../../assets/gb_board.png");
 const BOARD_PNG: &[u8] = include_bytes!("../../../assets/board.png");
 const SOCKET_PNG: &[u8] = include_bytes!("../../../assets/socket.png");
 const CHIP_PNG: &[u8] = include_bytes!("../../../assets/chip.png");
+const SLOT_PLUGGED_DARK_PNG: &[u8] = include_bytes!("../../../assets/slot_plugged_dark.png");
+const SLOT_PLUGGED_LIGHT_PNG: &[u8] = include_bytes!("../../../assets/slot_plugged_light.png");
 const PLUG_HOST_PNG: &[u8] = include_bytes!("../../../assets/link_plug_host.png");
 const PLUG_JOIN_PNG: &[u8] = include_bytes!("../../../assets/link_plug_join.png");
 const ADAPTER_PNG: &[u8] = include_bytes!("../../../assets/link_adapter.png");
@@ -181,6 +183,16 @@ pub fn slot_front() -> &'static [u8] {
 
 pub fn slot_front_light() -> &'static [u8] {
     crate::material::shell_slot_faces(slot_store::ShellColour::Platinum)[1]
+}
+
+pub fn slot_plugged() -> &'static [u8] {
+    static P: OnceLock<Vec<u8>> = OnceLock::new();
+    load(SLOT_PLUGGED_DARK_PNG, SLOT_W, SLOT_H, &P)
+}
+
+pub fn slot_plugged_light() -> &'static [u8] {
+    static P: OnceLock<Vec<u8>> = OnceLock::new();
+    load(SLOT_PLUGGED_LIGHT_PNG, SLOT_W, SLOT_H, &P)
 }
 
 pub fn link_port() -> &'static [u8] {

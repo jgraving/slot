@@ -8,9 +8,10 @@ pub struct PowerSettings {
 }
 impl PowerSettings {
     pub fn read(root: &Path) -> Self {
-        let text = std::fs::read_to_string(root.join("Config/power.txt"))
+        let stored = std::fs::read_to_string(root.join("Config/power.txt"))
             .or_else(|_| std::fs::read_to_string(root.join("Config/comfort.txt")))
-            .unwrap_or_default();
+            .ok();
+        let text = stored.clone().unwrap_or_default();
         let mut settings = Self::default();
         for line in text.lines() {
             let Some((key, value)) = line.split_once('=') else {
@@ -18,8 +19,20 @@ impl PowerSettings {
             };
             match (key, value.parse::<u8>()) {
                 ("lid_close", Ok(v @ 0..=2)) => settings.lid_close = v,
-                ("sleep_timeout", Ok(v @ 0..=3)) => settings.sleep_timeout = v,
+                ("sleep_timeout", Ok(v @ 0..=6)) => settings.sleep_timeout = v,
                 _ => {}
+            }
+        }
+        if stored.is_none() {
+            if let Some(minutes) = slot_store::read_slot_state(root).lid_off_min {
+                settings.sleep_timeout = match minutes {
+                    1 => 4,
+                    5 => 5,
+                    10 => 6,
+                    15 => 1,
+                    30 => 2,
+                    _ => 0,
+                };
             }
         }
         settings
@@ -40,6 +53,9 @@ impl PowerSettings {
             0 => Some(default),
             1 => Some(Duration::from_secs(900)),
             2 => Some(Duration::from_secs(1800)),
+            4 => Some(Duration::from_secs(60)),
+            5 => Some(Duration::from_secs(300)),
+            6 => Some(Duration::from_secs(600)),
             _ => None,
         }
     }
