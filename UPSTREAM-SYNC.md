@@ -15,7 +15,7 @@ Merged BrandonKowalski/slot through `1b20432089eb84a340466c7ac61a6cf39d589576` (
 ## Fork-specific resolutions
 
 - Retained shell SVGs, all four finishes, fine grain, large carousel/proportional insertion, gold favorites and removal confirmation, custom link port, power animation/click, top-corner status indicators, Bluetooth/USB routing and volumes, and persistent day/night presets.
-- Day / Night is now a remappable shortcut, defaulting to Select + X. Repeated key-down events do not toggle it repeatedly.
+- Day / Night is now a remappable shortcut, defaulting to Select + X. Repeated key-down events do not toggle it repeatedly. Deep-sleep wake invalidates the shortcut-table cache after clearing held inputs, so remapped shortcuts continue to work.
 - The existing Power page remains authoritative. It gains 1/5/10-minute choices alongside 3/15/30 minutes and Never. Existing saved indices retain their meanings. An upstream `lid_off_min` is imported only when no fork power/comfort file exists.
 - The lid watchdog reads the same power/comfort preferences and honors Never, rather than overriding it with an independent three-minute timeout.
 - Every long settings page, including Controls and the expanded main menu, retains a six-row viewport and scrollbar. Binding hints keep their native aspect ratio and 32px height. Control pages retain the fork's shell instead of displaying upstream's older plugged-slot bitmap.

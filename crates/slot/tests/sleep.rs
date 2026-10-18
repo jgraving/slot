@@ -215,3 +215,57 @@ fn upstream_lid_timer_migrates_only_without_existing_fork_power_preferences() {
     assert_eq!((existing.lid_close, existing.sleep_timeout), (1, 3));
     assert_eq!(existing.duration(Duration::from_secs(180)), None);
 }
+
+#[test]
+fn deep_sleep_wake_reinstalls_the_remapped_shortcut_table() {
+    use slot::session::Session;
+    use slot_input::RawEvent;
+    use slot_store::{Binding, Device, Modifier, Shortcut, ShortcutKeys};
+    let (d, _, calls) = setup(false, 0);
+    let mut keys = ShortcutKeys::default();
+    keys.set(
+        Shortcut::NightToggle,
+        Binding::with(Modifier::Menu, Device::X),
+    );
+    slot_store::write_shortcuts(d.path(), &keys).unwrap();
+    let mut session = Session::boot(d.path().to_path_buf());
+    session.app_mut().set_power(Power::new(
+        Box::new(SleepPlatform {
+            root: d.path().into(),
+            calls: calls.clone(),
+            expired: false,
+        }),
+        Duration::from_secs(180),
+    ));
+    for (n, event) in [
+        RawEvent::Down(Btn::Menu),
+        RawEvent::Down(Btn::X),
+        RawEvent::Up(Btn::X),
+        RawEvent::Up(Btn::Menu),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        session.feed([event], n as u64 * 20);
+    }
+    assert!(session.app().night_mode());
+    session.app_mut().apply(Action::LidClose);
+    session.update(0.1);
+    assert_eq!(calls.lock().unwrap().len(), 1);
+    assert!(matches!(session.app().phase(), Phase::Shelf));
+    for (n, event) in [
+        RawEvent::Down(Btn::Menu),
+        RawEvent::Down(Btn::X),
+        RawEvent::Up(Btn::X),
+        RawEvent::Up(Btn::Menu),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        session.feed([event], 300 + n as u64 * 20);
+    }
+    assert!(
+        !session.app().night_mode(),
+        "wake lost the configured MENU+X shortcut"
+    );
+}

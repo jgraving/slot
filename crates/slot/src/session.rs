@@ -451,6 +451,7 @@ impl Session {
             ring.set_muted(was_muted);
             self.pad.clear();
             self.gestures = Gestures::new();
+            self.table_for = None; // Reinstall remapped shortcuts after clearing held inputs.
             self.sync_speed();
         }
         self.sync_rewind_hud();
