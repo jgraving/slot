@@ -54,7 +54,7 @@ Code changes on this fork's `main` are built and regression-tested before publis
 
 This fork focuses on the SP experience. Audio testing includes RG SP and RG35XXSP; USB-C headphone playback is confirmed on RG SP. Bluetooth volume synchronization remains experimental, and hardware support varies. See [tested devices and audio limits](BLUETOOTH.md#tested-devices-and-known-limitations).
 
-Upstream also supports RG34XX, RG34XXSP (without stick support), RG35XXSP, RG35XX Plus, RG28XX, and RG35XX-H. Every addition here has not been tested on every model. Physical link play and suspend/wake behavior need device-specific testing.
+Upstream also supports RG34XX, RG34XXSP (left-stick support awaiting hardware verification), RG35XXSP, RG35XX Plus, RG28XX, and RG35XX-H. Every addition here has not been tested on every model. Physical link play and suspend/wake behavior need device-specific testing.
 
 ## Credits and license
 
