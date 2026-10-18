@@ -2,8 +2,8 @@ mod art;
 pub use art::cover;
 mod bitmaps;
 pub use bitmaps::{
-    link_port, link_port_light, slot_back, slot_back_light, slot_front, slot_front_light, Mould,
-    SLOT_H, SLOT_W,
+    link_port, link_port_light, slot_back, slot_back_light, slot_front, slot_front_light,
+    slot_plugged, slot_plugged_light, Mould, SLOT_H, SLOT_W,
 };
 mod backdrop;
 mod barcode;
@@ -20,11 +20,11 @@ pub use favorite_remove::{draw_favorite_remove, favorite_remove_face, FAVORITE_R
 mod hud;
 mod icon;
 mod link_art;
+mod material;
 mod plate;
 mod polaroids;
 mod power_menu;
-mod material;
-pub use material::{shell_rgb, shell_slot_faces, shell_link_port};
+pub use material::{shell_link_port, shell_rgb, shell_slot_faces};
 mod quick_menu;
 mod rebuild;
 mod refusal;
@@ -59,7 +59,8 @@ pub use cart::{
 pub use clock::{clock_label, date_time_text, hhmm, set_clock_hint_face, ClockPicker, Field};
 pub use draw::{Canvas, Draw, Layout, TexId, OUT_H, OUT_W};
 pub use footer::{
-    draw_corner_connection, draw_corners, draw_status, draw_footer, draw_footer_connection, Printed, FOOTER_Y,
+    draw_corner_connection, draw_corners, draw_footer, draw_footer_connection, draw_status,
+    Printed, FOOTER_Y,
 };
 pub use hud::{
     badge_at, ff_badge, footer_ink, FfState, Hud, HudKind, LinkBadge, Millis, ALARM_BAND_H,
@@ -81,18 +82,23 @@ pub use plate::{
 };
 pub use polaroids::{photo_face, PhotoFace, Polaroids, DOT, LEGEND, PHOTO_H, PHOTO_W};
 pub use power_menu::{
-    draw_power_switch, menu_face, power_switch_faces, power_switch_faces_for, PowerChoice, MENU_PAD, POWER_SWITCH_MS,
-    POWER_SWITCH_SLIDE_MS,
+    draw_power_switch, menu_detail_face, menu_face, power_switch_faces, power_switch_faces_for,
+    PowerChoice, MENU_PAD, POWER_SWITCH_MS, POWER_SWITCH_SLIDE_MS,
 };
 pub use quick_menu::{
-    core_button_legends, draw_menu_ground, link_button_legends, quick_caret_face, quick_label_face,
-    quick_legend_faces, quick_pointer_face, quick_row_top, quick_text_centre, quick_value_face,
-    sound_button_legends, sound_forget_confirmation, QuickMenu, QuickMenuFaces, QuickRow,
-    QuickValue, QUICK_EDGE, QUICK_LABEL_X, QUICK_PITCH, MENU_HINT_H, QUICK_VISIBLE_ROWS, quick_window_start,
+    core_button_legends, draw_menu_ground, link_button_legends, prompt_legends, quick_caret_face,
+    quick_description_face, quick_label_face, quick_legend_faces, quick_pointer_face,
+    quick_row_top, quick_row_top_at, quick_text_centre, quick_value_face, quick_window,
+    quick_window_start, repair_legends, sound_button_legends, sound_forget_confirmation, QuickMenu,
+    QuickMenuFaces, QuickRow, QuickValue, MENU_HINT_H, QUICK_EDGE, QUICK_LABEL_X, QUICK_PITCH,
+    QUICK_VISIBLE, QUICK_VISIBLE_ROWS,
 };
 pub use rebuild::{rebuild_count_face, rebuild_title_face, RebuildScreen};
 pub use refusal::Refusal;
-pub use shelf::{shelf_scale, GBA_SHELF_SCALE, GB_SHELF_SCALE, foot_y, repeat_gap, rest_y, Shelf, REPEAT_DELAY_MS, STAR_INK, STAR_SCALE};
+pub use shelf::{
+    foot_y, repeat_gap, rest_y, shelf_scale, Shelf, GBA_SHELF_SCALE, GB_SHELF_SCALE,
+    REPEAT_DELAY_MS, STAR_INK, STAR_SCALE,
+};
 pub use shell::{
     gb_plastics, gb_table_shells, gba_plastics, gba_shell_for,
     lookup_order_is_exact_then_family_then_default, shell_for, shell_presets, table_keys, Finish,
@@ -100,8 +106,8 @@ pub use shell::{
 };
 pub use silhouette::{gb_silhouette, silhouette, GbShell};
 pub use slot_chrome::{
-    draw_empty_slot, draw_slot_name, draw_slot_title, ease, edge, housing, opening, recess,
-    slot_name_y, SlotChrome, ALERT_PX, LIP_H, MOUTH_H, MOUTH_W,
+    draw_empty_slot, draw_plugged_slot, draw_slot_name, draw_slot_title, ease, edge, housing,
+    opening, recess, slot_name_y, SlotChrome, ALERT_PX, LIP_H, MOUTH_H, MOUTH_W,
 };
 pub use sticker::{
     draw_sticker, head_rows, sticker_face, sticker_lines, sticker_rect, StickerFields, COPYRIGHT,

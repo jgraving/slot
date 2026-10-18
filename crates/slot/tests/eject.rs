@@ -1,6 +1,5 @@
 mod common;
 
-use std::path::Path;
 use std::time::{Duration, Instant};
 
 use common::{app_playing_in, boot, tmp_root_with_carts, StubSnapshot};
@@ -18,11 +17,6 @@ fn seated(cart: &str) -> SlotState {
         utc_offset_min: 0,
         ..Default::default()
     }
-}
-
-fn set_mode(dir: &Path, mode: u32) {
-    use std::os::unix::fs::PermissionsExt;
-    std::fs::set_permissions(dir, std::fs::Permissions::from_mode(mode)).expect("chmod");
 }
 
 #[test]
@@ -80,30 +74,46 @@ fn a_resume_that_cannot_be_written_leaves_the_cart_in_the_slot() {
 fn an_unchanged_battery_save_is_not_rewritten() {
     let d = tmp_root_with_carts(&["Emerald"]);
     std::fs::create_dir_all(d.path().join("Saves/GBA")).unwrap();
-    std::fs::write(d.path().join("Saves/GBA/Emerald.sav"), b"savdata").unwrap();
-    let saves = d.path().join("Saves/GBA");
-    set_mode(&saves, 0o555);
-    let unchanged = eject(
+    let save = d.path().join("Saves/GBA/Emerald.sav");
+    std::fs::write(&save, b"savdata").unwrap();
+    // Observe an old modification time directly: permission-based assertions
+    // cannot distinguish writes when the CI container runs as root.
+    let old = std::time::UNIX_EPOCH + Duration::from_secs(946_684_800);
+    std::fs::File::options()
+        .write(true)
+        .open(&save)
+        .unwrap()
+        .set_times(std::fs::FileTimes::new().set_modified(old))
+        .unwrap();
+    eject(
         d.path(),
         Platform::Gba,
         Core::Mgba,
         "Emerald",
         Some(&[0u8; 8]),
         Some(b"savdata"),
+    )
+    .unwrap();
+    assert_eq!(
+        std::fs::metadata(&save).unwrap().modified().unwrap(),
+        old,
+        "identical save bytes rewrote the file"
     );
-    let changed = eject(
+    assert_eq!(std::fs::read(&save).unwrap(), b"savdata");
+    eject(
         d.path(),
         Platform::Gba,
         Core::Mgba,
         "Emerald",
         Some(&[0u8; 8]),
         Some(b"changed"),
-    );
-    set_mode(&saves, 0o755);
-    unchanged.expect("identical bytes must not touch the card");
-    assert!(
-        changed.is_err(),
-        "the directory stayed writable, so the first half proved nothing"
+    )
+    .unwrap();
+    assert_eq!(std::fs::read(&save).unwrap(), b"changed");
+    assert_ne!(
+        std::fs::metadata(&save).unwrap().modified().unwrap(),
+        old,
+        "changed save bytes did not update the file"
     );
 }
 
@@ -203,7 +213,7 @@ fn the_row_closes_back_up_as_the_cart_comes_out() {
             .count()
     };
     let early = carts(&a);
-    for _ in 0..40 {
+    for _ in 0..50 {
         a.update(1.0 / 60.0);
     }
     let late = carts(&a);
@@ -311,7 +321,12 @@ fn the_core_stops_before_the_cart_moves() {
     for _ in 0..90 {
         s.update(1.0 / 60.0);
     }
-    assert!(s.has_core(), "no core to stop");
+    let deadline = Instant::now() + Duration::from_secs(2);
+    while s.emu().is_none() {
+        assert!(Instant::now() < deadline, "no core to stop");
+        std::thread::sleep(Duration::from_millis(1));
+        s.update(1.0 / 60.0);
+    }
 
     s.app_mut().apply(Action::Eject);
     s.update(1.0 / 60.0);

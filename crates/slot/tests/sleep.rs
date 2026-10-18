@@ -113,7 +113,7 @@ fn power_page_persists_lid_choice_and_sleep_timer() {
     a.apply(Action::GbaDown(Btn::Down));
     a.apply(Action::GbaDown(Btn::Right));
     let c = PowerSettings::read(d.path());
-    assert_eq!((c.lid_close, c.sleep_timeout), (2, 1));
+    assert_eq!((c.lid_close, c.sleep_timeout), (2, 5));
     a.apply(Action::LidClose);
     assert!(a.powering_off());
     assert!(!a.suspend_requested());
@@ -187,4 +187,85 @@ fn shutdown_cancels_a_pending_deep_sleep() {
     assert!(!a.suspend_requested());
     a.suspend_if_requested();
     assert!(calls.lock().unwrap().is_empty());
+}
+
+#[test]
+fn upstream_lid_timer_migrates_only_without_existing_fork_power_preferences() {
+    let d = common::tmp_root_with_carts(&["Alpha"]);
+    slot_store::write_slot_state(
+        d.path(),
+        &slot_store::SlotState {
+            lid_off_min: Some(1),
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    let imported = PowerSettings::read(d.path());
+    assert_eq!(
+        imported.duration(Duration::from_secs(180)),
+        Some(Duration::from_secs(60))
+    );
+    PowerSettings {
+        lid_close: 1,
+        sleep_timeout: 3,
+    }
+    .save(d.path())
+    .unwrap();
+    let existing = PowerSettings::read(d.path());
+    assert_eq!((existing.lid_close, existing.sleep_timeout), (1, 3));
+    assert_eq!(existing.duration(Duration::from_secs(180)), None);
+}
+
+#[test]
+fn deep_sleep_wake_reinstalls_the_remapped_shortcut_table() {
+    use slot::session::Session;
+    use slot_input::RawEvent;
+    use slot_store::{Binding, Device, Modifier, Shortcut, ShortcutKeys};
+    let (d, _, calls) = setup(false, 0);
+    let mut keys = ShortcutKeys::default();
+    keys.set(
+        Shortcut::NightToggle,
+        Binding::with(Modifier::Menu, Device::X),
+    );
+    slot_store::write_shortcuts(d.path(), &keys).unwrap();
+    let mut session = Session::boot(d.path().to_path_buf());
+    session.app_mut().set_power(Power::new(
+        Box::new(SleepPlatform {
+            root: d.path().into(),
+            calls: calls.clone(),
+            expired: false,
+        }),
+        Duration::from_secs(180),
+    ));
+    for (n, event) in [
+        RawEvent::Down(Btn::Menu),
+        RawEvent::Down(Btn::X),
+        RawEvent::Up(Btn::X),
+        RawEvent::Up(Btn::Menu),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        session.feed([event], n as u64 * 20);
+    }
+    assert!(session.app().night_mode());
+    session.app_mut().apply(Action::LidClose);
+    session.update(0.1);
+    assert_eq!(calls.lock().unwrap().len(), 1);
+    assert!(matches!(session.app().phase(), Phase::Shelf));
+    for (n, event) in [
+        RawEvent::Down(Btn::Menu),
+        RawEvent::Down(Btn::X),
+        RawEvent::Up(Btn::X),
+        RawEvent::Up(Btn::Menu),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        session.feed([event], 300 + n as u64 * 20);
+    }
+    assert!(
+        !session.app().night_mode(),
+        "wake lost the configured MENU+X shortcut"
+    );
 }

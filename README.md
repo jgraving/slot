@@ -28,7 +28,7 @@ This fork builds on [Brandon Kowalski's slot](https://github.com/BrandonKowalski
 - **Power options.** Choose light sleep, supported deep sleep, or shutdown on lid close, plus an optional shutdown timer while sleeping.
 - **Tidier menus.** Scrolling settings, consistent button hints, and top-corner status indicators. Favorite removal asks for a second press, so an accidental tap does not lose your place.
 
-The original shelves, Favorites and Recents, circuit-board core picker, mGBA/gpSP emulation, save states, and link interface remain.
+The original shelves, Favorites and Recents, circuit-board core picker, mGBA/gpSP emulation, save states, and link interface remain. Upstream updates also bring global control/shortcut remapping, left-stick support on compatible devices, smoother ROM loading, and SD-card repair. Run-ahead has been removed following upstream’s fix for GBA flash-save corruption.
 
 More detail: [Sound/Bluetooth](BLUETOOTH.md) · [Night display](NIGHT-DISPLAY.md) · [Power options](POWER-OPTIONS.md) · [Shell previews](previews/rgsp-shell-finishes.png) · [Design references](MATERIALS.md)
 

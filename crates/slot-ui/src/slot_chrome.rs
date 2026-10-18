@@ -134,7 +134,9 @@ impl SlotChrome<'_> {
         let (cw, ch) = cart_box(self.cart.platform);
         let (cw, ch) = (cw as f32, ch as f32);
 
-        let scale = self.scale.clamp(0.0, crate::shelf::shelf_scale(self.cart.platform));
+        let scale = self
+            .scale
+            .clamp(0.0, crate::shelf::shelf_scale(self.cart.platform));
         let w0 = cw * scale;
         let sw = seated_box(self.cart.platform).0 as f32;
         let (foot0, seated_foot) = (foot_y(ch), SEATED_FOOT);
@@ -350,6 +352,12 @@ pub fn draw_slot_title(canvas: Canvas, title: Printed, alpha: f32, out: &mut Vec
         tex,
         alpha,
     });
+}
+
+pub fn draw_plugged_slot(canvas: Canvas, plugged: Option<TexId>, out: &mut Vec<Draw>) {
+    if let Some(tex) = plugged {
+        out.push(strip(canvas, tex, 1.0));
+    }
 }
 
 pub fn draw_empty_slot(canvas: Canvas, slot: Option<(TexId, TexId)>, out: &mut Vec<Draw>) {

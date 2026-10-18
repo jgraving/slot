@@ -76,25 +76,10 @@ fn the_fast_forward_row_offers_the_four_ceilings_the_card_can_hold() {
 }
 
 #[test]
-fn the_run_ahead_row_offers_off_and_one_frame() {
-    assert_eq!(
-        [0, 1].map(QuickValue::frames),
-        [Some(QuickValue::Off), Some(QuickValue::Frames1)]
-    );
-    for other in [2, 3, 255] {
-        assert_eq!(
-            QuickValue::frames(other),
-            None,
-            "{other} frames is not a value the row has"
-        );
-    }
-}
-
-#[test]
 fn the_rows_run_in_the_order_the_user_chose() {
     assert_eq!(
         QuickRow::MAIN.map(QuickRow::label),
-        ["General", "Screen", "Sound", "Gameplay", "Power", "About"]
+        ["General", "Screen", "Sound", "Gameplay", "Power", "Controls", "About"]
     );
     assert_eq!(
         QuickRow::GENERAL.map(QuickRow::label),
@@ -107,6 +92,14 @@ fn the_rows_run_in_the_order_the_user_chose() {
             "Game Titles",
             "Date & Time"
         ]
+    );
+    assert_eq!(
+        QuickRow::CONTROL_PAGES.map(QuickRow::label),
+        ["Shelf", "Shortcuts", "In-Game"]
+    );
+    assert_eq!(
+        QuickRow::SHELF_KEYS.map(QuickRow::label),
+        ["Previous Shelf", "Next Shelf", "Favorite"]
     );
     assert_eq!(
         QuickRow::SCREEN.map(QuickRow::label),
@@ -130,9 +123,9 @@ fn the_rows_run_in_the_order_the_user_chose() {
             "Fast Forward",
             "Fast Forward Sound",
             "Rewind",
-            "Run-Ahead",
             "Turbo Buttons",
             "Rumble",
+            "Left Stick as D-Pad",
             "Auto Save on Eject"
         ]
     );
@@ -144,7 +137,6 @@ fn the_rows_run_in_the_order_the_user_chose() {
             QuickRow::DateTime,
             QuickRow::About,
             QuickRow::Game,
-            QuickRow::General,
             QuickRow::Resume,
             QuickRow::States,
             QuickRow::Settings,
@@ -159,6 +151,12 @@ fn the_rows_run_in_the_order_the_user_chose() {
             QuickRow::Power,
             QuickRow::SleepNow,
             QuickRow::ShutDown,
+            QuickRow::General,
+            QuickRow::PlayControls,
+            QuickRow::Shortcuts,
+            QuickRow::Controls,
+            QuickRow::ControlsShelf,
+            QuickRow::ControlsInGame
         ]
     );
     for page in [
@@ -211,7 +209,6 @@ fn the_values_read_as_the_menu_prints_them() {
             "Grid",
             "Dot",
             "Simpletex",
-            "1 Frame",
             "Dark",
             "Light",
             "Show",
@@ -231,6 +228,9 @@ fn the_values_read_as_the_menu_prints_them() {
             "Platinum",
             "Pearl Blue",
             "Pearl Pink",
+            "1 min",
+            "5 min",
+            "10 min",
         ]
     );
     assert_eq!(QuickValue::flag(true), QuickValue::On);
@@ -338,7 +338,8 @@ fn the_in_game_pages_hold_their_rows_in_order() {
         [
             QuickRow::PlayScreen,
             QuickRow::PlaySound,
-            QuickRow::PlayGameplay
+            QuickRow::PlayGameplay,
+            QuickRow::PlayControls
         ]
     );
     assert_eq!(
@@ -436,14 +437,13 @@ fn screen_rows_in_game_sit_in_a_panel_at_the_bottom() {
     let shader = slot_ui::quick_row_top(QuickRow::Shader, &hidden);
     let colour = slot_ui::quick_row_top(QuickRow::ColourCorrection, &hidden);
     assert_eq!(colour - shader, slot_ui::QUICK_PITCH);
-    assert!(
-        shader >= 200.0,
-        "the panel starts at {shader}"
-    );
+    assert!(shader >= 200.0, "the panel starts at {shader}");
     assert!(slot_ui::quick_row_top(QuickRow::FastForward, &[]) < shader);
-    let last=slot_ui::quick_row_top(QuickRow::Bezel,&hidden)+44.0;
-    assert!(last < slot_ui::OUT_H as f32-slot_ui::MOUTH_H-slot_ui::MENU_HINT_H as f32-12.0,
-        "screen controls overlap the hint row");
+    let last = slot_ui::quick_row_top(QuickRow::Bezel, &hidden) + 44.0;
+    assert!(
+        last < slot_ui::OUT_H as f32 - slot_ui::MOUTH_H - slot_ui::MENU_HINT_H as f32 - 12.0,
+        "screen controls overlap the hint row"
+    );
 }
 
 #[test]
@@ -467,29 +467,92 @@ fn show_titles_sits_under_recents_on_the_general_page() {
 #[test]
 fn long_pages_scroll_six_rows_with_the_selection_and_keep_clear_of_status_and_hints() {
     use slot_ui::*;
-    let id=|n|TexId::from_raw(n);
-    let faces=QuickMenuFaces {
-        labels: QuickRow::ALL.iter().map(|r|[(id(r.index()*2),260,40),(id(r.index()*2+1),260,40)]).collect(),
-        pointer:(id(1000),32,48), values:vec![], carets:[(id(1001),20,40),(id(1002),20,40)],
-        legend:[(id(1003),80);5],legend_light:[(id(1003),80);5],
+    let id = |n| TexId::from_raw(n);
+    let faces = QuickMenuFaces {
+        labels: QuickRow::ALL
+            .iter()
+            .map(|r| {
+                [
+                    (id(r.index() * 2), 260, 40),
+                    (id(r.index() * 2 + 1), 260, 40),
+                ]
+            })
+            .collect(),
+        pointer: (id(1000), 32, 48),
+        values: vec![],
+        carets: [(id(1001), 20, 40), (id(1002), 20, 40)],
+        legend: [(id(1003), 80); 8],
+        legend_light: [(id(1003), 80); 8],
+        descriptions: [(id(1004), 200, 23); 2],
     };
-    for hidden in [&[][..],&[QuickRow::WallpaperTint][..]] {
-        for selected in QuickRow::GENERAL.into_iter().chain(QuickRow::GAME) {
-            if hidden.contains(&selected) {continue;}
-            let shown=selected.shown(hidden);
-            let first=quick_window_start(selected,hidden);
-            assert!((first..first+QUICK_VISIBLE_ROWS.min(shown.len())).contains(&selected.position(hidden)));
-            for width in [640.0,720.0] {
-                let mut out=Vec::new();
-                QuickMenu {row:selected,hidden,values:[None;QuickRow::ALL.len()],clock:None,wallpaper:None,
-                    faces:Some(&faces),ground:None,palette:None,gba_bezel:None,gb_bezel:None,gbc_bezel:None,
-                    bezel:None,over_game:false,footer_legends:true,footer_top:480.,canvas:Canvas{w:width,h:480.}}.draw(&mut out);
-                let labels:Vec<_>=out.iter().filter_map(|d|match d {
-                    Draw::Tex {tex,y,h,..} if shown.iter().any(|r| [id(r.index()*2),id(r.index()*2+1)].contains(tex))=>Some((*tex,*y,*h)),_=>None,
-                }).collect();
-                assert_eq!(labels.len(),shown.len().min(QUICK_VISIBLE_ROWS));
-                assert!(labels.iter().all(|(_,y,h)|*y>=40. && y+h <= 480.-MOUTH_H-MENU_HINT_H as f32-12.));
-                assert!(labels.iter().any(|(tex,..)|*tex==id(selected.index()*2+1)));
+    for hidden in [&[][..], &[QuickRow::WallpaperTint][..]] {
+        for selected in QuickRow::GENERAL
+            .into_iter()
+            .chain(QuickRow::GAME)
+            .chain(QuickRow::MAIN)
+            .chain(QuickRow::CONTROLS)
+            .chain(QuickRow::SHORTCUTS)
+        {
+            if hidden.contains(&selected) {
+                continue;
+            }
+            let shown = selected.shown(hidden);
+            let first = quick_window_start(selected, hidden);
+            assert!((first..first + QUICK_VISIBLE_ROWS.min(shown.len()))
+                .contains(&selected.position(hidden)));
+            for width in [640.0, 720.0] {
+                let mut out = Vec::new();
+                QuickMenu {
+                    row: selected,
+                    hidden,
+                    values: [None; QuickRow::ALL.len()],
+                    clock: None,
+                    wallpaper: None,
+                    faces: Some(&faces),
+                    ground: None,
+                    palette: None,
+                    bound: None,
+                    description: selected.binds().then_some((id(1004), 200, 23)),
+                    gba_bezel: None,
+                    gb_bezel: None,
+                    gbc_bezel: None,
+                    bezel: None,
+                    over_game: false,
+                    footer_legends: true,
+                    footer_top: 480.,
+                    canvas: Canvas { w: width, h: 480. },
+                }
+                .draw(&mut out);
+                let labels: Vec<_> = out
+                    .iter()
+                    .filter_map(|d| match d {
+                        Draw::Tex { tex, y, h, .. }
+                            if shown.iter().any(|r| {
+                                [id(r.index() * 2), id(r.index() * 2 + 1)].contains(tex)
+                            }) =>
+                        {
+                            Some((*tex, *y, *h))
+                        }
+                        _ => None,
+                    })
+                    .collect();
+                assert_eq!(labels.len(), shown.len().min(QUICK_VISIBLE_ROWS));
+                assert!(labels.iter().all(
+                    |(_, y, h)| *y >= 40. && y + h <= 480. - MOUTH_H - MENU_HINT_H as f32 - 12.
+                ));
+                assert!(labels
+                    .iter()
+                    .any(|(tex, ..)| *tex == id(selected.index() * 2 + 1)));
+                if selected.binds() {
+                    let y = out
+                        .iter()
+                        .find_map(|d| match *d {
+                            Draw::Tex { tex, y, .. } if tex == id(1004) => Some(y),
+                            _ => None,
+                        })
+                        .unwrap();
+                    assert!(labels.iter().all(|(_, top, h)| top + h + 8. <= y));
+                }
             }
         }
     }

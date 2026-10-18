@@ -413,7 +413,10 @@ fn a_shut_lid_over_a_session_takes_its_network_down_too() {
 fn switch_is_presented_until_its_stroke_and_fade_finish() {
     let d = tmp_root_with_carts(&["Emerald"]);
     let mut a = app_playing_in(d.path(), "Emerald");
-    let faces = [slot_gfx::TexId::from_raw(701), slot_gfx::TexId::from_raw(702)];
+    let faces = [
+        slot_gfx::TexId::from_raw(701),
+        slot_gfx::TexId::from_raw(702),
+    ];
     a.set_power_switch_faces([faces; 2]);
     a.apply(Action::PowerHold);
     let start = a.now();
@@ -432,17 +435,57 @@ fn switch_is_presented_until_its_stroke_and_fade_finish() {
 
 #[test]
 fn shutdown_switch_uses_the_persisted_shell_colour() {
-    use slot_store::{ShellColour, SlotState, write_slot_state};
+    use slot_store::{write_slot_state, ShellColour, SlotState};
     for colour in ShellColour::FINISHES {
         let d = tmp_root_with_carts(&["Emerald"]);
-        write_slot_state(d.path(), &SlotState { shell_colour: colour, clock_set: true, ..SlotState::default() }).unwrap();
+        write_slot_state(
+            d.path(),
+            &SlotState {
+                shell_colour: colour,
+                clock_set: true,
+                ..SlotState::default()
+            },
+        )
+        .unwrap();
         let mut a = slot::app::App::boot(d.path());
-        let faces = std::array::from_fn(|i| [slot_gfx::TexId::from_raw(800+i*2), slot_gfx::TexId::from_raw(801+i*2)]);
+        let faces = std::array::from_fn(|i| {
+            [
+                slot_gfx::TexId::from_raw(800 + i * 2),
+                slot_gfx::TexId::from_raw(801 + i * 2),
+            ]
+        });
         a.set_shell_switch_faces(faces);
         a.apply(Action::PowerHold);
         let mut out = Vec::new();
         a.draw(&mut out);
         let expected = faces[colour.finish_index()][0];
-        assert!(out.iter().any(|d| matches!(*d, Draw::Tex { tex, .. } if tex == expected)));
+        assert!(out
+            .iter()
+            .any(|d| matches!(*d, Draw::Tex { tex, .. } if tex == expected)));
     }
+}
+
+#[test]
+fn a_shut_lid_powers_off_after_the_minutes_set_in_the_menu() {
+    let d = tmp_root_with_carts(&["Emerald"]);
+    write_slot_state(
+        d.path(),
+        &SlotState {
+            clock_set: true,
+            lid_off_min: Some(1),
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    let mut a = boot(d.path());
+    a.set_power(panel(d.path(), Duration::from_secs(300)).0);
+    a.apply(Action::LidClose);
+    for _ in 0..59 * 60 {
+        a.update(1.0 / 60.0);
+    }
+    assert!(!a.powering_off(), "59 s is short of the minute");
+    for _ in 0..120 {
+        a.update(1.0 / 60.0);
+    }
+    assert!(a.powering_off());
 }

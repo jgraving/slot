@@ -90,9 +90,12 @@ fn b_climbs_the_in_game_pages_and_never_the_shelf_ones() {
 #[test]
 fn screen_shows_the_palette_only_when_palettes_are_live() {
     let (_d, mut a) = playing();
-    assert_eq!(a.in_game_hidden(), &[QuickRow::Palette, QuickRow::Bezel]);
+    assert_eq!(
+        a.in_game_hidden(),
+        &[QuickRow::Palette, QuickRow::Bezel, QuickRow::LeftStick]
+    );
     a.set_palette_live(true);
-    assert_eq!(a.in_game_hidden(), &[QuickRow::Bezel]);
+    assert_eq!(a.in_game_hidden(), &[QuickRow::Bezel, QuickRow::LeftStick]);
 }
 
 #[test]
@@ -419,6 +422,9 @@ fn menu_faces(a: &mut App) {
             (id(402), 80),
             (id(403), 90),
             (id(404), 85),
+            (id(405), 75),
+            (id(406), 95),
+            (id(407), 90),
         ],
         legend_light: [
             (id(400), 70),
@@ -426,7 +432,11 @@ fn menu_faces(a: &mut App) {
             (id(402), 80),
             (id(403), 90),
             (id(404), 85),
+            (id(405), 75),
+            (id(406), 95),
+            (id(407), 90),
         ],
+        descriptions: [(id(410), 300, 44), (id(411), 340, 44)],
     });
 }
 
@@ -444,7 +454,7 @@ fn the_pause_menu_slides_the_carousel_footer_up_and_back_down() {
         "the footer did not rise: {rising} -> {open}"
     );
     assert!(
-        open >= OUT_H_F - MOUTH_H - 1.0,
+        open >= OUT_H_F - MOUTH_H - 8.0,
         "the cart stands above the footer at {open}"
     );
     a.apply(Action::QuickMenu);
@@ -472,13 +482,13 @@ fn pause_legends_sit_on_the_link_line_at_either_end() {
     frames(&mut a, 30);
     let (lx, ly, _) = legend_at(&a, 403);
     let (rx, ry, rw) = legend_at(&a, 402);
-    let footer = OUT_H as f32 - MOUTH_H;
+    let footer = OUT_H as f32 - MOUTH_H - slot_ui::MENU_HINT_H as f32 - 12.0;
     assert_eq!(ly, footer, "Resume does not fill the footer");
     assert_eq!(ry, footer, "Open does not fill the footer");
-    assert!(lx.abs() < 1.0, "Resume is not on the left: {lx}");
+    assert!((lx - 16.0).abs() < 1.0, "Resume is not on the left: {lx}");
     let right = rx + rw - HINT_EDGE as f32;
     assert!(
-        (right - OUT_W as f32).abs() < 1.0,
+        (right - (OUT_W as f32 - 16.0)).abs() < 1.0,
         "Open is not on the right: {right}"
     );
     assert!(legend_missing(&a, 400), "Back is drawn beside Resume");
@@ -499,11 +509,17 @@ fn a_value_row_puts_change_on_the_right_of_the_footer() {
     frames(&mut a, 30);
     let (lx, ly, _) = legend_at(&a, 400);
     let (rx, ry, rw) = legend_at(&a, 401);
-    assert_eq!((ly, ry), (OUT_H as f32 - MOUTH_H, OUT_H as f32 - MOUTH_H));
-    assert!(lx.abs() < 1.0, "Back is not on the left: {lx}");
+    assert_eq!(
+        (ly, ry),
+        (
+            OUT_H as f32 - MOUTH_H - slot_ui::MENU_HINT_H as f32 - 12.0,
+            OUT_H as f32 - MOUTH_H - slot_ui::MENU_HINT_H as f32 - 12.0
+        )
+    );
+    assert!((lx - 16.0).abs() < 1.0, "Back is not on the left: {lx}");
     let right = rx + rw - HINT_EDGE as f32;
     assert!(
-        (right - OUT_W as f32).abs() < 1.0,
+        (right - (OUT_W as f32 - 16.0)).abs() < 1.0,
         "Change is not on the right: {right}"
     );
     assert!(
@@ -544,7 +560,7 @@ fn closing_the_game_from_the_menu_keeps_the_footer_still_above_the_scaling_pictu
     );
     let parked = y.expect("no footer during the close");
     assert!(
-        parked >= OUT_H_F - MOUTH_H - 1.0,
+        parked >= OUT_H_F - MOUTH_H - 8.0,
         "the cart left the carousel footer at {parked}"
     );
 }
