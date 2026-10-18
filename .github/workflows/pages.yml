@@ -19,6 +19,8 @@ concurrency:
 
 jobs:
   deploy:
+    # Forks can opt in after configuring their own GitHub Pages site.
+    if: github.repository == 'BrandonKowalski/slot' || vars.ENABLE_PAGES == 'true'
     name: site
     runs-on: ubuntu-latest
     environment:
