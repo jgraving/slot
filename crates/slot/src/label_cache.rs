@@ -10,7 +10,8 @@ use slot_store::Cart;
 use slot_ui::{cover, label_size};
 
 const DIR: &str = "System/Cache/Labels";
-const HEAD: usize = 24;
+const VERSION: &[u8; 4] = b"SLB2";
+const HEAD: usize = 28;
 
 pub fn label_art(root: &Path, cart: &Cart) -> Option<Vec<u8>> {
     let src = cart.label.as_deref()?;
@@ -26,6 +27,7 @@ pub fn label_art(root: &Path, cart: &Cart) -> Option<Vec<u8>> {
     }
     let (cw, ch) = if art.is_some() { (w, h) } else { (0, 0) };
     let mut bytes = Vec::with_capacity(HEAD + art.as_ref().map_or(0, Vec::len));
+    bytes.extend_from_slice(VERSION);
     bytes.extend_from_slice(&stamp.0.to_le_bytes());
     bytes.extend_from_slice(&stamp.1.to_le_bytes());
     bytes.extend_from_slice(&cw.to_le_bytes());
@@ -145,6 +147,10 @@ fn read(path: &Path, stamp: (u64, u64), w: u32, h: u32) -> Option<Option<Vec<u8>
 }
 
 fn body_len(head: &[u8], stamp: (u64, u64), w: u32, h: u32) -> Option<usize> {
+    if head.get(..4)? != VERSION {
+        return None;
+    }
+    let head = &head[4..];
     let word = |at: usize| u64::from_le_bytes(head[at..at + 8].try_into().unwrap_or_default());
     let half = |at: usize| u32::from_le_bytes(head[at..at + 4].try_into().unwrap_or_default());
     if (word(0), word(8)) != stamp {

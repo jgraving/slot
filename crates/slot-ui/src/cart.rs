@@ -533,30 +533,14 @@ fn shell_face(s: &Spec, shell: &Shell) -> CartFace {
         s.h
     );
     let mut rgba = src.to_vec();
-    // The neutral asset is blended with the game's colour everywhere but the label box, which
-    // stays the grey of the asset. A clear shell is its own asset with real transparency: what the
-    // compositor drew underneath (the board) shows through and stays put while the shell moves.
-    // The label box stays opaque.
-    let (lx, ly, lw, lh) = s.label;
-    for y in 0..s.h {
-        for x in 0..s.w {
-            let on_label = (lx..lx + lw).contains(&x) && (ly..ly + lh).contains(&y);
-            let i = ((y * s.w + x) * 4) as usize;
-            if !on_label {
-                for c in 0..3 {
-                    rgba[i + c] = overlay(rgba[i + c], shell.colour[c]);
-                }
-            }
-            // The asset's own alpha is kept: its transparent corners and sides hold stray RGB
-            // (often white), and only the alpha stops that being drawn.
-            let own = u32::from(rgba[i + 3]);
-            rgba[i + 3] = if on_label {
-                255
-            } else if clear {
-                ((own * u32::from(CLEAR_ALPHA) + 127) / 255) as u8
-            } else {
-                own as u8
-            };
+    // Tint the recessed label well too: transparent sticker corners expose
+    // the same plastic as the rest of the cartridge, including clear shells.
+    for px in rgba.chunks_exact_mut(4) {
+        for c in 0..3 {
+            px[c] = overlay(px[c], shell.colour[c]);
+        }
+        if clear {
+            px[3] = ((u32::from(px[3]) * u32::from(CLEAR_ALPHA) + 127) / 255) as u8;
         }
     }
     if shell.finish == Finish::Glitter {
@@ -647,11 +631,13 @@ fn paste_label(s: &Spec, face: &mut CartFace, label: &[u8]) {
                 continue;
             }
             let d = (((y + ly) * s.w + x + lx) * 4) as usize;
+            let behind = u32::from(face.rgba[d + 3]) * (255 - a);
+            let alpha = a * 255 + behind;
             for c in 0..3 {
-                face.rgba[d + c] =
-                    ((label[src + c] as u32 * a + face.rgba[d + c] as u32 * (255 - a) + 127) / 255)
-                        as u8;
+                face.rgba[d + c] = ((u32::from(label[src + c]) * a * 255
+                    + u32::from(face.rgba[d + c]) * behind + alpha / 2) / alpha) as u8;
             }
+            face.rgba[d + 3] = ((alpha + 127) / 255) as u8;
         }
     }
 }
@@ -673,4 +659,33 @@ fn hsv_to_rgb(h: f32, s: f32, v: f32) -> [u8; 3] {
         ((g + m) * 255.0).round() as u8,
         ((b + m) * 255.0).round() as u8,
     ]
+}
+
+#[cfg(test)]
+mod label_transparency_tests {
+    use super::*;
+
+    #[test]
+    fn rounded_labels_reveal_coloured_plastic_on_every_mould_and_finish() {
+        for shape in [Shape::Gba, Shape::Gb(GbShell::Notched), Shape::Gb(GbShell::Rounded)] {
+            let s = spec(shape);
+            for finish in [Finish::Solid, Finish::Translucent, Finish::Glitter] {
+                let shell = Shell { colour: [30, 190, 60], finish };
+                let mut face = shell_face(&s, &shell);
+                let (x, y, w, h) = s.label;
+                let at = ((y * s.w + x) * 4) as usize;
+                let plastic = face.rgba[at..at + 4].to_vec();
+                assert!(plastic[1] > plastic[0], "the well lost the shell's green tint");
+                let mut label = vec![255; (w * h * 4) as usize];
+                label[..4].copy_from_slice(&[0, 0, 0, 0]);
+                label[4..8].copy_from_slice(&[255, 0, 0, 128]);
+                label[8..12].copy_from_slice(&[0, 0, 0, 255]);
+                paste_label(&s, &mut face, &label);
+                assert_eq!(&face.rgba[at..at + 4], plastic, "transparent corner changed its backing");
+                assert!(face.rgba[at + 7] >= plastic[3], "the label made its backing more transparent");
+                assert_eq!(&face.rgba[at + 8..at + 12], &[0, 0, 0, 255], "opaque black artwork was removed");
+                assert_eq!(&face.rgba[at + 12..at + 16], &[255; 4]);
+            }
+        }
+    }
 }

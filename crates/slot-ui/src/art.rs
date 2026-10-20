@@ -39,21 +39,28 @@ fn box_average(src: &[u8], sw: u32, sh: u32, x0: f32, y0: f32, x1: f32, y1: f32)
     let xb = ((x1.ceil() as u32).max(xa + 1)).min(sw);
     let yb = ((y1.ceil() as u32).max(ya + 1)).min(sh);
 
-    let mut acc = [0u32; 4];
+    let mut acc = [0u64; 4];
     let mut n = 0u32;
     for y in ya..yb {
         for x in xa..xb {
             let i = ((y * sw + x) * 4) as usize;
-            for c in 0..4 {
-                acc[c] += src[i + c] as u32;
+            let alpha = u64::from(src[i + 3]);
+            for c in 0..3 {
+                acc[c] += u64::from(src[i + c]) * alpha;
             }
+            acc[3] += alpha;
             n += 1;
         }
     }
     let mut out = [0u8; 4];
-    for c in 0..4 {
-        out[c] = ((acc[c] + n / 2) / n) as u8;
+    // Average premultiplied colour, then return straight RGBA. Hidden RGB
+    // in transparent corners must not darken (or whiten) a visible label edge.
+    if acc[3] != 0 {
+        for c in 0..3 {
+            out[c] = ((acc[c] + acc[3] / 2) / acc[3]) as u8;
+        }
     }
+    out[3] = ((acc[3] + u64::from(n) / 2) / u64::from(n)) as u8;
     out
 }
 
@@ -187,5 +194,23 @@ fn unpremultiply(rgba: &mut [u8]) {
         for c in &mut px[..3] {
             *c = ((*c as u32 * 255 + a as u32 / 2) / a as u32).min(255) as u8;
         }
+    }
+}
+
+#[cfg(test)]
+mod transparency_tests {
+    use super::*;
+
+    #[test]
+    fn resizing_does_not_mix_hidden_black_or_white_into_the_label_edge() {
+        for hidden in [0, 255] {
+            let src = [hidden, hidden, hidden, 0, 240, 80, 20, 255];
+            assert_eq!(cover_rgba(&src, 2, 1, 1, 1).unwrap(), [240, 80, 20, 128]);
+        }
+        // Opaque black belongs to the artwork and must survive resizing.
+        assert_eq!(
+            cover_rgba(&[0, 0, 0, 255], 1, 1, 1, 1).unwrap(),
+            [0, 0, 0, 255]
+        );
     }
 }
