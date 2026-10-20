@@ -1,5 +1,6 @@
 mod art;
-pub use art::cover;
+pub use art::{cover, cover_label};
+mod label_mask;
 mod bitmaps;
 pub use bitmaps::{
     link_port, link_port_light, slot_back, slot_back_light, slot_front, slot_front_light,

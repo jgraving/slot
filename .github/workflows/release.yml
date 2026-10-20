@@ -117,7 +117,7 @@ jobs:
 
           ## The SP experience
 
-          Transparent label corners reveal the cartridge plastic, with corrected alpha resizing to prevent dark fringes.
+          Labels with detected rounded black scan backgrounds are cleaned automatically on device and cached. Transparent corners reveal the cartridge plastic, with corrected alpha resizing to prevent dark fringes. Original PNGs stay unchanged.
 
           Four matching shell finishes, a rebuilt cartridge bay and EXT.1 port, larger cartridges, scrolling menus, saved day/night display presets, Bluetooth/USB audio controls, separate output volumes, and configurable sleep/shutdown behavior. See the [README](https://github.com/jgraving/slot#readme) for previews and setup.
 
