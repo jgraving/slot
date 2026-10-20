@@ -108,3 +108,17 @@ fn a_rebuild_caches_every_stale_label_and_counts_to_the_end() {
     assert_eq!((rebuild.done(), rebuild.total()), (6, 6));
     assert!(stale(d.path(), carts.iter()).is_empty());
 }
+
+#[test]
+fn labels_cached_before_alpha_correct_resizing_are_rebuilt_automatically() {
+    let d = tempfile::tempdir().unwrap();
+    let cart = cart_with_label(d.path(), [200, 10, 10]);
+    let good = label_art(d.path(), &cart).unwrap();
+    let path = cache_path(d.path(), &cart);
+    let bytes = std::fs::read(&path).unwrap();
+    // The previous format had the same payload/header fields but no version tag.
+    std::fs::write(&path, &bytes[4..]).unwrap();
+    assert!(!fresh(d.path(), &cart));
+    assert_eq!(label_art(d.path(), &cart), Some(good));
+    assert_eq!(std::fs::read(path).unwrap(), bytes);
+}
