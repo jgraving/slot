@@ -5,6 +5,13 @@ pub fn cover(path: &Path, w: u32, h: u32) -> Option<Vec<u8>> {
     cover_rgba(&src, sw, sh, w, h)
 }
 
+/// Clean eligible scanned-label corners on the handheld without editing the PNG.
+pub fn cover_label(path: &Path, w: u32, h: u32) -> Option<Vec<u8>> {
+    let (mut src, sw, sh) = decode(path)?;
+    crate::label_mask::clear_corner_background(&mut src, sw, sh);
+    cover_rgba(&src, sw, sh, w, h)
+}
+
 pub fn cover_bytes(bytes: &[u8], w: u32, h: u32) -> Option<Vec<u8>> {
     let (src, sw, sh) = decode_png_bytes(bytes)?;
     cover_rgba(&src, sw, sh, w, h)

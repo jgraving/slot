@@ -38,3 +38,10 @@ Selectively adapted the panel driver and native game pacing from [pvaibhav/slot 
 This fork additionally targets **120 FPS for carousel/menu animations** when the platform reports 120 Hz enabled, otherwise 60 FPS. Emulated games use their core's native frame rate and audio sample rate; a faster panel does not double game speed. The existing time-based animations retain their durations. `high_refresh=1` is the default in `Config/slot.state`; set it to `0` with Slot stopped to opt out. An absent key migrates to enabled; unsupported or failed panels still use the 60 FPS UI clock. The preference is retained on transient failure, while the actual hardware mode determines pacing.
 
 Validation includes panel identification, register rollback and wake ordering tests, simulated 60/120 Hz scanout at native game cadence, UI deadline counts, preference persistence and failed/unsupported fallback. ARM64 CI builds and tests the resulting package. Physical panel smoothness and sustained 120 FPS on a handheld cannot be established on this host and still need device review.
+
+
+## On-device scanned-label corner cleanup
+
+Label loading now runs a small Rust connected-component detector before resizing. For opaque scans with near-black cutouts in all four rounded corners, it masks only the corner-connected background. Candidates entering the central artwork, covering more than one twelfth of the image, or lacking a corner cutout are rejected without mutation. Existing alpha is respected. This heuristic is deliberately conservative; it does not remove arbitrary black artwork or modify source PNG files. Wallpapers and other images use their existing loading path.
+
+The processed labels are cached with format marker SLB3, automatically rebuilding older cached versions. Cleanup runs in the existing background label-loading/cache path, never per frame. Validated using the supplied Emerald, Ruby v1.1 and Sapphire v1.1 scans: respectively 4,707, 17,757 and 1,922 exterior pixels masked; retained opaque artwork unchanged. Uploaded label images are not added to the repository.

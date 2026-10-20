@@ -122,3 +122,40 @@ fn labels_cached_before_alpha_correct_resizing_are_rebuilt_automatically() {
     assert_eq!(label_art(d.path(), &cart), Some(good));
     assert_eq!(std::fs::read(path).unwrap(), bytes);
 }
+
+#[test]
+fn opaque_scan_corners_are_cleaned_on_device_and_old_versioned_caches_refresh() {
+    let d = tempfile::tempdir().unwrap();
+    let cart = cart_with_label(d.path(), [200, 10, 10]);
+    let (w, h) = label_size(&cart);
+    let mut pixels = vec![255; (w * h * 4) as usize];
+    let radius = h / 8;
+    for y in 0..h {
+        for x in 0..w {
+            if x.min(w - 1 - x) + y.min(h - 1 - y) < radius {
+                pixels[((y * w + x) * 4) as usize..][..3].fill(0);
+            }
+        }
+    }
+    let ink = (((h / 2) * w + w / 2) * 4) as usize;
+    pixels[ink..ink + 3].fill(0);
+    let src = cart.label.as_ref().unwrap();
+    {
+        let file = std::fs::File::create(src).unwrap();
+        let mut enc = png::Encoder::new(file, w, h);
+        enc.set_color(png::ColorType::Rgba);
+        enc.write_header().unwrap().write_image_data(&pixels).unwrap();
+    }
+    let original_file = std::fs::read(src).unwrap();
+    let first = label_art(d.path(), &cart).unwrap();
+    assert_eq!(first[3], 0);
+    assert_eq!(&first[ink..ink + 4], &[0, 0, 0, 255]);
+    assert_eq!(label_art(d.path(), &cart), Some(first.clone()));
+    let cache = cache_path(d.path(), &cart);
+    let mut old = std::fs::read(&cache).unwrap();
+    old[3] = b'2'; // Same stamp/dimensions but the previous processing algorithm.
+    std::fs::write(cache, old).unwrap();
+    assert!(!fresh(d.path(), &cart));
+    assert_eq!(label_art(d.path(), &cart), Some(first));
+    assert_eq!(std::fs::read(src).unwrap(), original_file);
+}
