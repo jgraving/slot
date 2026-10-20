@@ -34,8 +34,7 @@ fn boot_with(root: &Path, state: SlotState) -> App {
 }
 
 fn press(a: &mut App, btn: Btn) {
-    a.apply(Action::GbaDown(btn));
-    a.apply(Action::GbaUp(btn));
+    common::through(a, btn);
 }
 
 fn go_to(a: &mut App, shelf: &str) {
@@ -198,11 +197,11 @@ fn two_favorites() -> (TempDir, App) {
 #[test]
 fn held_y_cannot_confirm_removal_without_a_release() {
     let (d, mut a) = two_favorites();
-    for _ in 0..10 { a.apply(Action::GbaDown(Btn::Y)); }
+    for _ in 0..10 { a.apply(Action::Favorite); }
     assert!(a.favorite_removal_pending());
     assert_eq!(read_slot_state(d.path()).favorites.len(), 2);
-    a.apply(Action::GbaUp(Btn::Y));
-    a.apply(Action::GbaDown(Btn::Y));
+    a.apply(Action::FavoriteRelease);
+    a.apply(Action::Favorite);
     assert_eq!(read_slot_state(d.path()).favorites, [favorite(Platform::Gba, "Fusion")]);
 }
 

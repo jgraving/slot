@@ -198,6 +198,7 @@ pub struct SlotState {
     pub cart: Option<String>,
     pub cart_platform: Option<Platform>,
     pub brightness: u8,
+    pub high_refresh: bool,
     pub blue_light: u8,
     pub volume: u8,
     pub volume_hp: u8,
@@ -326,6 +327,7 @@ impl Default for SlotState {
             cart: None,
             cart_platform: None,
             brightness: 5,
+            high_refresh: true,
             blue_light: 0,
             volume: 60,
             volume_hp: 60,
@@ -473,6 +475,7 @@ pub fn write_slot_state(root: &Path, s: &SlotState) -> std::io::Result<()> {
             r.stem
         ))
     ));
+    text.push_str(&format!("high_refresh={}\n", s.high_refresh as u8));
     atomic_write(&state_path(root), text.as_bytes())?;
     write_list(root, RECENTS_FILE, &s.recents)?;
     write_list(root, FAVORITES_FILE, &s.favorites)
@@ -482,6 +485,7 @@ fn parse(text: &str) -> Option<SlotState> {
     let mut cart = None;
     let mut cart_platform = None;
     let mut brightness = None;
+    let mut high_refresh = true;
     let mut blue_light = None;
     let mut volume = None;
     let mut volume_hp = None;
@@ -528,6 +532,7 @@ fn parse(text: &str) -> Option<SlotState> {
         match key {
             "cart" => cart = Some(value.to_string()),
             "cart_platform" => cart_platform = platform_value(value),
+            "high_refresh" => high_refresh = value == "1",
             "brightness" => brightness = Some(level(value, BRIGHTNESS_MAX)?),
             "blue_light" => blue_light = Some(level(value, BLUE_LIGHT_MAX)?),
             "volume" => volume = Some(level(value, VOLUME_MAX)?),
@@ -583,6 +588,7 @@ fn parse(text: &str) -> Option<SlotState> {
         cart: (!cart.is_empty()).then_some(cart),
         cart_platform,
         brightness: brightness?,
+        high_refresh,
         blue_light: blue_light?,
         volume: volume?,
         volume_hp: volume_hp.or(volume)?,

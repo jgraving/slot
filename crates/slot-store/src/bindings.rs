@@ -26,6 +26,10 @@ pub enum Device {
 }
 
 impl Device {
+    pub fn leads(self) -> bool {
+        matches!(self, Device::Select | Device::Start)
+    }
+
     pub const ALL: [Device; 14] = [
         Device::Up,
         Device::Down,
@@ -92,6 +96,7 @@ impl Device {
 pub enum Modifier {
     Select,
     Menu,
+    Button(Device),
 }
 
 impl Modifier {
@@ -99,13 +104,15 @@ impl Modifier {
         match self {
             Modifier::Select => "select",
             Modifier::Menu => "menu",
+            Modifier::Button(d) => d.key(),
         }
     }
 
     fn label(self) -> &'static str {
         match self {
-            Modifier::Select => "SELECT",
+            Modifier::Select => "SEL",
             Modifier::Menu => "MENU",
+            Modifier::Button(d) => d.label(),
         }
     }
 }
@@ -129,6 +136,22 @@ impl Binding {
             modifier: Some(modifier),
             button,
         })
+    }
+
+    pub fn pair(first: Device, second: Device) -> Option<Binding> {
+        match (first, second) {
+            _ if first == second => Binding::plain(first),
+            (Device::Select, other) | (other, Device::Select) => {
+                Binding::with(Modifier::Select, other)
+            }
+            (Device::Start, other) | (other, Device::Start) => {
+                Binding::with(Modifier::Button(Device::Start), other)
+            }
+            _ if (first as usize) < (second as usize) => {
+                Binding::with(Modifier::Button(first), second)
+            }
+            _ => Binding::with(Modifier::Button(second), first),
+        }
     }
 
     pub fn text(binding: Option<Binding>) -> String {
@@ -167,10 +190,11 @@ impl Binding {
         let Some((m, b)) = value.split_once('+') else {
             return Some(Binding::plain(Device::parse(value)?));
         };
-        let modifier = [Modifier::Select, Modifier::Menu]
-            .into_iter()
-            .find(|x| x.key().eq_ignore_ascii_case(m.trim()))?;
-        Some(Binding::with(modifier, Device::parse(b)?))
+        let button = Device::parse(b)?;
+        if m.trim().eq_ignore_ascii_case(Modifier::Menu.key()) {
+            return Some(Binding::with(Modifier::Menu, button));
+        }
+        Some(Binding::pair(Device::parse(m)?, button))
     }
 }
 
@@ -186,10 +210,12 @@ pub enum GameButton {
     Start,
     L,
     R,
+    TurboA,
+    TurboB,
 }
 
 impl GameButton {
-    pub const ALL: [GameButton; 10] = [
+    pub const ALL: [GameButton; 12] = [
         GameButton::Up,
         GameButton::Down,
         GameButton::Left,
@@ -200,12 +226,27 @@ impl GameButton {
         GameButton::Start,
         GameButton::L,
         GameButton::R,
+        GameButton::TurboA,
+        GameButton::TurboB,
+    ];
+
+    const GAME_BOY: [GameButton; 10] = [
+        GameButton::Up,
+        GameButton::Down,
+        GameButton::Left,
+        GameButton::Right,
+        GameButton::A,
+        GameButton::B,
+        GameButton::Select,
+        GameButton::Start,
+        GameButton::TurboA,
+        GameButton::TurboB,
     ];
 
     pub fn of(platform: Platform) -> &'static [GameButton] {
         match platform {
             Platform::Gba => &GameButton::ALL,
-            Platform::Gb | Platform::Gbc => &GameButton::ALL[..8],
+            Platform::Gb | Platform::Gbc => &GameButton::GAME_BOY,
         }
     }
 
@@ -221,6 +262,8 @@ impl GameButton {
             GameButton::Start => "Start",
             GameButton::L => "L Button",
             GameButton::R => "R Button",
+            GameButton::TurboA => "Turbo A",
+            GameButton::TurboB => "Turbo B",
         }
     }
 
@@ -236,6 +279,8 @@ impl GameButton {
             GameButton::Start => "start",
             GameButton::L => "l",
             GameButton::R => "r",
+            GameButton::TurboA => "turbo_a",
+            GameButton::TurboB => "turbo_b",
         }
     }
 
@@ -251,6 +296,8 @@ impl GameButton {
             GameButton::Start => Device::Start,
             GameButton::L => Device::L1,
             GameButton::R => Device::R1,
+            GameButton::TurboA => Device::X,
+            GameButton::TurboB => Device::Y,
         }
     }
 
@@ -360,7 +407,7 @@ impl Shortcut {
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub struct Controls {
-    game: [Option<Binding>; 10],
+    game: [Option<Binding>; 12],
 }
 
 impl Default for Controls {

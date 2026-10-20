@@ -45,7 +45,7 @@ jobs:
       - name: Run device regression checks
         run: |
           set -eu
-          cargo test -p slot --no-default-features --lib --test bindings --test left_stick --test card_repair --test evdev --test core --test eject --test recents --test clock --test show_titles --test in_game_menu --test favorites --test power --test cartridge_ticks --test power_click --test sfx --test sleep --test quick_menu --test menu_repeat --test night_display --test link_ui --test link_screen --test link_art_builder --test core_picker --test sound_menu_style -- --test-threads=1
+          cargo test -p slot --no-default-features --lib --test refresh --test emu --test bindings --test left_stick --test card_repair --test evdev --test core --test eject --test recents --test clock --test show_titles --test in_game_menu --test favorites --test power --test cartridge_ticks --test power_click --test sfx --test sleep --test quick_menu --test menu_repeat --test night_display --test link_ui --test link_screen --test link_art_builder --test core_picker --test sound_menu_style -- --test-threads=1
           cargo test -p slot-ui --lib --test favorite --test power_switch --test quick_menu --test toast --test shelf --test native_shelf --test chrome --test board --test shell_material --test cart --test legend --test link_art
           cargo test -p slot-store --lib --tests
           cargo test -p slot-input --lib --tests
@@ -120,6 +120,8 @@ jobs:
           Four matching shell finishes, a rebuilt cartridge bay and EXT.1 port, larger cartridges, scrolling menus, saved day/night display presets, Bluetooth/USB audio controls, separate output volumes, and configurable sleep/shutdown behavior. See the [README](https://github.com/jgraving/slot#readme) for previews and setup.
 
           Built and regression-tested on ARM64; slot, mGBA and gpSP are verified AArch64 binaries. Device/accessory support varies. Bluetooth volume synchronization remains experimental, and physical link/suspend behavior needs device-specific testing.
+
+          This build adds verified-panel 120 Hz support adapted from pvaibhav/slot, with 120 FPS UI pacing when enabled and native game/audio timing. Unsupported panels retain 60 Hz. Physical 120 Hz smoothness still needs handheld verification.
 
           This build includes upstream's control remapping, stick support, asynchronous ROM loading, SD-card repair, and mGBA flash-save fixes. Run-ahead is removed to follow upstream's save-safety fix. Fork-specific shell, audio, night mode, and power preferences are retained.
 

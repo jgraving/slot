@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use slot_gfx::{Canvas, Layout, OUT_H, OUT_W};
+use slot_gfx::{Canvas, OUT_H, OUT_W};
 use slot_input::{Action, Btn, RawEvent, MENU_DOUBLE_TAP_MS, MUTE_CHORD_MS};
 use slot_power::{Battery, Charge, LedState, LidPolicy, Power, RepairResult};
 use slot_retro::LinkChannel;
@@ -22,7 +22,7 @@ use slot_ui::{
 
 use crate::audio::Sfx;
 use crate::core_picker::{Chip, CorePicker, Outcome, Press};
-use crate::link_kind::{link_carried, link_kind, serial_option, LinkKind};
+use crate::link_kind::{link_carried, link_dual, link_kind, serial_option, LinkKind};
 use crate::link_radio::{radio_jobs, LinkRole, RadioJob, RadioJobs};
 use crate::link_screen::LinkSprites;
 use crate::link_start::{link_port, LinkFail, LinkProgress, LinkStarter, LinkStep};
@@ -30,16 +30,17 @@ use crate::persist::{self, Snapshot};
 use crate::video_mode::{self, VideoMode};
 use slot_store::{
     read_carousel, read_controls, read_shortcuts, write_carousel, write_controls, write_shortcuts,
-    Binding, CarouselAction, CarouselKeys, Controls, Device, GameButton, Modifier, ShortcutKeys,
+    Binding, CarouselKeys, Controls, Device, GameButton, Modifier, ShortcutKeys,
 };
 
 pub const PRESS_A_BUTTON: &str = "Press a button";
+pub const CLASH_MARK: &str = "!";
 
 #[derive(Copy, Clone, Debug)]
 struct BindCapture {
     row: QuickRow,
     menu: bool,
-    select: bool,
+    first: Option<Device>,
 }
 
 pub const INSERT_S: f32 = 0.73;
@@ -50,8 +51,6 @@ pub const SEATED_AT: f32 = INSERT_S - INSERT_HOLD_S;
 pub const EJECT_S: f32 = SEATED_AT;
 
 const EJECT_HOLD_S: f32 = 0.35;
-
-pub const IN_GAME_MENU: Layout = Layout::Native;
 
 const POWER_ON_S: f32 = 0.22;
 
@@ -101,6 +100,14 @@ const LINK_LEGEND_Y: f32 = OUT_H as f32 - MOUTH_H - slot_ui::MENU_HINT_H as f32 
 pub const LINK_SCRIM: [f32; 4] = [0.0, 0.0, 0.0, 0.5];
 const LINK_LEGEND_GAP: f32 = 40.0;
 const LINK_LEGEND_EDGE: f32 = 16.0;
+
+fn link_keys_w(faces: &[(TexId, u32)]) -> f32 {
+    faces
+        .iter()
+        .map(|(_, w)| w.saturating_sub(HINT_EDGE) as f32)
+        .sum::<f32>()
+        + LINK_LEGEND_GAP * faces.len().saturating_sub(1) as f32
+}
 const LID_SHADOW_W: f32 = 168.0;
 const LID_SHADOW_H: f32 = 18.0;
 const LID_SHADOW_DROP: f32 = 27.1;
@@ -444,6 +451,7 @@ pub struct App {
     screen: f32,
     blank_s: f32,
     lift: f32,
+    sp_strip: Option<TexId>,
     eject_overlay: f32,
     panel: (u32, u32),
     game_ready: bool,
@@ -640,6 +648,7 @@ impl App {
             screen: 0.0,
             blank_s: 0.0,
             lift: 1.0,
+            sp_strip: None,
             eject_overlay: 0.0,
             panel: (0, 0),
             game_ready: false,
@@ -953,6 +962,9 @@ impl App {
         if !self.left_stick {
             hidden.push(QuickRow::LeftStick);
         }
+        if !self.state.turbo {
+            hidden.extend([QuickRow::GameTurboA, QuickRow::GameTurboB]);
+        }
         hidden
     }
 
@@ -1086,6 +1098,8 @@ impl App {
             | QuickRow::GameStart
             | QuickRow::GameL
             | QuickRow::GameR
+            | QuickRow::GameTurboA
+            | QuickRow::GameTurboB
             | QuickRow::ScSave
             | QuickRow::ScLoad
             | QuickRow::ScBrightUp
@@ -1253,22 +1267,34 @@ impl App {
         self.state.wallpaper = choices[next].clone();
     }
 
-    fn menu_ground(&self) -> Option<TexId> {
+    fn grounds(&self) -> [Option<(TexId, u32)>; 3] {
+        let ground = self.ground.map(|t| (t, OUT_W));
+        let blur = self.blur.map(|t| (t, OUT_W)).or(ground);
+        let own = self
+            .wallpaper
+            .map(|t| (t, self.wallpaper_size().0))
+            .or(ground);
+        [ground, blur, own]
+    }
+
+    fn menu_ground(&self) -> Option<(TexId, u32)> {
+        let [_, blur, own] = self.grounds();
         match &self.state.wallpaper {
             WallpaperPick::None => None,
-            WallpaperPick::Default | WallpaperPick::Blur => self.blur.or(self.ground),
-            WallpaperPick::Random if !self.random_drawn() => self.blur.or(self.ground),
-            WallpaperPick::File(_) | WallpaperPick::Random => self.wallpaper.or(self.ground),
+            WallpaperPick::Default | WallpaperPick::Blur => blur,
+            WallpaperPick::Random if !self.random_drawn() => blur,
+            WallpaperPick::File(_) | WallpaperPick::Random => own,
         }
     }
 
     fn draw_background(&self, out: &mut Vec<Draw>) {
+        let [ground, blur, own] = self.grounds();
         let face = match &self.state.wallpaper {
             WallpaperPick::None => None,
-            WallpaperPick::Default => self.ground,
-            WallpaperPick::Random if !self.random_drawn() => self.ground,
-            WallpaperPick::Blur => self.blur.or(self.ground),
-            WallpaperPick::File(_) | WallpaperPick::Random => self.wallpaper.or(self.ground),
+            WallpaperPick::Default => ground,
+            WallpaperPick::Random if !self.random_drawn() => ground,
+            WallpaperPick::Blur => blur,
+            WallpaperPick::File(_) | WallpaperPick::Random => own,
         };
         draw_ground(self.canvas(), face, out);
         let alpha = tint_alpha(self.state.wallpaper_tint);
@@ -1406,6 +1432,9 @@ impl App {
         }
         if !self.left_stick {
             hidden.push(QuickRow::LeftStick);
+        }
+        if !self.state.turbo {
+            hidden.extend([QuickRow::GameTurboA, QuickRow::GameTurboB]);
         }
         hidden
     }
@@ -1718,7 +1747,7 @@ impl App {
         self.capture = Some(BindCapture {
             row,
             menu: false,
-            select: false,
+            first: None,
         });
     }
 
@@ -1726,25 +1755,30 @@ impl App {
         let Some(mut c) = self.capture else {
             return;
         };
-        let select_mod = c.row.shortcut().is_some();
+        let pairs = c.row.game_button().is_none();
         match ev {
-            RawEvent::Down(Btn::Menu) => c.menu = true,
+            RawEvent::Down(Btn::Menu) if c.first.is_none() => c.menu = true,
             RawEvent::Up(Btn::Menu) => c.menu = false,
-            RawEvent::Down(Btn::Select) if select_mod && !c.menu => c.select = true,
-            RawEvent::Up(Btn::Select) if c.select => {
-                return self.bind(c.row, Binding::plain(Device::Select));
-            }
             RawEvent::Down(b) => {
                 if let Some(button) = crate::input::btn_device(b) {
-                    let modifier = match (c.menu, c.select) {
-                        (true, _) => Some(Modifier::Menu),
-                        (false, true) => Some(Modifier::Select),
-                        (false, false) => None,
+                    let binding = match (c.menu, c.first) {
+                        (true, _) => Binding::with(Modifier::Menu, button),
+                        (false, Some(first)) => Binding::pair(first, button),
+                        (false, None) if pairs => {
+                            c.first = Some(button);
+                            self.capture = Some(c);
+                            return;
+                        }
+                        (false, None) => Binding::plain(button),
                     };
-                    return self.bind(c.row, Some(Binding { modifier, button }));
+                    return self.bind(c.row, binding);
                 }
             }
-            RawEvent::Up(_) => {}
+            RawEvent::Up(b) => {
+                if let Some(first) = c.first.filter(|f| crate::input::btn_device(b) == Some(*f)) {
+                    return self.bind(c.row, Binding::plain(first));
+                }
+            }
         }
         self.capture = Some(c);
     }
@@ -1752,13 +1786,38 @@ impl App {
     fn bind(&mut self, row: QuickRow, binding: Option<Binding>) {
         self.capture = None;
         self.set_binding(row, binding);
-        if self.in_game_menu.is_some() {
-            let hidden = self.in_game_hidden();
-            self.in_game_menu = Some(row.down(&hidden));
-        } else if let Phase::QuickMenu { .. } = self.phase {
-            self.phase = Phase::QuickMenu {
-                row: row.down(&self.hidden_rows()),
-            };
+        if let Some(other) = self.clash(row) {
+            let now = self.now();
+            self.hud.toast(Toast::Duplicate(other), now);
+        }
+    }
+
+    pub fn clash(&self, row: QuickRow) -> Option<QuickRow> {
+        self.binding_table().clash(row)
+    }
+
+    pub fn binding_table(&self) -> crate::input::Table {
+        crate::input::Table::new(
+            &self.controls,
+            &self.shortcuts,
+            &self.carousel,
+            self.state.turbo,
+        )
+    }
+
+    pub fn input_context(&self) -> slot_input::Context {
+        let overlaid = self.game_menu_open()
+            || self.in_game_menu().is_some()
+            || self.repair_prompt()
+            || self.shutting_down();
+        let shelf = matches!(self.phase, Phase::Shelf)
+            && self.core_picker.is_none()
+            && !self.repair_prompt
+            && self.reset_prompt.is_none();
+        match self.phase {
+            Phase::Playing { .. } if !overlaid => slot_input::Context::Game,
+            _ if shelf => slot_input::Context::Shelf,
+            _ => slot_input::Context::Menu,
         }
     }
 
@@ -1869,7 +1928,7 @@ impl App {
         let mut texts: Vec<String> = QuickRow::ALL
             .iter()
             .filter(|r| r.binds())
-            .map(|r| Binding::text(self.binding_of(*r)))
+            .map(|r| self.bound_text(*r))
             .collect();
         texts.push(PRESS_A_BUTTON.to_string());
         texts.sort();
@@ -1894,16 +1953,24 @@ impl App {
                 }
                 let text = match self.capture_row() == Some(*r) {
                     true => PRESS_A_BUTTON.to_string(),
-                    false => Binding::text(self.binding_of(*r)),
+                    false => self.bound_text(*r),
                 };
                 self.binding_faces.get(&text).copied()
             })
             .collect()
     }
 
+    fn bound_text(&self, row: QuickRow) -> String {
+        let text = Binding::text(self.binding_of(row));
+        match self.clash(row) {
+            Some(_) => format!("{CLASH_MARK}{text}"),
+            None => text,
+        }
+    }
+
     fn description(&self, row: QuickRow) -> Option<(TexId, u32, u32)> {
         let faces = self.quick_menu_faces.as_ref()?;
-        if row.shortcut().is_some() {
+        if row.shortcut().is_some() || row.carousel_action().is_some() {
             Some(faces.descriptions[1])
         } else if row.binds() {
             Some(faces.descriptions[0])
@@ -2061,7 +2128,14 @@ impl App {
         self.sfx.take()
     }
 
+    pub fn ui_frame_clock(&self) -> crate::pacing::FrameClock {
+        crate::pacing::FrameClock::ui(self.power.as_ref().is_some_and(Power::high_refresh_enabled))
+    }
+
     pub fn set_power(&mut self, mut power: Power) {
+        if power.supports_high_refresh() {
+            power.set_high_refresh(self.state.high_refresh);
+        }
         power.set_backlight(self.state.brightness);
         self.headphones = power.headphones();
         self.hud.set_headphones(self.headphones);
@@ -2369,14 +2443,20 @@ impl App {
                 _ => return,
             }
         }
-        // Key-up events do not cancel the prompt; a distinct second Y press is required.
+        // Confirmation requires releasing the configured favorite button.
+        let favorite_button = self.carousel.get(slot_store::CarouselAction::Favorite)
+            .map(|binding| crate::input::device_btn(binding.button));
         match action {
-            Action::GbaUp(Btn::Y) => {
+            Action::FavoriteRelease => {
+                if let Some(pending) = &mut self.favorite_removal { pending.released = true; }
+            }
+            Action::GbaUp(btn) if Some(btn) == favorite_button => {
                 if let Some(pending) = &mut self.favorite_removal {
                     pending.released = true;
                 }
             }
-            Action::GbaDown(Btn::Y) | Action::GbaUp(_) => {}
+            Action::Favorite | Action::GbaUp(_) => {}
+            Action::GbaDown(btn) if Some(btn) == favorite_button => {}
             _ => self.favorite_removal = None,
         }
         self.track_held_dir(action);
@@ -2474,14 +2554,9 @@ impl App {
                     self.open_core_picker()
                 }
                 _ if self.core_picker.is_some() => self.core_picker_input(action),
-                _ if crate::input::carousel_action(&self.carousel, action).is_some() => {
-                    match crate::input::carousel_action(&self.carousel, action) {
-                        Some(CarouselAction::PreviousShelf) => self.switch_shelf(-1),
-                        Some(CarouselAction::NextShelf) => self.switch_shelf(1),
-                        Some(CarouselAction::Favorite) => self.toggle_favorite(),
-                        None => {}
-                    }
-                }
+                Action::PreviousShelf => self.switch_shelf(-1),
+                Action::NextShelf => self.switch_shelf(1),
+                Action::Favorite => self.toggle_favorite(),
                 Action::GbaDown(Btn::Up) => self.jump_letter(-1),
                 Action::GbaDown(Btn::Down) => self.jump_letter(1),
                 Action::ShelfLeft | Action::GbaDown(Btn::Left) => self.shelf_mut().hold_left(now),
@@ -2736,6 +2811,8 @@ impl App {
             | QuickRow::GameStart
             | QuickRow::GameL
             | QuickRow::GameR
+            | QuickRow::GameTurboA
+            | QuickRow::GameTurboB
             | QuickRow::ScSave
             | QuickRow::ScLoad
             | QuickRow::ScBrightUp
@@ -2917,6 +2994,8 @@ impl App {
             | QuickRow::GameStart
             | QuickRow::GameL
             | QuickRow::GameR
+            | QuickRow::GameTurboA
+            | QuickRow::GameTurboB
             | QuickRow::ScSave
             | QuickRow::ScLoad
             | QuickRow::ScBrightUp
@@ -3414,7 +3493,7 @@ impl App {
     /// The carousel strip shares this canvas, so the picture scales in the space above it.
     /// A 4:3 game frame is a different canvas; its close keeps the full-frame scale.
     fn footer_on_carousel_canvas(&self) -> bool {
-        !self.framed_panel() || self.layout() == Layout::Native
+        !self.framed_panel() || !self.shows_game()
     }
 
     pub fn screen_footer(&self) -> f32 {
@@ -3432,23 +3511,57 @@ impl App {
         self.panel = panel;
     }
 
-    pub fn layout(&self) -> Layout {
+    pub fn wallpaper_size(&self) -> (u32, u32) {
+        (Canvas::of(self.panel).w as u32, OUT_H)
+    }
+
+    pub fn game_bezel_size(&self) -> (u32, u32) {
+        match slot_gfx::framed(self.panel) {
+            true => self.panel,
+            false => (OUT_W, OUT_H),
+        }
+    }
+
+    pub fn shows_game(&self) -> bool {
         if matches!(self.phase, Phase::Playing { .. }) && self.in_game_menu_shown().is_some() {
-            return IN_GAME_MENU;
+            return false;
         }
         if self.powering_up() {
-            return Layout::Framed;
+            return true;
         }
         match &self.phase {
-            Phase::Playing { .. } | Phase::Polaroids { .. } => Layout::Framed,
-            Phase::Ejecting { .. } if self.overlay_slide() > 0.0 => Layout::Framed,
-            Phase::Doze { cart: Some(_) } => Layout::Framed,
-            _ => Layout::Native,
+            Phase::Playing { .. } | Phase::Polaroids { .. } => true,
+            Phase::Ejecting { .. } => self.overlay_slide() > 0.0,
+            Phase::Doze { cart } => cart.is_some(),
+            _ => false,
         }
     }
 
     pub fn canvas(&self) -> Canvas {
-        Canvas::of(self.layout(), self.panel)
+        Canvas::of(self.panel)
+    }
+
+    pub fn set_sp_strip(&mut self, tex: Option<TexId>) {
+        self.sp_strip = tex;
+    }
+
+    fn draw_sp_strip(&self, out: &mut Vec<Draw>) {
+        let slide = self.overlay_slide();
+        let shown = self.shows_game() && self.sp_frame() && self.framed_panel() && slide > 0.0;
+        let Some(tex) = self.sp_strip.filter(|_| shown) else {
+            return;
+        };
+        let canvas = self.canvas();
+        let drop =
+            slot_gfx::lifted_rect(self.panel, slide).1 as f32 * canvas.h / self.panel.1 as f32;
+        out.push(Draw::Tex {
+            x: 0.0,
+            y: drop,
+            w: canvas.w,
+            h: canvas.h,
+            tex,
+            alpha: 1.0,
+        });
     }
 
     pub fn overlay_slide(&self) -> f32 {
@@ -3471,7 +3584,7 @@ impl App {
         out.push(Draw::Rect {
             x: 0.0,
             y: 0.0,
-            w: OUT_W as f32,
+            w: self.canvas().w,
             h: OUT_H as f32,
             colour: [0.0, 0.0, 0.0, 1.0],
         });
@@ -4138,8 +4251,7 @@ impl App {
                 self.chrome(cart, 0.0, out);
             }
             Phase::Ejecting { .. }
-                if self.framed_panel()
-                    && (self.layout() == Layout::Framed || self.screen > 0.0) =>
+                if self.framed_panel() && (self.shows_game() || self.screen > 0.0) =>
             {
                 self.draw_powering(out)
             }
@@ -4160,7 +4272,10 @@ impl App {
             Phase::Polaroids { .. } => {
                 self.push_game(out);
                 if let Some(p) = &self.polaroids {
-                    p.draw(
+                    p.draw_photo(self.canvas(), out);
+                    self.draw_sp_strip(out);
+                    p.draw_chrome(
+                        self.canvas(),
                         self.battery,
                         self.battery_percent,
                         self.hud_bolt,
@@ -4177,8 +4292,12 @@ impl App {
                     h: OUT_H as f32,
                     colour: [0.0, 0.0, 0.0, 1.0],
                 });
+                self.draw_sp_strip(out);
                 return;
             }
+        }
+        if !matches!(self.phase, Phase::Polaroids { .. }) {
+            self.draw_sp_strip(out);
         }
         if let (Some(row), Phase::Playing { .. }, true) =
             (self.in_game_menu_shown(), &self.phase, self.screen >= 1.0)
@@ -4765,11 +4884,12 @@ impl App {
     }
 
     fn draw_game_menu(&self, menu: GameMenu, out: &mut Vec<Draw>) {
+        let canvas = self.canvas();
         if let Some(tex) = self.link_shot {
             out.push(Draw::Tex {
                 x: 0.0,
                 y: 0.0,
-                w: OUT_W as f32,
+                w: canvas.w,
                 h: OUT_H as f32,
                 tex,
                 alpha: 1.0,
@@ -4778,12 +4898,19 @@ impl App {
         out.push(Draw::Rect {
             x: 0.0,
             y: 0.0,
-            w: OUT_W as f32,
+            w: canvas.w,
             h: OUT_H as f32,
             colour: LINK_SCRIM,
         });
         if let Some(sprites) = &self.link_sprites {
-            crate::link_screen::draw_link_art(menu, self.link_hardware, self.now(), sprites, out);
+            crate::link_screen::draw_link_art(
+                self.canvas(),
+                menu,
+                self.link_hardware,
+                self.now(),
+                sprites,
+                out,
+            );
         }
         let line = match menu {
             GameMenu::Pick(role) => self.link_menu_faces.get(role.index()).copied(),
@@ -4799,7 +4926,7 @@ impl App {
         };
         if let Some((tex, w, h)) = line {
             out.push(Draw::Tex {
-                x: ((OUT_W as f32 - w as f32) / 2.0).round(),
+                x: canvas.centred(w as f32).round(),
                 y: LINK_TEXT_Y,
                 w: w as f32,
                 h: h as f32,
@@ -4811,38 +4938,57 @@ impl App {
         // Cancel and Mode stay on the left of the footer, Swap and Link on the right, so the
         // socket in the middle of the strip stays clear.
         let (left, right): (&[LinkLegend], &[LinkLegend]) = match menu {
-            GameMenu::Pick(_) if switchable => (
-                &[LinkLegend::Cancel, LinkLegend::Mode],
-                &[LinkLegend::Swap, LinkLegend::Link],
-            ),
-            GameMenu::Pick(_) => (&[LinkLegend::Cancel], &[LinkLegend::Swap, LinkLegend::Link]),
+            GameMenu::Pick(_) if switchable => (&[LinkLegend::Mode], &[LinkLegend::Link]),
+            GameMenu::Pick(_) => (&[], &[LinkLegend::Link]),
             GameMenu::Working { .. } => (&[LinkLegend::Cancel], &[]),
             GameMenu::Linked { opened: true, .. } => (&[LinkLegend::Back], &[LinkLegend::EndLink]),
             GameMenu::Linked { .. } => (&[], &[]),
             GameMenu::Failed { .. } => (&[], &[LinkLegend::Ok]),
             GameMenu::Unplug { .. } => (&[], &[]),
         };
-        self.draw_link_keys(left, false, out);
-        self.draw_link_keys(right, true, out);
+        let (left, right) = (self.link_faces(left), self.link_faces(right));
+        let room = self.canvas().w - 2.0 * LINK_LEGEND_EDGE;
+        if link_keys_w(&left) + link_keys_w(&right) + LINK_LEGEND_GAP <= room {
+            self.draw_link_keys(&left, false, out);
+            self.draw_link_keys(&right, true, out);
+            return;
+        }
+        let all: Vec<(TexId, u32)> = left.into_iter().chain(right).collect();
+        let seen = |w: u32| w.saturating_sub(HINT_EDGE) as f32;
+        let gap = (room - all.iter().map(|(_, w)| seen(*w)).sum::<f32>())
+            / all.len().saturating_sub(1).max(1) as f32;
+        let mut x = LINK_LEGEND_EDGE;
+        for (tex, w) in all {
+            out.push(Draw::Tex {
+                x: x.round(),
+                y: LINK_LEGEND_Y,
+                w: w as f32,
+                h: MOUTH_H,
+                tex,
+                alpha: 1.0,
+            });
+            x += seen(w) + gap;
+        }
     }
 
-    fn draw_link_keys(&self, keys: &[LinkLegend], right: bool, out: &mut Vec<Draw>) {
-        let faces: Vec<(TexId, u32)> = keys
-            .iter()
+    fn link_faces(&self, keys: &[LinkLegend]) -> Vec<(TexId, u32)> {
+        keys.iter()
             .filter_map(|k| self.link_legend_faces.get(k.index()).copied())
-            .collect();
+            .collect()
+    }
+
+    fn draw_link_keys(&self, faces: &[(TexId, u32)], right: bool, out: &mut Vec<Draw>) {
         if faces.is_empty() {
             return;
         }
         let seen = |w: u32| w.saturating_sub(HINT_EDGE) as f32;
-        let total = faces.iter().map(|(_, w)| seen(*w)).sum::<f32>()
-            + LINK_LEGEND_GAP * faces.len().saturating_sub(1) as f32;
+        let total = link_keys_w(faces);
         let mut x = if right {
-            (OUT_W as f32 - LINK_LEGEND_EDGE - total).round()
+            (self.canvas().w - LINK_LEGEND_EDGE - total).round()
         } else {
             LINK_LEGEND_EDGE
         };
-        for (tex, w) in faces {
+        for &(tex, w) in faces {
             out.push(Draw::Tex {
                 x,
                 y: LINK_LEGEND_Y,
@@ -4921,9 +5067,9 @@ impl App {
         if self.single_cart() {
             return self.refuse();
         }
-        self.eject_overlay = match self.layout() {
-            Layout::Framed => self.overlay_slide(),
-            Layout::Native => 0.0,
+        self.eject_overlay = match self.shows_game() {
+            true => self.overlay_slide(),
+            false => 0.0,
         };
         self.in_game_menu = None;
         let cart = match &mut self.phase {
@@ -5294,10 +5440,10 @@ impl App {
     }
 
     fn link_switchable(&self, stem: &str) -> bool {
-        self.auto_link(stem).is_some_and(|(cart, auto)| {
-            serial_option(self.link_hardware.other(), auto, &cart.code, &cart.title)
-                != serial_option(self.link_hardware, auto, &cart.code, &cart.title)
-        })
+        self.core == Core::Gpsp
+            && self
+                .auto_link(stem)
+                .is_some_and(|(cart, _)| link_dual(&cart.code, &cart.title))
     }
 
     fn pick_link(&mut self, role: LinkRow) {

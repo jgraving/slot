@@ -57,7 +57,7 @@ pub use cart::{
     GB_LABEL_W, GB_LABEL_X, GB_LABEL_Y, LABEL_H, LABEL_W, LABEL_WELL, LABEL_X, LABEL_Y,
 };
 pub use clock::{clock_label, date_time_text, hhmm, set_clock_hint_face, ClockPicker, Field};
-pub use draw::{Canvas, Draw, Layout, TexId, OUT_H, OUT_W};
+pub use draw::{Canvas, Draw, TexId, OUT_H, OUT_W};
 pub use footer::{
     draw_corner_connection, draw_corners, draw_footer, draw_footer_connection, draw_status,
     Printed, FOOTER_Y,
@@ -88,7 +88,7 @@ pub use power_menu::{
 pub use quick_menu::{
     core_button_legends, draw_menu_ground, link_button_legends, prompt_legends, quick_caret_face,
     quick_description_face, quick_label_face, quick_legend_faces, quick_pointer_face,
-    quick_row_top, quick_row_top_at, quick_text_centre, quick_value_face, quick_window,
+    quick_row_top, quick_row_top_at, quick_text_centre, quick_value_face, quick_warning_value_face, quick_window,
     quick_window_start, repair_legends, sound_button_legends, sound_forget_confirmation, QuickMenu,
     QuickMenuFaces, QuickRow, QuickValue, MENU_HINT_H, QUICK_EDGE, QUICK_LABEL_X, QUICK_PITCH,
     QUICK_VISIBLE, QUICK_VISIBLE_ROWS,

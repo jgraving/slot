@@ -32,6 +32,7 @@ pub mod link_screen;
 pub mod link_start;
 pub mod link_state;
 pub mod panel_turn;
+pub mod pacing;
 pub mod persist;
 pub mod prefetch;
 pub mod resample;

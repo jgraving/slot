@@ -27,9 +27,10 @@ fn day_and_night_keep_separate_adjustments_and_survive_reboot() {
 #[test]
 fn night_chord_does_not_emit_select_or_x_to_the_game() {
     let mut g = Gestures::new();
-    g.set_shortcuts(slot::input::shortcut_table(
-        &slot_store::ShortcutKeys::default(),
-    ));
+    g.set_entries(slot::input::Table::new(
+        &slot_store::Controls::default(), &slot_store::ShortcutKeys::default(),
+        &slot_store::CarouselKeys::default(), false,
+    ).entries());
     assert!(g.feed(RawEvent::Down(Btn::Select), 0).is_empty());
     assert_eq!(
         g.feed(RawEvent::Down(Btn::X), 50),

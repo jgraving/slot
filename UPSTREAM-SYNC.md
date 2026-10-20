@@ -27,3 +27,14 @@ Merged BrandonKowalski/slot through `1b20432089eb84a340466c7ac61a6cf39d589576` (
 Local device-feature compilation and focused regression checks cover the combined behavior. The release workflow runs those checks again on native ARM64, builds the emulator cores and static exFAT checker, checks binaries/source materials, and packages both System updates and SD2 starter downloads.
 
 macOS compositor screenshot tests cannot be executed on the Linux host. Physical SD repair, controller/accessory compatibility, suspend/wake and final visual behavior still require hardware testing.
+
+
+## 2026-10-21: controls, native layouts and high refresh
+
+Integrated BrandonKowalski/slot through `f4b7bc3b1f7240c00d245c82fe123181a2d5c590`: unified control routing with contexts, chord clash warnings and remappable Turbo A/B; panel-sized wallpaper/bezel layouts; link legends and silent-test defaults. The fork retains its shell artwork, cartridge geometry, audio controls, saved night presets and sleep preferences. Night Toggle participates in the new global shortcut contexts, and deep sleep resets the new binding-entry cache.
+
+Selectively adapted the panel driver and native game pacing from [pvaibhav/slot commit e8ff757](https://github.com/pvaibhav/slot/commit/e8ff757e3712ea021463b5449ae2fcf1deebe157), rather than merging unrelated features. Credit to Prashant Vaibhav. Only the exact known RG34XX SP/RG34XX model, driver and 720×480 timing combinations are eligible. Register writes are checked, failed changes attempt rollback, and wake restores the display before backlight. Other panels remain unchanged.
+
+This fork additionally targets **120 FPS for carousel/menu animations** when the platform reports 120 Hz enabled, otherwise 60 FPS. Emulated games use their core's native frame rate and audio sample rate; a faster panel does not double game speed. The existing time-based animations retain their durations. `high_refresh=1` is the default in `Config/slot.state`; set it to `0` with Slot stopped to opt out. An absent key migrates to enabled; unsupported or failed panels still use the 60 FPS UI clock. The preference is retained on transient failure, while the actual hardware mode determines pacing.
+
+Validation includes panel identification, register rollback and wake ordering tests, simulated 60/120 Hz scanout at native game cadence, UI deadline counts, preference persistence and failed/unsupported fallback. ARM64 CI builds and tests the resulting package. Physical panel smoothness and sustained 120 FPS on a handheld cannot be established on this host and still need device review.
