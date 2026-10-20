@@ -1,5 +1,6 @@
 use crate::bitmaps::{button_legend, ButtonLegend};
 use crate::draw::{Canvas, Draw, TexId, OUT_H, OUT_W};
+use crate::icon::{Icon, WARNING_INK};
 use crate::plate::{
     blit, centred_hints, word_face, word_ink, UndoFace, CAP_GAP, HINT_EDGE, LEGEND_GAP,
 };
@@ -72,6 +73,8 @@ pub enum QuickRow {
     GameStart,
     GameL,
     GameR,
+    GameTurboA,
+    GameTurboB,
     ScSave,
     ScLoad,
     ScBrightUp,
@@ -93,7 +96,7 @@ pub enum QuickRow {
 }
 
 impl QuickRow {
-    pub const ALL: [QuickRow; 80] = [
+    pub const ALL: [QuickRow; 82] = [
         QuickRow::FastForward,
         QuickRow::FastForwardSound,
         QuickRow::Screen,
@@ -156,6 +159,8 @@ impl QuickRow {
         QuickRow::GameStart,
         QuickRow::GameL,
         QuickRow::GameR,
+        QuickRow::GameTurboA,
+        QuickRow::GameTurboB,
         QuickRow::ScSave,
         QuickRow::ScLoad,
         QuickRow::ScBrightUp,
@@ -215,7 +220,7 @@ impl QuickRow {
         QuickRow::ShelfFavorite,
     ];
 
-    pub const CONTROLS: [QuickRow; 10] = [
+    pub const CONTROLS: [QuickRow; 12] = [
         QuickRow::GameUp,
         QuickRow::GameDown,
         QuickRow::GameLeft,
@@ -226,6 +231,8 @@ impl QuickRow {
         QuickRow::GameStart,
         QuickRow::GameL,
         QuickRow::GameR,
+        QuickRow::GameTurboA,
+        QuickRow::GameTurboB,
     ];
 
     pub const SHORTCUTS: [QuickRow; 14] = [
@@ -478,7 +485,9 @@ impl QuickRow {
             | QuickRow::GameSelect
             | QuickRow::GameStart
             | QuickRow::GameL
-            | QuickRow::GameR => self.game_button().map_or("", GameButton::label),
+            | QuickRow::GameR
+            | QuickRow::GameTurboA
+            | QuickRow::GameTurboB => self.game_button().map_or("", GameButton::label),
             QuickRow::ScSave
             | QuickRow::ScLoad
             | QuickRow::ScBrightUp
@@ -553,6 +562,8 @@ impl QuickRow {
             QuickRow::GameStart => GameButton::Start,
             QuickRow::GameL => GameButton::L,
             QuickRow::GameR => GameButton::R,
+            QuickRow::GameTurboA => GameButton::TurboA,
+            QuickRow::GameTurboB => GameButton::TurboB,
             _ => return None,
         })
     }
@@ -758,6 +769,8 @@ const DIM_INK: [u8; 3] = [0x9a, 0x9a, 0xa4];
 const DESCRIPTION_PX: f32 = 16.0;
 const DESCRIPTION_GAP: f32 = 8.0;
 const PANEL_GAP: f32 = 12.0;
+const WARNING_PX: f32 = 22.0;
+const WARNING_GAP: u32 = 10;
 
 pub fn quick_label_face(row: QuickRow, lit: bool) -> UndoFace {
     quick_text_face(row.label(), if lit { MENU_INK } else { DIM_INK })
@@ -808,6 +821,39 @@ pub fn quick_pointer_face() -> UndoFace {
 
 pub fn quick_value_face(text: &str, lit: bool) -> UndoFace {
     quick_text_face(text, if lit { MENU_INK } else { DIM_INK })
+}
+
+pub fn quick_warning_value_face(text: &str, lit: bool) -> UndoFace {
+    let words = quick_value_face(text, lit);
+    let (Some((cov, iw, ih)), Some(label)) = (
+        crate::icon::icon_coverage(Icon::Alert, WARNING_PX),
+        text::label_font(),
+    ) else {
+        return words;
+    };
+    let (w, h) = (iw + WARNING_GAP + words.w, words.h);
+    let mut rgba = vec![0u8; (w * h * 4) as usize];
+    let top = (cap_centre(label, h) - ih as f32 / 2.0).round().max(0.0) as u32;
+    blit(
+        &mut rgba,
+        w,
+        &words.rgba,
+        words.w,
+        words.h,
+        iw + WARNING_GAP,
+        0,
+    );
+    for gy in 0..ih.min(h.saturating_sub(top)) {
+        for gx in 0..iw {
+            let a = cov[(gy * iw + gx) as usize];
+            if a == 0 {
+                continue;
+            }
+            let at = (((top + gy) * w + MENU_PAD + gx) * 4) as usize;
+            rgba[at..at + 4].copy_from_slice(&[WARNING_INK[0], WARNING_INK[1], WARNING_INK[2], a]);
+        }
+    }
+    UndoFace { rgba, w, h }
 }
 
 fn quick_text_face(label: &str, colour: [u8; 3]) -> UndoFace {
@@ -1053,7 +1099,7 @@ pub struct QuickMenu<'a> {
     pub clock: Option<[(TexId, u32, u32); 2]>,
     pub wallpaper: Option<[(TexId, u32, u32); 2]>,
     pub faces: Option<&'a QuickMenuFaces>,
-    pub ground: Option<TexId>,
+    pub ground: Option<(TexId, u32)>,
     pub palette: Option<[(TexId, u32, u32); 2]>,
     pub gba_bezel: Option<[(TexId, u32, u32); 2]>,
     pub gb_bezel: Option<[(TexId, u32, u32); 2]>,
@@ -1189,10 +1235,10 @@ impl QuickMenu<'_> {
     }
 }
 
-pub fn draw_menu_ground(canvas: Canvas, ground: Option<TexId>, out: &mut Vec<Draw>) {
+pub fn draw_menu_ground(canvas: Canvas, ground: Option<(TexId, u32)>, out: &mut Vec<Draw>) {
     let (w, h) = (canvas.w, OUT_H as f32);
     match ground {
-        Some(tex) => {
+        Some((tex, tex_w)) => {
             out.push(Draw::Part {
                 x: 0.0,
                 y: 0.0,
@@ -1200,7 +1246,7 @@ pub fn draw_menu_ground(canvas: Canvas, ground: Option<TexId>, out: &mut Vec<Dra
                 h,
                 tex,
                 alpha: 1.0,
-                uv: canvas.window(OUT_W as f32),
+                uv: canvas.cover(tex_w as f32),
             });
             out.push(Draw::Rect {
                 x: 0.0,

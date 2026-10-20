@@ -190,6 +190,7 @@ fn a_card_from_before_the_settings_keeps_all_its_values() {
             cart: Some("Emerald".into()),
             cart_platform: None,
             brightness: 3,
+            high_refresh: true,
             blue_light: 1,
             volume: 40,
             volume_hp: 40,

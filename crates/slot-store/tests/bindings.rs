@@ -25,11 +25,13 @@ fn with(modifier: Modifier, button: Device) -> Option<Binding> {
 }
 
 #[test]
-fn a_gba_has_ten_buttons_and_a_game_boy_eight() {
-    assert_eq!(GameButton::of(Platform::Gba).len(), 10);
-    assert_eq!(GameButton::of(Platform::Gb).len(), 8);
-    assert_eq!(GameButton::of(Platform::Gbc).len(), 8);
+fn a_gba_has_twelve_buttons_and_a_game_boy_ten() {
+    assert_eq!(GameButton::of(Platform::Gba).len(), 12);
+    assert_eq!(GameButton::of(Platform::Gb).len(), 10);
+    assert_eq!(GameButton::of(Platform::Gbc).len(), 10);
     assert!(!GameButton::of(Platform::Gb).contains(&GameButton::L));
+    assert!(GameButton::of(Platform::Gb).contains(&GameButton::TurboA));
+    assert!(GameButton::of(Platform::Gbc).contains(&GameButton::TurboB));
 }
 
 #[test]
@@ -39,6 +41,8 @@ fn every_console_button_starts_on_the_device_button_of_its_name() {
     assert_eq!(c.game(GameButton::L), plain(Device::L1));
     assert_eq!(c.game(GameButton::R), plain(Device::R1));
     assert_eq!(c.game(GameButton::Select), plain(Device::Select));
+    assert_eq!(c.game(GameButton::TurboA), plain(Device::X));
+    assert_eq!(c.game(GameButton::TurboB), plain(Device::Y));
 }
 
 #[test]
@@ -61,13 +65,10 @@ fn the_shortcuts_start_where_they_are_today() {
 }
 
 #[test]
-fn a_binding_reads_the_way_minui_prints_it() {
+fn a_binding_reads_short_enough_to_fit_a_4_by_3_row() {
     assert_eq!(Binding::text(plain(Device::A)), "A");
     assert_eq!(Binding::text(with(Modifier::Menu, Device::X)), "MENU+X");
-    assert_eq!(
-        Binding::text(with(Modifier::Select, Device::R1)),
-        "SELECT+R1"
-    );
+    assert_eq!(Binding::text(with(Modifier::Select, Device::R1)), "SEL+R1");
     assert_eq!(Binding::text(None), "NONE");
 }
 
@@ -124,4 +125,78 @@ fn the_carousel_starts_on_the_shoulders_and_y_and_reads_back() {
     moved.set(CarouselAction::Favorite, with(Modifier::Menu, Device::Y));
     write_carousel(d.path(), &moved).unwrap();
     assert_eq!(read_carousel(d.path()), moved);
+}
+
+#[test]
+fn a_pair_is_the_same_binding_in_either_order() {
+    assert_eq!(
+        Binding::pair(Device::R1, Device::L1),
+        Binding::pair(Device::L1, Device::R1)
+    );
+    assert_eq!(
+        Binding::pair(Device::L1, Device::R1),
+        with(Modifier::Button(Device::L1), Device::R1)
+    );
+    assert_eq!(
+        Binding::text(Binding::pair(Device::R1, Device::L1)),
+        "L1+R1"
+    );
+}
+
+#[test]
+fn a_pair_with_select_is_a_select_chord() {
+    assert_eq!(
+        Binding::pair(Device::A, Device::Select),
+        with(Modifier::Select, Device::A)
+    );
+    assert_eq!(
+        Binding::pair(Device::Select, Device::A),
+        with(Modifier::Select, Device::A)
+    );
+}
+
+#[test]
+fn start_leads_any_pair_it_is_in() {
+    assert_eq!(
+        Binding::pair(Device::A, Device::Start),
+        with(Modifier::Button(Device::Start), Device::A)
+    );
+    assert_eq!(
+        Binding::pair(Device::Start, Device::A),
+        with(Modifier::Button(Device::Start), Device::A)
+    );
+    assert_eq!(
+        Binding::text(Binding::pair(Device::A, Device::Start)),
+        "START+A"
+    );
+    assert!(Device::Start.leads() && Device::Select.leads() && !Device::A.leads());
+}
+
+#[test]
+fn a_button_paired_with_itself_is_that_button() {
+    assert_eq!(Binding::pair(Device::B, Device::B), plain(Device::B));
+}
+
+#[test]
+fn pairs_are_written_and_read_back_in_either_order() {
+    let d = card();
+    let mut keys = ShortcutKeys::default();
+    keys.set(Shortcut::SaveState, Binding::pair(Device::L1, Device::R1));
+    keys.set(Shortcut::LoadState, Binding::pair(Device::Start, Device::A));
+    write_shortcuts(d.path(), &keys).unwrap();
+    assert_eq!(read_shortcuts(d.path()), keys);
+    std::fs::write(
+        d.path().join("Config/shortcuts.txt"),
+        "save_state=r1+l1\nload_state=A + Select\n",
+    )
+    .unwrap();
+    let read = read_shortcuts(d.path());
+    assert_eq!(
+        read.get(Shortcut::SaveState),
+        Binding::pair(Device::L1, Device::R1)
+    );
+    assert_eq!(
+        read.get(Shortcut::LoadState),
+        with(Modifier::Select, Device::A)
+    );
 }

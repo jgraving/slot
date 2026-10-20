@@ -34,7 +34,7 @@ impl Pad {
                     match binding.modifier {
                         None => self.held.contains(&b),
                         Some(Modifier::Menu) => self.chorded.contains(&b),
-                        Some(Modifier::Select) => false,
+                        Some(Modifier::Select | Modifier::Button(_)) => false,
                     }
                 })
             })
@@ -60,5 +60,7 @@ fn bit(g: GameButton) -> u16 {
         GameButton::Start => ButtonMask::START,
         GameButton::L => ButtonMask::L,
         GameButton::R => ButtonMask::R,
+        GameButton::TurboA => ButtonMask::X,
+        GameButton::TurboB => ButtonMask::Y,
     }
 }
