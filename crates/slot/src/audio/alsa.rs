@@ -239,25 +239,15 @@ struct Playback {
 
 fn play(ring: &Arc<Ring>, sample_rate: u32) -> Result<Playback, AudioError> {
     let alsa = Alsa::load()?;
-    let mut actual = String::new();
-    let pcm = match alsa.open_pcm(sample_rate) {
-        Ok((pcm, name)) => {
-            actual = name;
-            Some(pcm)
-        }
-        Err(e) => {
-            eprintln!("slot: audio: {e}, retrying");
-            None
-        }
-    };
+
     ring.reopen(sample_rate);
     Ok(Playback {
         alsa,
-        pcm,
+        pcm: None,
         rate: sample_rate,
-        failing: pcm.is_none(),
+        failing: false,
         route: requested_device(),
-        actual,
+        actual: String::new(),
     })
 }
 
@@ -265,8 +255,9 @@ impl Playback {
     fn run(&mut self, ring: &Ring, stop: &AtomicBool) {
         let mut buf = vec![0i16; PERIOD_FRAMES * CHANNELS as usize];
         let span = Duration::from_secs_f64(PERIOD_FRAMES as f64 / self.rate as f64);
-        let mut silence = Silence::new(RELEASE_AFTER);
+        let mut silence = Silence::quiet(RELEASE_AFTER);
         let mut route_check = Instant::now();
+
         let mut pace = Pacer::new(span);
         while !stop.load(Ordering::Relaxed) {
             if self.route.as_ref().is_some_and(|r| *r != self.actual) {

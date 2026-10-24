@@ -21,7 +21,7 @@ concurrency:
 
 jobs:
   build:
-    if: github.repository == 'jgraving/slot' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/integrate-upstream-') || startsWith(github.ref, 'refs/tags/v'))
+    if: (github.repository == 'jgraving/slot' || github.repository == 'jgraving/slot.sp') && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/integrate-upstream-') || startsWith(github.ref, 'refs/tags/v'))
     name: Test and package ARM64
     timeout-minutes: 35
     runs-on: ubuntu-24.04-arm
@@ -45,11 +45,11 @@ jobs:
       - name: Run device regression checks
         run: |
           set -eu
-          cargo test -p slot --no-default-features --lib --test refresh --test label_cache --test emu --test bindings --test left_stick --test card_repair --test evdev --test core --test eject --test recents --test clock --test show_titles --test in_game_menu --test favorites --test power --test cartridge_ticks --test power_click --test sfx --test sleep --test quick_menu --test menu_repeat --test night_display --test link_ui --test link_screen --test link_art_builder --test core_picker --test sound_menu_style -- --test-threads=1
-          cargo test -p slot-ui --lib --test favorite --test power_switch --test quick_menu --test toast --test shelf --test native_shelf --test chrome --test board --test shell_material --test cart --test legend --test link_art
+          cargo test -p slot --no-default-features --test loading_mark --test boot --test play --test resume --test fastforward --test levels --test card_log --test screenshot --test shot_loader --test shot_writer --test undo --test bootlogo --test flush --test delete --test audio --test core_options --test gb_palettes --lib --test refresh --test label_cache --test emu --test bindings --test left_stick --test card_repair --test evdev --test core --test eject --test recents --test clock --test show_titles --test in_game_menu --test favorites --test power --test cartridge_ticks --test power_click --test sfx --test sleep --test quick_menu --test menu_repeat --test night_display --test link_ui --test link_screen --test link_art_builder --test core_picker --test sound_menu_style -- --test-threads=1
+          cargo test -p slot-ui --lib --test favorite --test power_switch --test quick_menu --test toast --test shelf --test native_shelf --test chrome --test board --test shell_material --test shot_viewer --test polaroids --test hud --test sticker --test cart --test legend --test link_art
           cargo test -p slot-store --lib --tests
           cargo test -p slot-input --lib --tests
-          cargo test -p slot-gfx --no-default-features --test grade
+          cargo test -p slot-gfx --no-default-features --test grade --test layout
           cargo test -p slot-power --lib --tests
           task test:card
           python3 card/test-bluetooth.py
@@ -100,17 +100,17 @@ jobs:
           set -euo pipefail
           if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
             tag="$GITHUB_REF_NAME"
-            title="Slot SP — $tag"
+            title="slot.sp — $tag"
           else
             date="$(date -u +%Y.%m.%d)"
             tag="build-${date}-${GITHUB_SHA:0:7}"
-            title="Slot SP — $date (${GITHUB_SHA:0:7})"
+            title="slot.sp — $date (${GITHUB_SHA:0:7})"
           fi
           cat > notes.md <<'NOTES'
           ## Choose your download
 
-          - **[slot-System.zip](../../releases/latest/download/slot-System.zip)** — update an existing slot installation. Extract onto the content card (SD2), replacing the `System` files. Your games, saves and configuration stay in their existing folders.
-          - **[slot-SD2.zip](../../releases/latest/download/slot-SD2.zip)** — the full SD2 starter tree for a new setup. Extract its contents onto SD2 after following the [BaseOS setup guide](https://slot-cfw.fyi). This is not a bootable OS image. Use the System ZIP for routine updates.
+          - **[slot.sp-System.zip](../../releases/latest/download/slot.sp-System.zip)** — update an existing slot installation. Extract onto the content card (SD2), replacing the `System` files. Your games, saves and configuration stay in their existing folders.
+          - **[slot.sp-SD2.zip](../../releases/latest/download/slot.sp-SD2.zip)** — the full SD2 starter tree for a new setup. Extract its contents onto SD2 after following the [BaseOS setup guide](https://slot-cfw.fyi). This is not a bootable OS image. Use the System ZIP for routine updates.
           - **SHA256SUMS** — download checksums. **build-info.json** identifies the exact source commit and build.
 
           Back up your card and shut down the handheld before updating. No ROMs or BIOS files are included. Games must be unzipped.
@@ -123,12 +123,13 @@ jobs:
 
           Built and regression-tested on ARM64; slot, mGBA and gpSP are verified AArch64 binaries. Device/accessory support varies. Bluetooth volume synchronization remains experimental, and physical link/suspend behavior needs device-specific testing.
 
-          This build adds verified-panel 120 Hz support adapted from pvaibhav/slot, with 120 FPS UI pacing when enabled and native game/audio timing. Unsupported panels retain 60 Hz. Physical 120 Hz smoothness still needs handheld verification.
+          This build adds verified-panel 120 Hz support adapted from pvaibhav/slot, with 120 FPS UI pacing when enabled and native game/audio timing. Unsupported panels retain 60 Hz. Handheld UI smoothness is confirmed; an internal-speaker buzz reported after enabling 120 Hz remains unresolved. Set high_refresh=0 in Config/slot.state with Slot stopped to compare at 60 Hz.
 
-          This build includes upstream's control remapping, stick support, asynchronous ROM loading, SD-card repair, and mGBA flash-save fixes. Run-ahead is removed to follow upstream's save-safety fix. Fork-specific shell, audio, night mode, and power preferences are retained.
+          This build integrates upstream through v1.9.0: screenshot capture/gallery, save/load undo, periodic saves, safer core loading, SD repair improvements, boot-logo installation and mGBA save fixes. Run-ahead is removed to follow upstream's save-safety fix. Fork-specific shell, audio, night mode, and power preferences are retained.
 
           mGBA (MPL-2.0) and gpSP (GPL-2.0) licenses, provenance, patches, and gpSP's source archive are bundled in `System/licenses`. See the repository for slot's GPL-3.0-or-later source and credits.
           NOTES
+          sed -i "s|https://github.com/jgraving/slot#readme|https://github.com/$GITHUB_REPOSITORY#readme|g" notes.md
           # Bind the links to this release, so older release notes stay accurate.
           sed -i "s|../../releases/latest/download/|https://github.com/$GITHUB_REPOSITORY/releases/download/$tag/|g" notes.md
           printf '\nSource: [%s](https://github.com/%s/commit/%s)\n\n[Build and checks](https://github.com/%s/actions/runs/%s)\n' \

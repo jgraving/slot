@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU16, AtomicU32, AtomicU64, AtomicU8, Ordering};
-use std::sync::mpsc::{channel, Receiver, Sender};
+use std::sync::mpsc::{channel, Receiver, RecvTimeoutError, Sender};
 use std::sync::{Arc, Condvar, Mutex};
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
@@ -36,6 +36,10 @@ const STALL: Duration = Duration::from_millis(25);
 const TRACE_EVERY: u64 = 300;
 
 const MAX_LINK_PACKETS_PER_PRESENT: u32 = 256;
+
+const ANSWER_WAIT: Duration = Duration::from_secs(2);
+
+const STOP_WAIT: Duration = Duration::from_secs(10);
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum Speed {
@@ -137,6 +141,14 @@ impl EmuHandle {
         player: u8,
     ) -> Self {
         Self::spawn_as(core, rom, ring, sav, resume, Some(player))
+    }
+
+    pub fn refuse_save_ram(&self) {
+        self.shared.sav_refused.store(true, Ordering::Release);
+    }
+
+    pub fn refuse_resume(&self) {
+        self.shared.resume_refused.store(true, Ordering::Release);
     }
 
     fn spawn_as(
@@ -425,19 +437,19 @@ impl Snapshot for EmuSnapshot {
     fn state(&self) -> Option<Vec<u8>> {
         let (tx, rx) = channel();
         request(&self.cmds, &self.shared, Cmd::Save(tx)).then_some(())?;
-        rx.recv().ok()
+        answer(rx, "state")
     }
 
     fn save_ram(&self) -> Option<Vec<u8>> {
         let (tx, rx) = channel();
         request(&self.cmds, &self.shared, Cmd::Sav(tx)).then_some(())?;
-        rx.recv().ok().flatten()
+        answer(rx, "save ram").flatten()
     }
 
     fn thumb(&self) -> Option<Vec<u8>> {
         let (tx, rx) = channel();
         request(&self.cmds, &self.shared, Cmd::Thumb(tx)).then_some(())?;
-        rx.recv().ok().flatten()
+        answer(rx, "thumbnail").flatten()
     }
 
     fn load(&self, state: Vec<u8>) {
@@ -450,6 +462,20 @@ impl Snapshot for EmuSnapshot {
 
     fn save_ram_trusted(&self) -> bool {
         !self.shared.sav_refused.load(Ordering::Acquire)
+    }
+}
+
+fn answer<T>(rx: Receiver<T>, what: &str) -> Option<T> {
+    match rx.recv_timeout(ANSWER_WAIT) {
+        Ok(v) => Some(v),
+        Err(RecvTimeoutError::Timeout) => {
+            eprintln!(
+                "slot: emu: no {what} after {} s, the core is not answering",
+                ANSWER_WAIT.as_secs()
+            );
+            None
+        }
+        Err(RecvTimeoutError::Disconnected) => None,
     }
 }
 
@@ -475,6 +501,20 @@ impl Drop for EmuHandle {
         self.shared.stop.store(true, Ordering::Relaxed);
         self.wake();
         if let Some(join) = self.join.take() {
+            let deadline = Instant::now() + STOP_WAIT;
+            while !join.is_finished() && Instant::now() < deadline {
+                std::thread::sleep(Duration::from_millis(5));
+            }
+            if !join.is_finished() {
+                eprintln!(
+                    "slot: emu: the core has not stopped after {} s",
+                    STOP_WAIT.as_secs()
+                );
+                #[cfg(feature = "device")]
+                unsafe {
+                    libc::_exit(75)
+                };
+            }
             let _ = join.join();
         }
         eprintln!("slot: emu: stopped at {:.1} ms", crate::boot_time::ms());
@@ -617,6 +657,8 @@ impl Worker {
                                         "slot: cable: restored {} bytes, running the host's game",
                                         state.len()
                                     );
+                                        self.shared.sav_refused.store(true, Ordering::Release);
+                                        self.shared.resume_refused.store(true, Ordering::Release);
                                         c.prime();
                                         t.send(NETPACKET_RELIABLE, &cable::ready_packet());
                                     }

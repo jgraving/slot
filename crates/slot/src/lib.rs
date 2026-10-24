@@ -1,3 +1,10 @@
+macro_rules! eprintln {
+    ($($arg:tt)*) => {{
+        use std::io::Write as _;
+        let _ = writeln!(std::io::stderr(), $($arg)*);
+    }};
+}
+
 pub mod app;
 pub mod audio;
 pub mod baseos;
@@ -31,6 +38,7 @@ pub mod link_radio;
 pub mod link_screen;
 pub mod link_start;
 pub mod link_state;
+pub mod loading_mark;
 pub mod panel_turn;
 pub mod pacing;
 pub mod persist;
@@ -39,6 +47,8 @@ pub mod resample;
 pub mod rewind;
 pub mod root;
 pub mod session;
+pub mod shot_loader;
+pub mod shot_writer;
 pub mod state_writer;
 pub mod thumb;
 pub mod video_mode;

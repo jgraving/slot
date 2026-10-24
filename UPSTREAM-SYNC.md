@@ -45,3 +45,14 @@ Validation includes panel identification, register rollback and wake ordering te
 Label loading now runs a small Rust connected-component detector before resizing. For opaque scans with near-black cutouts in all four rounded corners, it masks only the corner-connected background. Candidates entering the central artwork, covering more than one twelfth of the image, or lacking a corner cutout are rejected without mutation. Existing alpha is respected. This heuristic is deliberately conservative; it does not remove arbitrary black artwork or modify source PNG files. Wallpapers and other images use their existing loading path.
 
 The processed labels are cached with format marker SLB3, automatically rebuilding older cached versions. Cleanup runs in the existing background label-loading/cache path, never per frame. Validated using the supplied Emerald, Ruby v1.1 and Sapphire v1.1 scans: respectively 4,707, 17,757 and 1,922 exterior pixels masked; retained opaque artwork unchanged. Uploaded label images are not added to the repository.
+
+
+## 2026-10-24: upstream v1.9.0 and slot.sp
+
+Merged BrandonKowalski/slot through `20703edd4f3b8337549e243896bc681d1b1ec62a` (v1.9.0). This brings screenshot capture/gallery with zoom and multi-select, save/load undo, insert/eject state options, periodic battery/resume saves, core timeouts, durability and repair improvements, native GBA bezels, GB automatic palettes, mGBA MBC2 save fixes, and exact boot-logo installation.
+
+Retained the fork's shell finishes and geometry, 120 Hz/native-game pacing, audio routing/output volumes, day/night presets, lid/sleep preferences, favorite confirmation and SLB3 label masks/cache. Integrated upstream's lazy audio opening while retaining Bluetooth/USB route switching and retry behavior. This is not a verified fix for the reported 120 Hz speaker buzz; the report remains unresolved.
+
+Upstream’s Select + X screenshot default conflicts with the fork’s night shortcut, so screenshot capture defaults to Menu + X; existing night bindings are retained and both remain remappable.
+
+The project display name is now **slot.sp**. README animations explicitly identify upstream recordings; current fork artwork and shutdown previews remain separate. The executable, card layout and saved preferences keep their existing names for compatibility. Release ZIPs use `slot.sp-...` names with the former names retained as aliases. Release metadata derives the repository from GitHub Actions, and the fork build guard accepts both `jgraving/slot` and the planned `jgraving/slot.sp` rename. No repository rename or upstream writes are performed.
