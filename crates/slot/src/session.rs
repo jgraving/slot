@@ -410,7 +410,7 @@ impl Session {
             }
         }
         let mut recoloured = false;
-        if let Some(p) = self.app.take_gb_palette() {
+        if let Some(p) = self.app.take_gb_colors() {
             if let Some(emu) = &self.emu {
                 emu.set_option("mgba_gb_colors", p.core_name());
                 recoloured = true;
@@ -624,10 +624,8 @@ impl Session {
         match self.emu.as_ref().map(EmuHandle::state) {
             Some(CoreState::Loading) => {}
             Some(CoreState::Ready) => {
-                if let (true, Some(p), Some(emu)) =
-                    (self.app.palette_live(), self.app.gb_palette(), &self.emu)
-                {
-                    emu.set_option("mgba_gb_colors", p.core_name());
+                if let (true, Some(emu)) = (self.app.palette_live(), &self.emu) {
+                    emu.set_option("mgba_gb_colors", self.app.gb_colors().core_name());
                 }
                 self.app.on_core_ready()
             }
@@ -658,14 +656,15 @@ impl Session {
         let stem = stem.to_owned();
         let clean = self.app.starting_clean();
         let player = self.app.link_player();
-        let chosen = self.app.gb_palette();
+        let chosen = self.app.gb_colors();
         let colour = self.app.colour_correction_for(platform);
         let join = std::thread::Builder::new()
             .name("slot-open".into())
             .spawn(move || {
-                let resume = (!clean)
-                    .then(|| persist::read_resume(&root, platform, core, &stem))
-                    .flatten();
+                let resume = match clean {
+                    true => Ok(None),
+                    false => persist::read_resume(&root, platform, core, &stem),
+                };
                 launch("resume state read");
                 let palette = crate::core::palette_for(chosen, platform, &rom, player);
                 let opened = open_core(&root, core, platform, serial, colour, palette, player);
@@ -701,12 +700,28 @@ impl Session {
         self.app.set_palette_live(loaded.palette_live);
         self.app.set_named_core(loaded.opened.named);
         let ring = self.sink.ring();
-        let (core, rom, sav, resume) = (loaded.opened.core, loaded.rom, loaded.sav, loaded.resume);
+        let sav = self.app.card_read("save", loaded.sav);
+        let resume = self.app.card_read("resume", loaded.resume);
+        let (sav_unread, resume_unread) = (sav.is_none(), resume.is_none());
+        let (core, rom, sav, resume) = (
+            loaded.opened.core,
+            loaded.rom,
+            sav.flatten(),
+            resume.flatten(),
+        );
         let emu = match loaded.player.filter(|_| loaded.platform == Platform::Gba) {
             Some(p) => EmuHandle::spawn_linked(core, rom, ring, sav, resume, p),
             None => EmuHandle::spawn(core, rom, ring, sav, resume),
         };
+        if sav_unread {
+            emu.refuse_save_ram();
+        }
+        if resume_unread {
+            emu.refuse_resume();
+        }
+        self.app.set_resume_unread(resume_unread);
         emu.set_volume(self.software_volume());
+
         emu.set_driven(self.driven);
         self.app.set_snapshot(Box::new(emu.snapshot()));
         self.emu = Some(emu);
@@ -752,8 +767,8 @@ struct Loaded {
     platform: Platform,
     player: Option<u8>,
     palette_live: bool,
-    sav: Option<Vec<u8>>,
-    resume: Option<Vec<u8>>,
+    sav: std::io::Result<Option<Vec<u8>>>,
+    resume: std::io::Result<Option<Vec<u8>>>,
 }
 
 struct Opening {

@@ -9,7 +9,7 @@ fn bottom_edge(d: &Draw) -> Option<f32> {
         | Draw::Tex { y, h, .. }
         | Draw::Part { y, h, .. }
         | Draw::Turned { y, h, .. } => Some(y + h),
-        Draw::Game | Draw::Shot { .. } => None,
+        Draw::Game | Draw::Shot { .. } | Draw::Capture => None,
     }
 }
 
@@ -321,4 +321,15 @@ fn muted_headphones_render_at_native_width_without_stretching() {
     assert!(out.iter().any(
         |d| matches!(d, Draw::Rect {x: bar_x, w: bar_w, ..} if *bar_w == 320. && *bar_x > x + w)
     ));
+}
+
+#[test]
+fn hushing_drops_the_toast_but_keeps_the_alarm() {
+    let mut h = Hud::new();
+    h.set_alarm(true, 0);
+    h.toast(slot_ui::Toast::StateSaved, 10);
+    h.hush();
+    assert_eq!(h.said(20), None);
+    assert!(h.alarmed());
+
 }

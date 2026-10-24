@@ -4,6 +4,7 @@ import argparse
 import hashlib
 import json
 import os
+import shutil
 from pathlib import Path
 import re
 import zipfile
@@ -32,15 +33,16 @@ def package(root: Path, output: Path, source: str) -> None:
     if not any(licenses.glob('exfatprogs-*.tar.gz')) or not (licenses / 'exfatprogs-GPL-2.0.txt').is_file():
         raise ValueError('missing SD repair tool source or license')
     metadata = {
-        'repository': 'jgraving/slot',
+        'product': 'slot.sp',
+        'repository': os.environ.get('GITHUB_REPOSITORY', 'jgraving/slot'),
         'source_commit': source,
         'architecture': 'aarch64',
-        'run_url': f'https://github.com/jgraving/slot/actions/runs/{os.environ.get("GITHUB_RUN_ID", "local")}',
+        'run_url': f'https://github.com/{os.environ.get("GITHUB_REPOSITORY", "jgraving/slot")}/actions/runs/{os.environ.get("GITHUB_RUN_ID", "local")}',
     }
     (system / 'build-info.json').write_text(json.dumps(metadata, indent=2) + '\n')
     output.mkdir(parents=True, exist_ok=True)
     (output / 'build-info.json').write_bytes((system / 'build-info.json').read_bytes())
-    for filename, subtree in [('slot-System.zip', system), ('slot-SD2.zip', root)]:
+    for filename, subtree in [('slot.sp-System.zip', system), ('slot.sp-SD2.zip', root)]:
         with zipfile.ZipFile(output / filename, 'w', zipfile.ZIP_DEFLATED) as archive:
             for path in sorted(subtree.rglob('*')):
                 if path.is_symlink():
@@ -51,7 +53,9 @@ def package(root: Path, output: Path, source: str) -> None:
                 raise ValueError(f'corrupt archive: {filename}')
             if 'System/slot' not in archive.namelist():
                 raise ValueError(f'incorrect archive layout: {filename}')
-    files = ['slot-System.zip', 'slot-SD2.zip', 'build-info.json']
+    for suffix in ['System.zip', 'SD2.zip']:
+        shutil.copyfile(output / f'slot.sp-{suffix}', output / f'slot-{suffix}')
+    files = ['slot.sp-System.zip', 'slot.sp-SD2.zip', 'slot-System.zip', 'slot-SD2.zip', 'build-info.json']
     (output / 'SHA256SUMS').write_text(''.join(
         f'{hashlib.sha256((output / name).read_bytes()).hexdigest()}  {name}\n' for name in files
     ))

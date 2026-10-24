@@ -1,8 +1,9 @@
 use std::path::{Path, PathBuf};
 
-pub const DIRS: [&str; 24] = [
+pub const DIRS: [&str; 25] = [
     "BIOS",
     "Bezels",
+    "Bezels/GBA",
     "Bezels/GB",
     "Bezels/GBC",
     "Config",
@@ -33,6 +34,12 @@ pub fn ensure(root: &Path) {
     }
     if let Err(e) = slot_store::move_config(root) {
         eprintln!("slot: config: {e}");
+    }
+}
+
+pub fn sweep_temps(root: &Path) {
+    for sub in ["Config", "Saves", "States"] {
+        slot_store::sweep_temps(&root.join(sub));
     }
 }
 

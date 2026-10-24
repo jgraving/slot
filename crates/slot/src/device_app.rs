@@ -3,14 +3,16 @@ use std::time::{Duration, Instant};
 
 use slot::frontend::Frontend;
 use slot::input::DeviceInput;
-use slot::panel_turn::{panel_turn, PanelTurn};
 use slot::pacing::FramePacer;
+use slot::panel_turn::{panel_turn, PanelTurn};
 use slot_gfx::{Compositor, FbdevSurface, Surface};
 use slot_power::{trace_first_frame, DevicePlatform};
 
 const CARD: &str = "/mnt/sdcard";
 
 const STEP_TIMEOUT: Duration = Duration::from_millis(12);
+
+const LOG_SYNC: Duration = Duration::from_secs(1);
 
 pub fn run() {
     slot::boot_time::mark("start");
@@ -86,7 +88,13 @@ pub fn run() {
     let card = root.clone();
     let _ = std::thread::Builder::new()
         .name("slot-bootlogo".into())
-        .spawn(move || slot::bootlogo::refresh(&card));
+        .spawn(move || {
+            slot::bootlogo::refresh(&card);
+            slot::root::sweep_temps(&card);
+        });
+    let _ = std::thread::Builder::new()
+        .name("slot-logsync".into())
+        .spawn(sync_log_writes);
     let mut drawn = false;
     frontend.drive_emulator();
     let mut pacer = FramePacer::new(Instant::now());
@@ -109,6 +117,11 @@ pub fn run() {
             frontend.poweroff();
             return;
         }
+        if slot::crash::stopping() {
+            eprintln!("slot: told to stop, saving first");
+            frontend.stop();
+            return;
+        }
         let due = pacer.due(frontend.frame_clock(), Instant::now());
         for step in 0..due {
             if step > 0 {
@@ -120,10 +133,12 @@ pub fn run() {
                 break;
             }
         }
+
         frontend.render(&mut compositor, window);
         let swap = Instant::now();
         if let Err(e) = surface.swap() {
             eprintln!("slot: {e}");
+            frontend.stop();
             return;
         }
         let swap_took = swap.elapsed();
@@ -145,6 +160,24 @@ pub fn run() {
             drawn = true;
             slot::boot_time::mark("first frame");
             trace_first_frame();
+        }
+    }
+}
+
+fn sync_log_writes() {
+    let mut synced = 0;
+    loop {
+        std::thread::sleep(LOG_SYNC);
+        let mut st: libc::stat = unsafe { std::mem::zeroed() };
+        if unsafe { libc::fstat(2, &mut st) } != 0 {
+            return;
+        }
+        if st.st_size != synced {
+            #[cfg(target_os = "linux")]
+            unsafe {
+                libc::syncfs(2);
+            }
+            synced = st.st_size;
         }
     }
 }

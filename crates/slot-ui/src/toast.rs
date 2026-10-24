@@ -1,5 +1,5 @@
 use slot_gfx::{Canvas, OUT_H};
-use slot_store::GbPalette;
+use slot_store::GbColors;
 
 use crate::hud::{HUD_INK, PLATE_H};
 use crate::icon::{haloed, haloed_with, icon_coverage, Icon, HALO_PX, WARNING_INK};
@@ -15,6 +15,8 @@ pub enum Toast {
     HeadphonesDisconnected,
     StateSaved,
     StateLoaded,
+    ShotCaptured,
+    ShotFailed,
     NeedsGpsp,
     NoLink,
     LinkEnded,
@@ -33,14 +35,15 @@ pub enum Toast {
     NightOn,
     NightOff,
     CardRepair,
+    CardRepairCharge,
     CardRepaired,
     CardRepairFailed,
-    Palette(GbPalette),
+    Palette(GbColors),
     Duplicate(QuickRow),
 }
 
 impl Toast {
-    const FIXED: [Toast; 27] = [
+    const FIXED: [Toast; 30] = [
         Toast::BluetoothConnected,
         Toast::BluetoothDisconnected,
         Toast::UsbConnected,
@@ -48,6 +51,8 @@ impl Toast {
         Toast::HeadphonesDisconnected,
         Toast::StateSaved,
         Toast::StateLoaded,
+        Toast::ShotCaptured,
+        Toast::ShotFailed,
         Toast::NeedsGpsp,
         Toast::NoLink,
         Toast::LinkEnded,
@@ -66,6 +71,7 @@ impl Toast {
         Toast::NightOn,
         Toast::NightOff,
         Toast::CardRepair,
+        Toast::CardRepairCharge,
         Toast::CardRepaired,
         Toast::CardRepairFailed,
     ];
@@ -73,7 +79,7 @@ impl Toast {
     pub fn all() -> Vec<Toast> {
         Self::FIXED
             .into_iter()
-            .chain(GbPalette::all().map(Toast::Palette))
+            .chain(GbColors::all().map(Toast::Palette))
             .chain(bound_rows().map(Toast::Duplicate))
             .collect()
     }
@@ -83,7 +89,7 @@ impl Toast {
             Toast::Palette(p) => Self::FIXED.len() + p.index(),
             Toast::Duplicate(row) => {
                 Self::FIXED.len()
-                    + GbPalette::all().count()
+                    + GbColors::all().count()
                     + bound_rows().position(|r| r == row).unwrap_or(0)
             }
             fixed => Self::FIXED.iter().position(|t| *t == fixed).unwrap_or(0),
@@ -103,13 +109,17 @@ impl Toast {
 
     pub fn icon(self) -> Option<Icon> {
         match self {
-            Toast::Duplicate(_) => Some(Icon::Alert),
+            Toast::Duplicate(_) | Toast::ShotFailed => Some(Icon::Alert),
+            Toast::ShotCaptured => Some(Icon::Camera),
             _ => None,
         }
     }
 
     pub fn alarm(self) -> bool {
-        matches!(self, Toast::CardUnwritable | Toast::CardRepair)
+        matches!(
+            self,
+            Toast::CardUnwritable | Toast::CardRepair | Toast::CardRepairCharge
+        )
     }
 
     pub fn hold_ms(self) -> crate::hud::Millis {
@@ -124,6 +134,7 @@ impl Toast {
         match self {
             Toast::CardUnwritable => Some("Progress is not being saved"),
             Toast::CardRepair => Some("Press SELECT + START to repair"),
+            Toast::CardRepairCharge => Some("Charge the battery to repair"),
             _ => None,
         }
     }
@@ -147,6 +158,8 @@ impl Toast {
             Toast::HeadphonesDisconnected => "Headphones unplugged",
             Toast::StateSaved => "State Saved",
             Toast::StateLoaded => "State Loaded",
+            Toast::ShotCaptured => "Screenshot Captured",
+            Toast::ShotFailed => "Screenshot Failed",
             Toast::NeedsGpsp => "Please switch to gpSP",
             Toast::NoLink => "No link support",
             Toast::LinkEnded => "Link ended",
@@ -164,7 +177,8 @@ impl Toast {
             Toast::NightOn => "Night mode On",
             Toast::NightOff => "Night mode Off",
             Toast::SleepUnavailable => "Sleep unavailable",
-            Toast::CardRepair => "Can't write to SD card",
+            Toast::CardRepair | Toast::CardRepairCharge => "Can't write to SD card",
+
             Toast::CardRepaired => "SD card repaired",
             Toast::CardRepairFailed => "Card repair failed",
             Toast::Palette(p) => p.label(),
@@ -266,7 +280,7 @@ pub fn toast_face(toast: Toast) -> CartFace {
         let layout = text::fit(font, detail, s.w as f32, 1, DETAIL_PX, DETAIL_PX);
         cov.extend(text::coverage(s.w, DETAIL_H, &layout));
     }
-    if tinted.is_empty() {
+    if tinted.is_empty() || toast.icon() != Some(Icon::Alert) {
         return haloed(&cov, s.w, s.h + detail_h(toast), HUD_INK);
     }
     haloed_with(&cov, s.w, s.h + detail_h(toast), |x, _| {

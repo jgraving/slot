@@ -1,19 +1,52 @@
 # Changelog
 
+## [1.9.0](https://github.com/BrandonKowalski/slot/releases/tag/v1.9.0)
+
+- mGBA no longer crashes on an empty resume state, which a card repair can leave behind. Booting with that cart in the slot crashed slot every time.
+- Saves, states, settings and slot's log reach the card as soon as they are written, not up to 30 seconds later. That shrinks the window in which pressing reset or the battery dying can leave the card read-only. (#72, #144)
+- A game's own save is written to the card every minute while it plays. The resume state is written every 5 minutes instead of every minute.
+- If a game takes slot down while it loads, slot starts on the shelf next time instead of loading it again.
+- A core that stops answering no longer freezes slot. Saving waits at most 2 seconds for it, and ejecting at most 10 before slot restarts.
+- Caching New Labels no longer stays up forever on a label it cannot read. After 20 seconds without progress the shelf comes up, and a label that crashes its decoder is skipped.
+- GBA can use your own bezels on 640x480 devices. Add .png files to `Bezels/GBA` and pick one in Settings > Screen > Game Boy Advance > Bezel. On 720x480 devices a GBA game fills the screen, so there is no bezel.
+- A card repair no longer hangs on a card too damaged to check. Each step is given up on after a time limit, the repair reports that it failed, and the device restarts.
+- For 30 seconds after a save or a load, the in-game menu now offers Undo Save or Undo Load under Resume. This option is also accessible with X on the state switcher screen.
+
+## [1.8.1](https://github.com/BrandonKowalski/slot/releases/tag/v1.8.1)
+
+- Game Boy games on an MBC2 cartridge, such as Kirby's Pinball Land, no longer freeze after the boot screen. mGBA crashed on the first read of their save RAM; slot now builds it with upstream's fix. (#137)
+- Load State on Insert, a new row on the Gameplay page, decides whether putting a cart in, or booting with one in the slot, loads its state. Auto Save on Eject is renamed Save State on Eject and only decides whether ejecting saves one.
+- Holding Up or Down to jump through the shelf a letter at a time no longer empties the shelf.
+- The BaseOS startup sound plays again. slot no longer takes the speaker while it boots, only once it has something to play. (#135)
+- Save states and rewind are smaller: slot no longer keeps the extra space mGBA sets aside before a game finds its save chip. Metroid Fusion's states drop from 528 KB to 430 KB. (#126)
+- Fast Forward can be set to Off, so holding it does nothing. (#123)
+
 ## [1.8.0](https://github.com/BrandonKowalski/slot/releases/tag/v1.8.0)
 
+- Controls are remappable. Split between three categories: In-Game buttons, Shortcuts, Shelf keys. All three are global. (#23, #92)
+- The in-game menu and the shelf menu share the carousel footer, with button art legends that follow the light and dark themes. (#102, @MarkusMaribu)
+- Game audio plays at 48 kHz through a filtered resampler, so high frequencies no longer fold back as grit. mGBA benefits most.
 - When the SD card turns read-only, SELECT + START repairs it: slot steps aside, checks FAT32 or exFAT, and restarts. (#72, #111)
 - Power off, including the shutdown after the lid has been closed for 3 minutes, no longer hangs on a black screen: the Wi-Fi driver is unloaded first, as Restart already does.
 - If slot stops responding with the lid closed, a separate watcher powers off a minute after the Lid Off time.
-- Run-Ahead is removed. It scrambled saves in games with a 128 KB flash chip, such as Super Mario Advance 4. (#104)
+- Run-Ahead is removed. It scrambled saves in games with a 128 KB flash chip, such as Super Mario Advance 4. May revisit in the future. (#104)
 - Turbo A and Turbo B have their own rows on the In-Game controls page and can be moved off X and Y. (#127)
-- Shortcuts and shelf keys take any two buttons held together, such as L1+R1. In a game the first button still reaches the game at once; the second fires the shortcut. SELECT, START and MENU only work as the first button. Brightness and blue light shortcuts also work on the shelf; a shelf key on the same button still moves the shelf.
+- Shortcuts and shelf keys take any two buttons held together, such as L1+R1. In a game the first button still reaches the game at once; the second fires the shortcut. SELECT, START and MENU only work as the first button.
 - Setting a control that something else already uses shows a warning naming it, such as "Same as Fast Forward", and marks both rows with a warning triangle.
 - Loading a state while a game is saving to a 128 KB flash chip no longer writes the save into the wrong half of the chip.
 - The cart insertion animation no longer stutters, and a large ROM still loading after the cart seats powers the screen on to a blank panel that brightens until the game appears. (#119)
 - On Anbernics with a left stick, the stick works as the D-pad. Left Stick as D-Pad on the Gameplay page turns it off. (#106, #107)
 - `Labels/`, `Wallpapers/` and `Bezels/` each hold a `README.txt` with the sizes and formats they take, and the site's Shelf questions cover them too. (#122)
 - On 640x480 devices a 640x480 wallpaper and a 640x480 bezel now show pixel for pixel. Both used to be scaled to 720x480 first. Bezels, including the default Game Boy and Game Boy Color ones, now reach the top and bottom of the screen. (#122)
+- Brightness and Blue Light have their own rows: Settings → Screen → General on the shelf, and at the end of the in-game Screen page.
+- One Palette row on the Game Boy screen page replaces the Palettes switch: Auto, then mGBA's 48 palettes. Every choice changes a running game at once, including Grayscale for plain monochrome, and SELECT + L2 / R2 step through the same list. (#124)
+- slot no longer writes a full memory dump to the SD card when it crashes. The last 5 crash logs are kept.
+- Power off and Restart write everything to the card before unloading the Wi-Fi driver, and give the driver 5 seconds, so a driver that hangs can no longer leave unsaved data behind.
+- The resume state is not rewritten when nothing changed, and files a power cut left half-written are cleaned up at boot.
+- The boot partition is only opened for writing when the boot logo changes.
+- The card repair waits for a charge below 20% battery, and runs fsck until the card comes back clean instead of reporting a card it fixed as failed.
+- The red card alarm no longer clears when an unrelated write succeeds, and a failed save state raises it too.
+- Deleting a save state asks first: Y opens the question, X deletes and B keeps it.
 
 ## [1.7.0](https://github.com/BrandonKowalski/slot/releases/tag/v1.7.0)
 
